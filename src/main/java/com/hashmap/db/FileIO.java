@@ -32,7 +32,7 @@ public class FileIO {
                     buffer.put((byte[]) element); // Add short elements as 2 bytes
                 } else if (element instanceof String) {
                     byte[] strBytes = ((String) element).getBytes(StandardCharsets.UTF_8);
-                    buffer.putShort((short) strBytes.length); // Store length of string
+                    //buffer.putShort((short) strBytes.length); // Store length of string
                     buffer.put(strBytes); // Then the string bytes
                 } else {
                     throw new IOException("Unsupported data type in entry.");
@@ -52,45 +52,52 @@ public class FileIO {
         return combinedArray.array();
     }
 
-    public Block bufferToBlock(byte[] bufferData, Table table){
+    public Block bufferToBlock(byte[] bufferData, Table table) throws IOException{
         int blockID = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, 0, 4)).getInt();
         bufferData = Arrays.copyOfRange(bufferData, 4, bufferData.length);
 
         Block newBlock = new Block(blockID, table.getMaxNumOfEntriesPerBlock());
         newBlock.setNumOfCumlumns(table.getNumOfColumns());
-        newBlock.setNumOfEntries(ByteBuffer.wrap(Arrays.copyOfRange(bufferData, 0, 2)).getShort());
+        short numOfEtries = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, 0, 2)).getShort();
         bufferData = Arrays.copyOfRange(bufferData, 2, bufferData.length);
 
-        newBlock.setSpaceInUse(ByteBuffer.wrap(Arrays.copyOfRange(bufferData, 0, 4)).getInt());
+        int spaceInUse = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, 0, 4)).getInt();
         bufferData = Arrays.copyOfRange(bufferData, 4, bufferData.length);
 
         int size = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, 0, 4)).getInt();
         bufferData = Arrays.copyOfRange(bufferData, 4, bufferData.length);
         String indexString = new String(Arrays.copyOfRange(bufferData, 0, size-14), StandardCharsets.UTF_8);
-        newBlock.setIndexOfEntries(new ArrayList<String>(Arrays.asList(indexString.split(";"))));
+        ArrayList<String> indexOfEntries = new ArrayList<String>(Arrays.asList(indexString.split(";")));
+        bufferData = Arrays.copyOfRange(bufferData, size-14, bufferData.length);
 
         int startIndex = 0;
-        for(int i = 0;i < newBlock.getNumOfEtries();i++){
-            String[] curEntry = (newBlock.getIndexOfEntries().get(0).split(":")[1]).split(",");
-            int endindex = Integer.parseInt(curEntry[table.getNumOfColumns()-1]);
-
+        //byte[] entryData = Arrays.copyOfRange(bufferData, 0, endindex-startIndex);
+        for(int i = 0;i < numOfEtries;i++){
             ArrayList<Object> entry = new ArrayList<>();
-            byte[] entryData = Arrays.copyOfRange(bufferData, 0, endindex-startIndex);
+
+            String[] curEntry = (indexOfEntries.get(i).split(":")[1]).split(",");
+            int endindex = Integer.parseInt(curEntry[(int) table.getNumOfColumns()-1].trim());
+            
             int ind = 0;
             for (String type : table.getColumnTypes()) {
+                int index = Integer.parseInt(curEntry[ind].trim());
+                System.out.println(startIndex+"|==|"+index);
                 if(type.equals("String")){
-                    entry.add(new String(Arrays.copyOfRange(entryData, startIndex, Integer.parseInt(curEntry[ind])), StandardCharsets.UTF_8));
+                    entry.add(new String(Arrays.copyOfRange(bufferData, startIndex, index), StandardCharsets.UTF_8));
                 }else if(type.equals("Integer")){
-                    entry.add(ByteBuffer.wrap(Arrays.copyOfRange(entryData, startIndex, Integer.parseInt(curEntry[ind]))).getInt());
+                    entry.add(ByteBuffer.wrap(Arrays.copyOfRange(bufferData, startIndex, index)).getInt());
                 }else if(type.equals("Byte")){
-                    entry.add((byte[])Arrays.copyOfRange(bufferData, startIndex, Integer.parseInt(curEntry[ind])));
+                    entry.add((byte[])Arrays.copyOfRange(bufferData, startIndex, index));
                 }
-                startIndex = Integer.parseInt(curEntry[ind]);
+                System.out.println(startIndex);
+                startIndex = Integer.parseInt(curEntry[ind].trim());
                 ind++;
-                System.out.print("\n"+entry+"\n");
             }
+            System.out.println(entry);
+            Entry newEntry = new Entry(entry);
+            newBlock.AddEntry(newEntry);
+            startIndex = endindex;
         }
-
         return newBlock;
     }
 }

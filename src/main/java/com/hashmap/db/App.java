@@ -50,10 +50,10 @@ public class App {
             //block.removeEntry(entry2.getID());
             byte[] data = block.blockToBuffer(block);
             for (byte b : data) {
-                System.out.printf("%02X ", b); // Print in hexadecimal format
+                //System.out.printf("%02X ", b); // Print in hexadecimal format
             }
             Block newBlock = block.bufferToBlock(data, table);
-            System.out.println(newBlock.blockStats());
+            //System.out.println(newBlock.blockStats());
         } catch (IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
