@@ -9,7 +9,6 @@ public class Table {
 
     private short numOfColumns;
     private int maxSizeOfEntry;
-    private byte sizeOfIndexPerElement;
     private int numOfEntries;//TODO Needs the btree to fill with data.
     private int numOfBlocks;
 
@@ -18,7 +17,7 @@ public class Table {
     private String[] setColumnNames(String[] tableConfig){
         String[] result = new String[tableConfig.length-2];
         for (int i = 2;i<tableConfig.length;i++){
-            result[i-2] = tableConfig[i].split(":")[0];
+            result[i-2] = tableConfig[i].split(":")[0].trim();
         }
         return result;
     }
@@ -26,7 +25,7 @@ public class Table {
     private String[] setColumnTypes(String[] tableConfig){
         String[] result = new String[tableConfig.length-2];
         for (int i = 2;i<tableConfig.length;i++){
-            result[i-2] = tableConfig[i].split(":")[2];
+            result[i-2] = tableConfig[i].split(":")[2].trim();
         }
         return result;
     }
@@ -41,8 +40,18 @@ public class Table {
 
     private int setMaxSizeOfEntry(){
         int sum = 0;
-        for (int size : this.columnSizes) {
-            sum = sum+size;
+        for (int i = 0;i < this.numOfColumns; i++) {
+            if(i == 0){
+                sum += this.columnSizes[i];
+            }else if(this.columnTypes[i].equals("String")){
+                sum += this.columnSizes[i] + Short.BYTES;
+            }else if(this.columnTypes[i].equals("Integer")){
+                sum += Integer.BYTES;
+            }else if(this.columnTypes[i].equals("Byte")){
+                sum += this.columnSizes[i] + Short.BYTES;
+            }else{
+                throw new IllegalArgumentException("Invalid Element Type For Entry.");
+            }
         }
         return sum;
     }
@@ -54,8 +63,8 @@ public class Table {
         this.columnTypes = this.setColumnTypes(tableConfig);
         this.columnSizes = this.setColumnSizes(tableConfig);
 
-        this.maxSizeOfEntry = setMaxSizeOfEntry();
         this.numOfColumns = (short) this.columnSizes.length;
+        this.maxSizeOfEntry = this.setMaxSizeOfEntry();
     }
 
     public String[] getColumnTypes(){
@@ -70,12 +79,10 @@ public class Table {
         return this.numOfColumns;
     }
 
-    public byte getSizeOfIndexPerElement(){
-        return this.sizeOfIndexPerElement;
-    }public void setSizeOfIndexPerElement(byte size){
-        this.sizeOfIndexPerElement = size;
+    public int[] getColumnSizes(){
+        return this.columnSizes;
     }
-
+    
     public void setMaxNumOfEntriesPerBlock(short maxNum){
         this.maxNumOfEntriesPerBlock = maxNum;
     } public short getMaxNumOfEntriesPerBlock(){

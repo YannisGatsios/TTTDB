@@ -1,20 +1,19 @@
 package com.hashmap.db;
 
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class Block extends FileIO {
 
     private int blockID;
     private short numOfEtries;
     private int spaceInUse;
-    private short numOfColumns;
-    private short maxNumOfEtries;
-    private byte sizeOfIndexPerElement;
-    private int maxSizeOfEntry;
     private ArrayList<String> indexOfEntries = new ArrayList<String>();
-
     private ArrayList<ArrayList<Object>> entries;
+
+    private short maxNumOfEtries;
+    private int maxSizeOfEntry;
+    private int maxSizeOfID;
 
     public Block(int BlockID, short maxNumOfEtries) {
         this.blockID = BlockID;
@@ -26,28 +25,15 @@ public class Block extends FileIO {
         this.entries = new ArrayList<ArrayList<Object>>();
     }
 
-    public void setNumOfEntries(short numOfEtries) {
-        this.numOfEtries = numOfEtries;
-    }
-
-    public void setSpaceInUse(int spaceInUse) {
-        this.spaceInUse = spaceInUse;
-    }
-
-    public void setIndexOfEntries(ArrayList<String> indexOfEntries){
-        this.indexOfEntries = indexOfEntries;
-    }
-
-    public void setSizeOfIndexPerElement(byte sizeOfIndexPerElement) {
-        this.sizeOfIndexPerElement = sizeOfIndexPerElement;
-    }
-
-    public void setNumOfCumlumns(short numOfColumns) {
-        this.numOfColumns = numOfColumns;
+    private int getIndexOfEntry(int numOfEntry){
+        return Integer.parseInt(this.indexOfEntries.get(numOfEntry).split(":")[1].trim());
     }
 
     public void setMaxSizeOfEntry(int maxSizeOfEntry) {
         this.maxSizeOfEntry = maxSizeOfEntry;
+    }
+    public void setMaxSizeOfID(int maxSizeOfID){
+        this.maxSizeOfID = maxSizeOfID;
     }
 
     public int getBlockID() {
@@ -70,14 +56,16 @@ public class Block extends FileIO {
         return this.entries;
     }
 
+    public int getMazSizeOfID(){
+        return this.maxSizeOfID;
+    }
+
     public int getSizeOfBlock() {
-        return (this.maxSizeOfEntry * this.maxNumOfEtries) + 3 * (Integer.BYTES) + Short.BYTES
-                + ((this.sizeOfIndexPerElement * this.numOfColumns) * this.maxNumOfEtries);
+        return this.sizeOfEntries() + this.sizeOfHeader();
     }
 
     public int sizeOfHeader() {
-        return 3 * (Integer.BYTES) + Short.BYTES
-                + ((this.sizeOfIndexPerElement * this.numOfColumns) * this.maxNumOfEtries);
+        return 3 * (Integer.BYTES) + Short.BYTES+ ((this.maxSizeOfID + Integer.toString(this.maxSizeOfEntry).length() + 1) * this.maxNumOfEtries);
     }
 
     public int sizeOfEntries() {
@@ -85,97 +73,86 @@ public class Block extends FileIO {
     }
 
     public String blockStats() {
-        return "Block Stats:" + "\n\tSpace in Use : " + this.spaceInUse + "\n\tIndex Of Rows : " + this.indexOfEntries
-                + "\n\tNumOfEntries : " + this.numOfEtries + "\n\tErtry data : " + this.entries;
+        return "\nBlock Stats :" + 
+                "\n\tBlock ID : " + this.blockID +
+                "\n\tNumber Of Entries : " + this.numOfEtries + 
+                "\n\tSpace in Use : " + this.spaceInUse + 
+                "\n\tIndex Of Rows : " + this.indexOfEntries + 
+                "\n\tEntry data : " + this.entries;
     }
 
     // ==========ADDING_ENTRIES==========
 
-    private String addOldIndexToNewEntryIndexes(int[] indexesOfEntry, int lastIndex) {
-        String result = "";
-        for (int i : indexesOfEntry) {
-            result = result + "," + String.valueOf(lastIndex + i);
-        }
-        return result.substring(1);
-    }
-
     // checks if the ID exists within the block.
-    private boolean IsIDInBLock(byte[] ID) {
+    private boolean isIDInBlock(byte[] ID) {
         if (this.entries.isEmpty())
             return false;
         for (ArrayList<Object> ArrayListEntry : this.entries) {
-            System.out.println(ArrayListEntry.get(0));
-            if (ArrayListEntry.get(0) instanceof byte[] && (byte[]) ArrayListEntry.get(0) == ID) {
-                return true;
+            if (ArrayListEntry.get(0) instanceof byte[]) {
+                byte[] entryID = (byte[]) ArrayListEntry.get(0);
+                if (Arrays.equals(entryID, ID)) { // Use Arrays.equals to compare contents
+                    return true;
+                }
             }
         }
         return false;
     }
 
-    public void AddEntry(Entry newEntry)
-            throws IOException {
-        if (this.numOfEtries == this.maxNumOfEtries - 1 || this.IsIDInBLock(newEntry.getID())) {
-            // TODO do an actual error managment
-            throw new IOException();
+    private int getNewIndex(int sizeOfNewEntry){
+        int lastIndex = Integer.parseInt(this.indexOfEntries.get(this.indexOfEntries.size()-1).split(":")[1]);
+        return lastIndex+sizeOfNewEntry;
+    }
+
+    public void AddEntry(Entry newEntry) throws IllegalArgumentException {
+        if (this.numOfEtries == this.maxNumOfEtries || this.isIDInBlock(newEntry.getID())) {
+            throw new IllegalArgumentException("New Entry ID Already Exists In Block.");
         }
         this.numOfEtries++;
         this.entries.add(newEntry.getValues());
 
-        this.indexOfEntries.add(new String(newEntry.getID()) + ":"+ addOldIndexToNewEntryIndexes(newEntry.getElementIndexes(), this.spaceInUse));
-        this.spaceInUse = this.spaceInUse + newEntry.getEntrySize();
+        this.indexOfEntries.add(new String(newEntry.getID()) + ":"+ this.getNewIndex(newEntry.getEntrySizeInBytes()));
+        this.spaceInUse += newEntry.getEntrySizeInBytes();
 
         if (this.indexOfEntries.get(0) == "0:0")
             this.indexOfEntries.remove(0);
-        System.out.println(this.blockStats());
     }
 
     // ===========REMOVING_ENTRIES===============
 
-    private String decrementDifference(String indexPartOfEntry, int diff) {
-        String result = "";
-        System.out.println(result);
-        for (String index : indexPartOfEntry.split(":")[1].split(",")) {
-            result = result + "," + String.valueOf(Integer.parseInt(index) - diff);
-        }
-        return indexPartOfEntry.split(":")[0] + ":" + result.substring(1);
+    private String removeDifference(String currentEntryIndex, int size) {
+        int result = Integer.parseInt(currentEntryIndex.split(":")[1]);
+        return currentEntryIndex.split(":")[0] + ":" + (result-size);
     }
 
-    private int sizeOfEntry(int indexOfEntry) {
+    private int getEntrySize(int numOfEntryToRemove){
         int start;
         int end;
-        if (indexOfEntry == this.numOfEtries) {
-            start = Integer.parseInt(
-                    (this.indexOfEntries.get(indexOfEntry - 1).split(":")[1]).split(",")[this.numOfColumns - 1]);
-            end = Integer
-                    .parseInt((this.indexOfEntries.get(indexOfEntry).split(":")[1]).split(",")[this.numOfColumns - 1]);
-        } else if (this.numOfEtries == 1) {
+        if(numOfEntryToRemove == 0){
             start = 0;
-            end = Integer.parseInt(
-                    (this.indexOfEntries.get(indexOfEntry - 1).split(":")[1]).split(",")[this.numOfColumns - 1]);
-        } else {
-            start = Integer.parseInt((this.indexOfEntries.get(indexOfEntry).split(":")[1]).split(",")[0]);
-            end = Integer.parseInt((this.indexOfEntries.get(indexOfEntry + 1).split(":")[1]).split(",")[0]);
+            end = this.getIndexOfEntry(numOfEntryToRemove);
+        }else{
+            start = this.getIndexOfEntry(numOfEntryToRemove-1);
+            end = this.getIndexOfEntry(numOfEntryToRemove);
         }
-        return end - start;
+        return end-start;
     }
 
     private void removeIndexFromIndexOfEntries(int numOfEntryToRemove) {
-        int size = this.sizeOfEntry(numOfEntryToRemove);
-        this.spaceInUse = this.spaceInUse - size;
+        int sizeOfEntryToRemove = this.getEntrySize(numOfEntryToRemove);
+        this.spaceInUse = this.spaceInUse - sizeOfEntryToRemove;
         if (numOfEntryToRemove + 1 == this.numOfEtries) {
             this.indexOfEntries.remove(numOfEntryToRemove);
         } else {
             for (int i = numOfEntryToRemove; i < this.numOfEtries - 1; i++) {
-                this.indexOfEntries.set(i, decrementDifference(this.indexOfEntries.get(i + 1), size));
+                this.indexOfEntries.set(i, this.removeDifference(this.indexOfEntries.get(i+1),sizeOfEntryToRemove));
             }
             this.indexOfEntries.remove(this.numOfEtries - 1);
         }
     }
 
-    public void removeEntry(byte[] entryID) throws IOException {
-        if (!IsIDInBLock(entryID)) {
-            // TODO kai kala.
-            throw new IOException();
+    public void removeEntry(byte[] entryID) throws IllegalArgumentException {
+        if (!isIDInBlock(entryID)) {
+            throw new IllegalArgumentException("Entry ID to Delete Dose Not Exist On Block.");
         } else if (this.numOfEtries == 1) {
             this.indexOfEntries.remove(0);
             this.indexOfEntries.add("0:0");
@@ -192,6 +169,5 @@ public class Block extends FileIO {
                 }
             }
         }
-        System.out.println(this.blockStats());
     }
 }

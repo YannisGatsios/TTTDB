@@ -77,11 +77,29 @@ public class Entry {
         return this.indexOfElemntsOfEntry;
     }
 
-    public int getEntrySize(){
+    public int getNumOfElements(){
         return this.indexOfElemntsOfEntry[this.indexOfElemntsOfEntry.length - 1];
     }
-    
-    public int getNumOfColumns(){
-        return this.values.size();
+
+    //the following gives the size the entry would take when stored
+    public int getEntrySizeInBytes(){
+        ArrayList<Object> tmpEntry = new ArrayList<Object>(this.values);
+        tmpEntry.remove(0);
+        int sum = 0;
+        for (Object element : tmpEntry) {
+            if(element instanceof String){
+                byte[] strBytes = ((String) element).getBytes(StandardCharsets.UTF_8);
+                sum += strBytes.length + Short.BYTES;//Size of an element is saved in a (short) at the start of an element in the file so Short.BYTES accounts for the size that the size of the short that the size of the element is stored
+            }else if(element instanceof Integer){
+                sum += Integer.BYTES;
+            }else if(element instanceof byte[]){
+                byte[] byteArray = (byte[]) element;
+                sum += byteArray.length + Short.BYTES;
+            }else{
+                throw new IllegalArgumentException("Invalid Element Type For Entry.");
+            }
+        }
+        sum += this.getID().length;
+        return sum;
     }
 }
