@@ -10,7 +10,8 @@ import java.util.ArrayList;
 public class App {
 
     public static void main(String[] args) {
-        String tableConfig = "dataBase;users;username:10:String;num:4:Integer;message:5:String;data:10:Byte";
+        String tableConfig = "dataBase;users;username:10:String;num:4:Integer;message:5:String;data:10:Byte";//String ID
+        //String tableConfig = "dataBase;users;num:4:Integer;username:10:String;message:5:String;data:10:Byte";//Integer ID
         Table table = new Table(tableConfig.split(";"));
         table.setMaxNumOfEntriesPerBlock((short)3);
 
@@ -55,15 +56,15 @@ public class App {
             block.AddEntry(entry1);
             block.AddEntry(entry2);
             block.AddEntry(entry3);
-            
+
             //block.removeEntry(entry1.getID());
-            //block.removeEntry(entry2.getID());
+            //block.removeEntry(entry3.getID());
+            System.out.println(block.blockStats());
             
             byte[] data = block.blockToBuffer(block);
             for (byte b : data) {
                 System.out.printf("%02X ", b); // Print in hexadecimal format
             }
-            System.out.println(block.blockStats());
             Block newBlock = block.bufferToBlock(data, table);
             System.out.println(newBlock.blockStats());
         } catch (IOException e) {

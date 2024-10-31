@@ -33,7 +33,7 @@ public class Table {
     private int[] setColumnSizes(String[] tableConfig){
         int[] result = new int[tableConfig.length-2];
         for (int i = 2;i<tableConfig.length;i++){
-            result[i-2] = Integer.parseInt(tableConfig[i].split(":")[1]);
+            result[i-2] = Integer.parseInt(tableConfig[i].split(":")[1].trim());
         }
         return result;
     }

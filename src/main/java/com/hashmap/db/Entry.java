@@ -1,6 +1,7 @@
 package com.hashmap.db;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
 public class Entry {
@@ -53,7 +54,18 @@ public class Entry {
     
     //Constructor
         public Entry(ArrayList<Object> newEntry){
-            this.ID = ((String) newEntry.get(0)).getBytes(StandardCharsets.UTF_8);// fisrt element of a Row is must [Always] be the Primary Key and always converted to String on the background.
+            // fisrt element of a Row is must [Always] be the Primary Key And is allways converted to byte[].
+            if(newEntry.get(0) instanceof Integer){
+                ByteBuffer buffer = ByteBuffer.allocate(4); // Allocate 4 bytes
+                buffer.putInt((int)newEntry.get(0));
+                this.ID = buffer.array();
+            }else if(newEntry.get(0) instanceof String){
+                this.ID = ((String) newEntry.get(0)).getBytes(StandardCharsets.UTF_8);
+            }else if(newEntry.get(0) instanceof byte[]){
+                this.ID = (byte[])newEntry.get(0);
+            }else{
+                throw new IllegalArgumentException("Invalid Type Of ID(primary key).");
+            }
             this.sizeOfElementsOfEntry = this.getSizeOfElementsOfEntry(newEntry);
             this.indexOfElemntsOfEntry = this.getIndexOfElemntsOfEntry(this.sizeOfElementsOfEntry);
             newEntry.remove(0);
@@ -82,10 +94,10 @@ public class Entry {
     }
 
     //the following gives the size the entry would take when stored
-    public int getEntrySizeInBytes(){
+    public int getEntrySizeInBytes(int sizeOfID){
         ArrayList<Object> tmpEntry = new ArrayList<Object>(this.values);
         tmpEntry.remove(0);
-        int sum = 0;
+        int sum = sizeOfID;
         for (Object element : tmpEntry) {
             if(element instanceof String){
                 byte[] strBytes = ((String) element).getBytes(StandardCharsets.UTF_8);
@@ -99,7 +111,6 @@ public class Entry {
                 throw new IllegalArgumentException("Invalid Element Type For Entry.");
             }
         }
-        sum += this.getID().length;
         return sum;
     }
 }
