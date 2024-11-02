@@ -24,7 +24,7 @@ public class App {
         buffer[9] = (byte) 0xff;
         entrie.add(buffer);
 
-        Entry entry1 = new Entry(entrie);
+        Entry entry1 = new Entry(entrie, table.getMazSizeOfID());
 
         //entry 2
         ArrayList<Object> entrie2 = new ArrayList<>();
@@ -35,7 +35,7 @@ public class App {
         buffer2[9] = (byte) 0xff;
         entrie2.add(buffer2);
 
-        Entry entry2 = new Entry(entrie2);
+        Entry entry2 = new Entry(entrie2, table.getMazSizeOfID());
 
         ArrayList<Object> entrie3 = new ArrayList<>();
         entrie3.add("johnttt333");
@@ -45,7 +45,7 @@ public class App {
         buffer3[9] = (byte) 0xff;
         entrie3.add(buffer2);
 
-        Entry entry3 = new Entry(entrie3);
+        Entry entry3 = new Entry(entrie3, table.getMazSizeOfID());
         
 
         //block
@@ -53,12 +53,13 @@ public class App {
         block.setMaxSizeOfEntry(table.getMaxSizeOfEntry());
         block.setMaxSizeOfID(table.getColumnSizes()[0]);
         try {
-            block.AddEntry(entry1);
-            block.AddEntry(entry2);
-            block.AddEntry(entry3);
+            block.addEntry(entry1);
+            block.addEntry(entry2);
+            block.addEntry(entry3);
 
             //block.removeEntry(entry1.getID());
             //block.removeEntry(entry3.getID());
+            //block.removeEntry(entry2.getID());
             System.out.println(block.blockStats());
             
             byte[] data = block.blockToBuffer(block);
@@ -68,7 +69,6 @@ public class App {
             Block newBlock = block.bufferToBlock(data, table);
             System.out.println(newBlock.blockStats());
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }

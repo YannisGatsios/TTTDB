@@ -71,6 +71,10 @@ public class Table {
         return this.columnTypes;
     }
 
+    public int getMazSizeOfID(){
+        return this.columnSizes[0];
+    }
+
     public int getMaxSizeOfEntry(){
         return this.maxSizeOfEntry;
     }

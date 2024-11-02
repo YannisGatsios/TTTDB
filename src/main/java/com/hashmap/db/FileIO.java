@@ -45,21 +45,28 @@ public class FileIO {
             for (Object element : entry) {
                 if(ind == 0){
                     buffer.put((byte[]) element);
-                    System.out.println(element);
-                }else if (element instanceof Integer) {
-                    buffer.putInt((Integer) element); // Add integer elements as 4 bytes
-                } else if (element instanceof byte[]) {
-                    byte[] byteArray = (byte[]) element;
-                    buffer.putShort((short) byteArray.length); // Store length of byte array
-                    buffer.put((byte[]) element); // Add short elements as 2 bytes
-                } else if (element instanceof String) {
-                    byte[] strBytes = ((String) element).getBytes(StandardCharsets.UTF_8);
-                    buffer.putShort((short) strBytes.length); // Store length of string
-                    buffer.put(strBytes); // Then the string bytes
-                } else {
-                    throw new IOException("Unsupported data type in entry.");
+                }else {
+                    switch (element.getClass().getSimpleName()) {
+                        case "Integer":
+                            buffer.putInt((Integer) element); // Add integer elements as 4 bytes
+                            break;
+                
+                        case "byte[]":
+                            byte[] byteArray = (byte[]) element;
+                            buffer.putShort((short) byteArray.length); // Store length of byte array
+                            buffer.put(byteArray); // Add byte array elements
+                            break;
+                
+                        case "String":
+                            byte[] strBytes = ((String) element).getBytes(StandardCharsets.UTF_8);
+                            buffer.putShort((short) strBytes.length); // Store length of string
+                            buffer.put(strBytes); // Then the string bytes
+                            break;
+                
+                        default:
+                            throw new IOException("Unsupported data type in entry.");
+                    }
                 }
-                byte[] asdf = buffer.array();
                 ind++;
             }
         }
@@ -131,24 +138,35 @@ public class FileIO {
                     int size = ((byte[])indexOfEntries.get(i).get(0)).length;
                     entry.add(new String(Arrays.copyOfRange(bufferData, startIndex, startIndex + size), StandardCharsets.UTF_8));
                     startIndex += size;
-                }else if(type.equals("String")){
-                    short size = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, startIndex, startIndex+2)).getShort();
-                    startIndex += 2;
-                    entry.add(new String(Arrays.copyOfRange(bufferData, startIndex, startIndex + size), StandardCharsets.UTF_8));
-                    startIndex += size;
-                }else if(type.equals("Integer")){
-                    entry.add(ByteBuffer.wrap(Arrays.copyOfRange(bufferData, startIndex, startIndex + 4)).getInt());
-                    startIndex += 4;
-                }else if(type.equals("Byte")){
-                    int size = (int) ByteBuffer.wrap(Arrays.copyOfRange(bufferData, startIndex, startIndex+2)).getShort();
-                    startIndex += 2;
-                    entry.add((byte[])Arrays.copyOfRange(bufferData, startIndex, startIndex + size));
-                    startIndex += size;
+                }else{
+                    switch (type) {
+                        case "String":
+                            short size = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, startIndex, startIndex + 2)).getShort();
+                            startIndex += 2;
+                            entry.add(new String(Arrays.copyOfRange(bufferData, startIndex, startIndex + size), StandardCharsets.UTF_8));
+                            startIndex += size;
+                            break;
+                
+                        case "Integer":
+                            entry.add(ByteBuffer.wrap(Arrays.copyOfRange(bufferData, startIndex, startIndex + 4)).getInt());
+                            startIndex += 4;
+                            break;
+                
+                        case "Byte":
+                            int byteSize = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, startIndex, startIndex + 2)).getShort();
+                            startIndex += 2;
+                            entry.add((byte[]) Arrays.copyOfRange(bufferData, startIndex, startIndex + byteSize));
+                            startIndex += byteSize;
+                            break;
+                
+                        default:
+                            throw new IllegalArgumentException("Unexpected type: " + type);
+                    }
                 }
                 ind++;
             }
-            Entry newEntry = new Entry(entry);
-            newBlock.AddEntry(newEntry);
+            Entry newEntry = new Entry(entry, table.getMazSizeOfID());
+            newBlock.addEntry(newEntry);
             startIndex = endindex;
         }
         if(spaceInUse != newBlock.getSpaceInUse()){

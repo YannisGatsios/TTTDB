@@ -5,10 +5,45 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
 public class Entry {
-    private byte[] ID;//Entryes primary key
-    private ArrayList<Object> values; //rest of the rows values
+    private byte[] ID;
+    private ArrayList<Object> entryData;
     private int[] sizeOfElementsOfEntry;
     private int[] indexOfElemntsOfEntry;
+
+    //Constructor
+    public Entry(ArrayList<Object> newEntry, int sizeOfID){
+        // fisrt element of a Row is must Always be the Primary Key And is allways converted to byte[].
+        this.ID = this.refactorID(newEntry, sizeOfID);
+        this.sizeOfElementsOfEntry = this.getSizeOfElementsOfEntry(newEntry);
+        this.indexOfElemntsOfEntry = this.getIndexOfElemntsOfEntry(this.sizeOfElementsOfEntry);
+        newEntry.remove(0);
+        newEntry.add(0, this.ID);
+        this.entryData = newEntry;
+    }
+
+    private byte[] refactorID(ArrayList<Object> newEntry, int sizeOfID){
+        switch (newEntry.get(0).getClass().getSimpleName()) {
+            case "Integer":
+                ByteBuffer buffer = ByteBuffer.allocate(4); // Allocate 4 bytes
+                buffer.putInt((int) newEntry.get(0));
+                return buffer.array();
+        
+            case "String":
+                byte[] oldIDString = ((String) newEntry.get(0)).getBytes(StandardCharsets.UTF_8);
+                byte[] newIDString = new byte[sizeOfID];
+                System.arraycopy(oldIDString, 0, newIDString, 0, oldIDString.length);
+                return newIDString;
+        
+            case "byte[]":
+                byte[] oldIDByteArray = (byte[]) newEntry.get(0);
+                byte[] newIDByteArray = new byte[sizeOfID];
+                System.arraycopy(oldIDByteArray, 0, newIDByteArray, 0, oldIDByteArray.length);
+                return newIDByteArray;
+        
+            default:
+                throw new IllegalArgumentException("Invalid Type Of ID (primary key).");
+        }
+    }
     
     //the following returns an [] of the size for eatch value of the erntry.
     //the only suported types are Integer,String and for buffers byte[].
@@ -51,34 +86,38 @@ public class Entry {
         }
         return indexes;
     }
-    
-    //Constructor
-        public Entry(ArrayList<Object> newEntry){
-            // fisrt element of a Row is must [Always] be the Primary Key And is allways converted to byte[].
-            if(newEntry.get(0) instanceof Integer){
-                ByteBuffer buffer = ByteBuffer.allocate(4); // Allocate 4 bytes
-                buffer.putInt((int)newEntry.get(0));
-                this.ID = buffer.array();
-            }else if(newEntry.get(0) instanceof String){
-                this.ID = ((String) newEntry.get(0)).getBytes(StandardCharsets.UTF_8);
-            }else if(newEntry.get(0) instanceof byte[]){
-                this.ID = (byte[])newEntry.get(0);
-            }else{
-                throw new IllegalArgumentException("Invalid Type Of ID(primary key).");
+
+    // the following gives the size the entry would take when stored
+    public int getEntrySizeInBytes() {
+        ArrayList<Object> tmpEntry = new ArrayList<Object>(this.entryData);
+        tmpEntry.remove(0);
+        int sum = this.ID.length;
+        for (Object element : tmpEntry) {
+            switch (element.getClass().getSimpleName()) {
+                case "String":
+                    byte[] strBytes = ((String) element).getBytes(StandardCharsets.UTF_8);
+                    sum += strBytes.length + Short.BYTES; // String length + 2 bytes for length prefix
+                    break;
+                case "Integer":
+                    sum += Integer.BYTES; // Add 4 bytes for an integer
+                    break;
+                case "byte[]":
+                    byte[] byteArray = (byte[]) element;
+                    sum += byteArray.length + Short.BYTES; // Byte array length + 2 bytes for length prefix
+                    break;
+                default:
+                    throw new IllegalArgumentException("Invalid Element Type For Entry.");
             }
-            this.sizeOfElementsOfEntry = this.getSizeOfElementsOfEntry(newEntry);
-            this.indexOfElemntsOfEntry = this.getIndexOfElemntsOfEntry(this.sizeOfElementsOfEntry);
-            newEntry.remove(0);
-            newEntry.add(0, this.ID);
-            this.values = newEntry;
         }
+        return sum;
+    }
 
     public byte[] getID(){
         return this.ID;
     }
 
-    public ArrayList<Object> getValues(){
-        return this.values;
+    public ArrayList<Object> getEntry(){
+        return this.entryData;
     }
 
     public int[] getElementSizes(){
@@ -91,26 +130,5 @@ public class Entry {
 
     public int getNumOfElements(){
         return this.indexOfElemntsOfEntry[this.indexOfElemntsOfEntry.length - 1];
-    }
-
-    //the following gives the size the entry would take when stored
-    public int getEntrySizeInBytes(int sizeOfID){
-        ArrayList<Object> tmpEntry = new ArrayList<Object>(this.values);
-        tmpEntry.remove(0);
-        int sum = sizeOfID;
-        for (Object element : tmpEntry) {
-            if(element instanceof String){
-                byte[] strBytes = ((String) element).getBytes(StandardCharsets.UTF_8);
-                sum += strBytes.length + Short.BYTES;//Size of an element is saved in a (short) at the start of an element in the file so Short.BYTES accounts for the size that the size of the short that the size of the element is stored
-            }else if(element instanceof Integer){
-                sum += Integer.BYTES;
-            }else if(element instanceof byte[]){
-                byte[] byteArray = (byte[]) element;
-                sum += byteArray.length + Short.BYTES;
-            }else{
-                throw new IllegalArgumentException("Invalid Element Type For Entry.");
-            }
-        }
-        return sum;
     }
 }

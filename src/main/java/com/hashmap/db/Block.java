@@ -20,34 +20,48 @@ public class Block extends FileIO {
         this.numOfEtries = 0;
         this.spaceInUse = 0;
         this.maxNumOfEtries = maxNumOfEtries;
-        this.indexOfEntries = new HashMap<>(); // this is only a temporary starting value it gets removed later when the first
-                                        // entry gets added to this block.
+        this.indexOfEntries = new HashMap<>();
         this.entries = new ArrayList<ArrayList<Object>>();
     }
-    // ==========ADDING_ENTRIES==========
 
-    public void AddEntry(Entry newEntry) throws IllegalArgumentException {
+    // ==========ADDING_ENTRIES==========
+    public void addEntry(Entry newEntry) throws IllegalArgumentException {
         if (this.numOfEtries == this.maxNumOfEtries || indexOfEntries.containsKey(newEntry.getID())) {
             throw new IllegalArgumentException("New Entry ID Already Exists In Block.");
         }
-        byte[] newID = new byte[this.maxSizeOfID];
-        System.arraycopy(newEntry.getID(), 0, newID, 0, newEntry.getID().length);
-
-        ArrayList<Object> updatedNewEntry = newEntry.getValues();
-        updatedNewEntry.remove(0);
-        updatedNewEntry.add(0,newID);
-
         this.numOfEtries++;
-        this.entries.add(updatedNewEntry);
+        this.entries.add(newEntry.getEntry());
 
-        this.indexOfEntries.put(newID,(short)(this.spaceInUse+newEntry.getEntrySizeInBytes(newID.length)));
-        this.spaceInUse += newEntry.getEntrySizeInBytes(newID.length);
+        int sizeOfNewEntrty = newEntry.getEntrySizeInBytes();
+        this.spaceInUse += sizeOfNewEntrty;
+        this.indexOfEntries.put(newEntry.getID(), (short)this.spaceInUse);
     }
 
     // ===========REMOVING_ENTRIES===============
+    public void removeEntry(byte[] entryID) throws IllegalArgumentException {
+        if (!indexOfEntries.containsKey(entryID)) {
+            throw new IllegalArgumentException("Entry ID to Delete Dose Not Exist On Block.");
+        }
+        for (int i = 0; i < this.numOfEtries; i++) {
+            if (this.getEntryID(i) == entryID) {
+                this.removeEntry(i);
+            }
+        }
+    }
 
-    private byte[] getEntryID(int entryNum){
-        return (byte[]) this.entries.get(entryNum).get(0);
+    private void removeEntry(int numOfEntry) {
+        short sizeOfEntry = this.getEntrySize(numOfEntry);
+        this.spaceInUse -= sizeOfEntry;
+        if (numOfEntry == this.numOfEtries - 1) {//Checks If It's The First Entry.
+            this.indexOfEntries.remove(this.entries.get(numOfEntry).get(0));
+        } else {
+            this.indexOfEntries.remove(this.getEntryID(numOfEntry));
+            for (int i = numOfEntry; i < this.numOfEtries - 1; i++) {
+                this.indexOfEntries.put(this.getEntryID(i+1), (short) (this.indexOfEntries.get(this.getEntryID(i+1))-sizeOfEntry));
+            }
+        }
+        this.numOfEtries--;
+        this.entries.remove(this.getEntry(numOfEntry));
     }
 
     private short getEntrySize(int numOfEntryToRemove){
@@ -55,7 +69,7 @@ public class Block extends FileIO {
         short end;
         if(numOfEntryToRemove == 0){
             start = 0;
-            end = this.indexOfEntries.get(this.getEntryID(numOfEntryToRemove));//DEN IPARXEI getIndexOfEntry
+            end = this.indexOfEntries.get(this.getEntryID(numOfEntryToRemove));
         }else{
             start = this.indexOfEntries.get(this.getEntryID(numOfEntryToRemove-1));
             end = this.indexOfEntries.get(this.getEntryID(numOfEntryToRemove));
@@ -63,37 +77,12 @@ public class Block extends FileIO {
         return (short)(end-start);
     }
     
-    private void removeIndexFromIndexOfEntries(int numOfEntryToRemove) {
-        short sizeOfEntryToRemove = this.getEntrySize(numOfEntryToRemove);
-        this.spaceInUse = this.spaceInUse - sizeOfEntryToRemove;
-        if (numOfEntryToRemove + 1 == this.numOfEtries) {
-            this.indexOfEntries.remove(this.entries.get(numOfEntryToRemove).get(0));
-        } else {
-            this.indexOfEntries.remove(this.getEntryID(numOfEntryToRemove));
-            for (int i = numOfEntryToRemove; i < this.numOfEtries - 1; i++) {
-                this.indexOfEntries.put(this.getEntryID(i+1), (short) (this.indexOfEntries.get(this.getEntryID(i+1))-sizeOfEntryToRemove));
-            }
-        }
+    private byte[] getEntryID(int numOfEntry){
+        return (byte[]) this.getEntry(numOfEntry).get(0);
     }
-    
-    public void removeEntry(byte[] entryID) throws IllegalArgumentException {
-        if (!indexOfEntries.containsKey(entryID)) {
-            throw new IllegalArgumentException("Entry ID to Delete Dose Not Exist On Block.");
-        } else if (this.numOfEtries == 1) {
-            this.indexOfEntries.remove(entryID);
-            this.spaceInUse = 0;
-            this.numOfEtries--;
-            this.entries.remove(0);
-        } else {
-            for (int i = 0; i < this.numOfEtries; i++) {
-                ArrayList<Object> entry = this.entries.get(i);
-                if (entry.get(0) instanceof byte[] && (byte[]) entry.get(0) == entryID) {
-                    removeIndexFromIndexOfEntries(i);
-                    this.numOfEtries--;
-                    this.entries.remove(entry);
-                }
-            }
-        }
+
+    private ArrayList<Object> getEntry(int numOfEntry){
+        return this.entries.get(numOfEntry);
     }
 
     public void setMaxSizeOfEntry(int maxSizeOfEntry) {
@@ -141,13 +130,13 @@ public class Block extends FileIO {
 
     public String blockStats() {
         return "\nBlock Stats :" + 
-                "\n\tBlock ID : " + this.blockID +
-                "\n\tNumber Of Entries : " + this.numOfEtries + 
-                "\n\tSize Of Block : [" + this.getSizeOfBlock() + "]" +
-                "\n\tSize Of Blocks Header : [" + this.sizeOfHeader() + "]" +
-                "\n\tSpace in Use : [ " + this.spaceInUse + "/" + this.sizeOfEntries() + " ]" +
-                "\n\tIndex Of Rows : " + this.indexOfEntries + 
-                "\n\tEntry data : " + this.entries;
+                "\n\tBlock ID :                 " + this.blockID +
+                "\n\tNumber Of Entries :        " + this.numOfEtries + 
+                "\n\tSize Of Block :           [" + this.getSizeOfBlock() + "]" +
+                "\n\tSize Of Blocks Header :   [" + this.sizeOfHeader() + "]" +
+                "\n\tSpace in Use :            [ " + this.spaceInUse + "/" + this.sizeOfEntries() + " ]" +
+                "\n\tIndex Of Rows :            " + this.indexOfEntries + 
+                "\n\tEntry data :               " + this.entries;
     }
 
 }
