@@ -1,4 +1,4 @@
-package com.hashmap.db;
+package com.database.db.block;
 
 import java.io.IOException;
 
@@ -8,6 +8,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+
+import com.database.db.Table;
+import com.database.db.Entry;
 
 public class FileIO {
 
@@ -50,19 +53,16 @@ public class FileIO {
                         case "Integer":
                             buffer.putInt((Integer) element); // Add integer elements as 4 bytes
                             break;
-                
                         case "byte[]":
                             byte[] byteArray = (byte[]) element;
                             buffer.putShort((short) byteArray.length); // Store length of byte array
                             buffer.put(byteArray); // Add byte array elements
                             break;
-                
                         case "String":
                             byte[] strBytes = ((String) element).getBytes(StandardCharsets.UTF_8);
                             buffer.putShort((short) strBytes.length); // Store length of string
                             buffer.put(strBytes); // Then the string bytes
                             break;
-                
                         default:
                             throw new IOException("Unsupported data type in entry.");
                     }
@@ -117,7 +117,7 @@ public class FileIO {
             startIndex += entryID.length;
 
             //Getting Index Corresponding To That ID
-            short index = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, startIndex, startIndex+2)).getShort();// because indexes are saved in order when they are read they are in order.
+            short index = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, startIndex, startIndex+2)).getShort();
             startIndex += 2;
 
             entryInd.add(entryID);
@@ -146,19 +146,16 @@ public class FileIO {
                             entry.add(new String(Arrays.copyOfRange(bufferData, startIndex, startIndex + size), StandardCharsets.UTF_8));
                             startIndex += size;
                             break;
-                
                         case "Integer":
                             entry.add(ByteBuffer.wrap(Arrays.copyOfRange(bufferData, startIndex, startIndex + 4)).getInt());
                             startIndex += 4;
                             break;
-                
                         case "Byte":
                             int byteSize = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, startIndex, startIndex + 2)).getShort();
                             startIndex += 2;
                             entry.add((byte[]) Arrays.copyOfRange(bufferData, startIndex, startIndex + byteSize));
                             startIndex += byteSize;
                             break;
-                
                         default:
                             throw new IllegalArgumentException("Unexpected type: " + type);
                     }

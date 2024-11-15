@@ -1,6 +1,9 @@
-package com.hashmap.db;
+package com.database.db.block;
 
 import java.util.HashMap;
+
+import com.database.db.Entry;
+
 import java.util.ArrayList;
 
 public class Block extends FileIO {
@@ -121,7 +124,7 @@ public class Block extends FileIO {
     }
 
     public int sizeOfHeader() {
-        return 3 * (Integer.BYTES) + Short.BYTES+ ((this.maxSizeOfID + Integer.toString(this.maxSizeOfEntry).length() + 1) * this.maxNumOfEtries);
+        return 3 * (Integer.BYTES) + Short.BYTES+ ((this.maxSizeOfID + Short.BYTES) * this.maxNumOfEtries);
     }
 
     public int sizeOfEntries() {

@@ -1,4 +1,4 @@
-package com.hashmap.db;
+package com.database.db;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.ByteBuffer;

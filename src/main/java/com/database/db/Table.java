@@ -1,4 +1,4 @@
-package com.hashmap.db;
+package com.database.db;
 
 public class Table {
     private String Database;
