@@ -58,13 +58,21 @@ public class Table {
 
     public Table(String[] tableConfig){
         this.Database = tableConfig[0];
-        this.tableName = tableConfig[0];
+        this.tableName = tableConfig[1];
         this.columnNames = this.setColumnNames(tableConfig);
         this.columnTypes = this.setColumnTypes(tableConfig);
         this.columnSizes = this.setColumnSizes(tableConfig);
 
         this.numOfColumns = (short) this.columnSizes.length;
         this.maxSizeOfEntry = this.setMaxSizeOfEntry();
+    }
+
+    public String getDatabase(){
+        return this.Database;
+    }
+
+    public String getTableName(){
+        return this.tableName;
     }
 
     public String[] getColumnTypes(){

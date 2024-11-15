@@ -1,7 +1,8 @@
 package com.database.db.block;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
-
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
@@ -13,6 +14,41 @@ import com.database.db.Table;
 import com.database.db.Entry;
 
 public class FileIO {
+
+    public void writeBlock(String path, byte[] blockBuffer, int blockPosition){
+                try {
+            RandomAccessFile raf = new RandomAccessFile(path, "rw");
+
+            raf.seek(blockPosition);
+            raf.write(blockBuffer, 0, blockBuffer.length);
+            raf.close();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
+    public byte[] readBlock(String path, int blockPosition, int blockMaxSize){
+        byte[] buffer = new byte[blockMaxSize];
+        try {
+            RandomAccessFile raf = new RandomAccessFile(path, "r");
+            raf.seek(blockPosition);
+            int bytesRead = raf.read(buffer, 0, blockMaxSize);
+            if (bytesRead < blockMaxSize) {
+                byte[] actualBytes = new byte[bytesRead];
+                System.arraycopy(buffer, 0, actualBytes, 0, bytesRead);
+                buffer = actualBytes;
+            }
+            raf.close();
+        } catch (FileNotFoundException e) {
+            //TODO File Not Found TO READ
+            e.printStackTrace();
+        } catch (IOException e) {
+            //TODO Error During Reading
+            e.printStackTrace();
+        }
+        return buffer;
+    }
 
     private byte[] concatenate(byte[] array1, byte[] array2) {
         // Create a ByteBuffer with the combined size of both arrays
