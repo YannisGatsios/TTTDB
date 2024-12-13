@@ -9,30 +9,30 @@ import java.util.ArrayList;
 public class Block extends FileIO {
 
     private int blockID;
-    private short numOfEtries;
+    private short numOfEntries;
     private int spaceInUse;
     private HashMap<byte[], Short> indexOfEntries;;
     private ArrayList<ArrayList<Object>> entries;
 
-    private short maxNumOfEtries;
+    private short maxNumOfEntries;
     private int maxSizeOfEntry;
     private int maxSizeOfID;
 
     public Block(int BlockID, short maxNumOfEtries) {
         this.blockID = BlockID;
-        this.numOfEtries = 0;
+        this.numOfEntries = 0;
         this.spaceInUse = 0;
-        this.maxNumOfEtries = maxNumOfEtries;
+        this.maxNumOfEntries = maxNumOfEtries;
         this.indexOfEntries = new HashMap<>();
         this.entries = new ArrayList<ArrayList<Object>>();
     }
 
     // ==========ADDING_ENTRIES==========
     public void addEntry(Entry newEntry) throws IllegalArgumentException {
-        if (this.numOfEtries == this.maxNumOfEtries || indexOfEntries.containsKey(newEntry.getID())) {
+        if (this.numOfEntries == this.maxNumOfEntries || indexOfEntries.containsKey(newEntry.getID())) {
             throw new IllegalArgumentException("New Entry ID Already Exists In Block.");
         }
-        this.numOfEtries++;
+        this.numOfEntries++;
         this.entries.add(newEntry.getEntry());
 
         int sizeOfNewEntrty = newEntry.getEntrySizeInBytes();
@@ -45,7 +45,7 @@ public class Block extends FileIO {
         if (!indexOfEntries.containsKey(entryID)) {
             throw new IllegalArgumentException("Entry ID to Delete Dose Not Exist On Block.");
         }
-        for (int i = 0; i < this.numOfEtries; i++) {
+        for (int i = 0; i < this.numOfEntries; i++) {
             if (this.getEntryID(i) == entryID) {
                 this.removeEntry(i);
             }
@@ -55,15 +55,15 @@ public class Block extends FileIO {
     private void removeEntry(int numOfEntry) {
         short sizeOfEntry = this.getEntrySize(numOfEntry);
         this.spaceInUse -= sizeOfEntry;
-        if (numOfEntry == this.numOfEtries - 1) {//Checks If It's The First Entry.
+        if (numOfEntry == this.numOfEntries - 1) {//Checks If It's The First Entry.
             this.indexOfEntries.remove(this.entries.get(numOfEntry).get(0));
         } else {
             this.indexOfEntries.remove(this.getEntryID(numOfEntry));
-            for (int i = numOfEntry; i < this.numOfEtries - 1; i++) {
+            for (int i = numOfEntry; i < this.numOfEntries - 1; i++) {
                 this.indexOfEntries.put(this.getEntryID(i+1), (short) (this.indexOfEntries.get(this.getEntryID(i+1))-sizeOfEntry));
             }
         }
-        this.numOfEtries--;
+        this.numOfEntries--;
         this.entries.remove(this.getEntry(numOfEntry));
     }
 
@@ -99,8 +99,8 @@ public class Block extends FileIO {
         return this.blockID;
     }
 
-    public short getNumOfEtries() {
-        return this.numOfEtries;
+    public short getNumOfEntries() {
+        return this.numOfEntries;
     }
 
     public int getSpaceInUse() {
@@ -124,17 +124,17 @@ public class Block extends FileIO {
     }
 
     public int sizeOfHeader() {
-        return 3 * (Integer.BYTES) + Short.BYTES+ ((this.maxSizeOfID + Short.BYTES) * this.maxNumOfEtries);
+        return 3 * (Integer.BYTES) + Short.BYTES+ ((this.maxSizeOfID + Short.BYTES) * this.maxNumOfEntries);
     }
 
     public int sizeOfEntries() {
-        return this.maxSizeOfEntry * this.maxNumOfEtries;
+        return this.maxSizeOfEntry * this.maxNumOfEntries;
     }
 
     public String blockStats() {
         return "\nBlock Stats :" + 
                 "\n\tBlock ID :                 " + this.blockID +
-                "\n\tNumber Of Entries :        " + this.numOfEtries + 
+                "\n\tNumber Of Entries :        " + this.numOfEntries + 
                 "\n\tSize Of Block :           [" + this.getSizeOfBlock() + "]" +
                 "\n\tSize Of Blocks Header :   [" + this.sizeOfHeader() + "]" +
                 "\n\tSpace in Use :            [ " + this.spaceInUse + "/" + this.sizeOfEntries() + " ]" +

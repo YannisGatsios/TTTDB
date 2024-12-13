@@ -1,9 +1,11 @@
 package com.database.db;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
 import com.database.db.block.Block;
+import com.database.db.bPlusTree.BPlusTree;
 
 /**
  * Hello world!
@@ -11,7 +13,7 @@ import com.database.db.block.Block;
  */
 public class App {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) {/* 
         String tableConfig = "database;users;username:10:String;num:4:Integer;message:5:String;data:10:Byte";//String ID
         //String tableConfig = "database;users;num:4:Integer;username:10:String;message:5:String;data:10:Byte";//Integer ID
         Table table = new Table(tableConfig.split(";"));
@@ -71,6 +73,27 @@ public class App {
             System.out.println("NEW_BLOCK:\n"+newBlock.blockStats());
         } catch (IOException e) {
             e.printStackTrace();
-        }
+        }*/
+        BPlusTree tree = new BPlusTree(3);
+                // Insert keys
+        tree.insert("key1".getBytes(StandardCharsets.UTF_8));
+        tree.insert("key2".getBytes(StandardCharsets.UTF_8));
+        tree.insert("key3".getBytes(StandardCharsets.UTF_8));
+        tree.insert("key4".getBytes(StandardCharsets.UTF_8));
+        tree.insert("key11".getBytes(StandardCharsets.UTF_8));
+        tree.insert("key22".getBytes(StandardCharsets.UTF_8));
+        tree.insert("key33".getBytes(StandardCharsets.UTF_8));
+        tree.insert("key44".getBytes(StandardCharsets.UTF_8));
+        tree.insert("key15".getBytes(StandardCharsets.UTF_8));
+        tree.insert("key267".getBytes(StandardCharsets.UTF_8));
+        tree.insert("key37".getBytes(StandardCharsets.UTF_8));
+        tree.insert("key48".getBytes(StandardCharsets.UTF_8));
+        tree.insert("key19".getBytes(StandardCharsets.UTF_8));
+        tree.insert("key20".getBytes(StandardCharsets.UTF_8));
+        tree.insert("key390".getBytes(StandardCharsets.UTF_8));
+        tree.insert("key4890".getBytes(StandardCharsets.UTF_8));
+
+        // Verify tree structure using printTree (manual verification or use assertions)
+        tree.printTree();
     }
 }

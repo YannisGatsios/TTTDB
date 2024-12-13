@@ -8,14 +8,14 @@ public class Entry {
     private byte[] ID;
     private ArrayList<Object> entryData;
     private int[] sizeOfElementsOfEntry;
-    private int[] indexOfElemntsOfEntry;
+    private int[] indexOfElementsOfEntry;
 
     //Constructor
     public Entry(ArrayList<Object> newEntry, int sizeOfID){
-        // fisrt element of a Row is must Always be the Primary Key And is allways converted to byte[].
+        // first element of a Row is must Always be the Primary Key And is always converted to byte[].
         this.ID = this.refactorID(newEntry, sizeOfID);
         this.sizeOfElementsOfEntry = this.getSizeOfElementsOfEntry(newEntry);
-        this.indexOfElemntsOfEntry = this.getIndexOfElemntsOfEntry(this.sizeOfElementsOfEntry);
+        this.indexOfElementsOfEntry = this.getIndexOfElemntsOfEntry(this.sizeOfElementsOfEntry);
         newEntry.remove(0);
         newEntry.add(0, this.ID);
         this.entryData = newEntry;
@@ -45,8 +45,8 @@ public class Entry {
         }
     }
     
-    //the following returns an [] of the size for eatch value of the erntry.
-    //the only suported types are Integer,String and for buffers byte[].
+    //the following returns an [] of the size for each value of the entry.
+    //the only supported types are Integer,String and for buffers byte[].
     //[example] row = ["hello",100000,byte[10]]
     //"hello" size = 5, 10000 size = 4(because size of an Integer in bytes is 4), byte[10] size = 10.
     //output = [5,6,10]
@@ -68,8 +68,8 @@ public class Entry {
         return sizes;
     }
     
-    //the following gives the index of the end of eatch value the row hase.
-    //[example] size of fisrt element of row is 5, forr second is 6 and third is 10 ["hello",100000,byte[10]]
+    //the following gives the index of the end of each value the row has.
+    //[example] size of first element of row is 5, for second is 6 and third is 10 ["hello",100000,byte[10]]
     //"hello" size = 5, 10000 size = 4(because size of an Integer in bytes is 4), byte[10] size = 10.
     //the output will be [5,5+4,5+4+10] = [5,9,19]
     //        5     9         19
@@ -125,10 +125,10 @@ public class Entry {
     }
 
     public int[] getElementIndexes(){
-        return this.indexOfElemntsOfEntry;
+        return this.indexOfElementsOfEntry;
     }
 
     public int getNumOfElements(){
-        return this.indexOfElemntsOfEntry[this.indexOfElemntsOfEntry.length - 1];
+        return this.indexOfElementsOfEntry[this.indexOfElementsOfEntry.length - 1];
     }
 }

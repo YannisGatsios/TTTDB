@@ -67,7 +67,7 @@ public class FileIO {
 
         // Add primitive fields
         headBuffer.putInt(block.getBlockID()); // Serialize blockID as 4 bytes (int)
-        headBuffer.putShort(block.getNumOfEtries()); // Serialize numOfEtries as 2 bytes (short)
+        headBuffer.putShort(block.getNumOfEntries()); // Serialize numOfEtries as 2 bytes (short)
         headBuffer.putInt(block.getSpaceInUse()); // Serialize spaceInUse as 4 bytes (int)
         // Add Size Of Header
         headBuffer.putInt(block.sizeOfHeader());//this is where the size of the header of the file gets saved
