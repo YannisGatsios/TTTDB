@@ -127,7 +127,7 @@ public class FileIO {
         //Initializing New Empty Block.
         Block newBlock = new Block(blockID, table.getMaxNumOfEntriesPerBlock());
         newBlock.setMaxSizeOfEntry(table.getMaxSizeOfEntry());
-        newBlock.setMaxSizeOfID(table.getColumnSizes()[0]);
+        newBlock.setMaxSizeOfID(table.getMaxIDSize());
 
         //Reading The Number Of Entries.
         short numOfEtries = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, 0, 2)).getShort();
@@ -169,7 +169,7 @@ public class FileIO {
             short endindex = (short) indexOfEntries.get(i).get(1);
             
             int ind = 0;
-            for (String type : table.getColumnTypes()) {
+            for (String type : table.getSchema().getColumnTypes()) {
                 if(ind == 0){
                     int size = ((byte[])indexOfEntries.get(i).get(0)).length;
                     entry.add(new String(Arrays.copyOfRange(bufferData, startIndex, startIndex + size), StandardCharsets.UTF_8));
@@ -198,7 +198,7 @@ public class FileIO {
                 }
                 ind++;
             }
-            Entry newEntry = new Entry(entry, table.getMazSizeOfID());
+            Entry newEntry = new Entry(entry, table.getMaxIDSize());
             newBlock.addEntry(newEntry);
             startIndex = endindex;
         }

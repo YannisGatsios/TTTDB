@@ -1,11 +1,8 @@
 package com.database.db;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-
 import com.database.db.block.Block;
-import com.database.db.bPlusTree.BPlusTree;
 
 /**
  * Hello world!
@@ -13,11 +10,17 @@ import com.database.db.bPlusTree.BPlusTree;
  */
 public class App {
 
-    public static void main(String[] args) {/* 
-        String tableConfig = "database;users;username:10:String;num:4:Integer;message:5:String;data:10:Byte";//String ID
-        //String tableConfig = "database;users;num:4:Integer;username:10:String;message:5:String;data:10:Byte";//Integer ID
-        Table table = new Table(tableConfig.split(";"));
+    public static void main(String[] args) {
+        String databaseName = "database";
+        String tableName = "users";
+
+        Schema schema = new Schema("username:10:String;num:4:Integer;message:5:String;data:10:Byte");
+        //Schema schema = new Schema("num:4:Integer;username:10:String;message:5:String;data:10:Byte");
+
+        Table table = new Table(databaseName, tableName, schema);
         table.setMaxNumOfEntriesPerBlock((short)3);
+
+        System.out.println(table.getSchema().getColumnSizes()+"===================");
 
         //entry 1
         ArrayList<Object> entrie = new ArrayList<>();
@@ -27,7 +30,7 @@ public class App {
         byte[] buffer = new byte[10];
         buffer[9] = (byte) 0xff;
         entrie.add(buffer);
-        Entry entry1 = new Entry(entrie, table.getMazSizeOfID());
+        Entry entry1 = new Entry(entrie, table.getMaxIDSize());
 
         //entry 2
         ArrayList<Object> entrie2 = new ArrayList<>();
@@ -37,7 +40,7 @@ public class App {
         byte[] buffer2 = new byte[10];
         buffer2[9] = (byte) 0xff;
         entrie2.add(buffer2);
-        Entry entry2 = new Entry(entrie2, table.getMazSizeOfID());
+        Entry entry2 = new Entry(entrie2, table.getMaxIDSize());
 
         ArrayList<Object> entrie3 = new ArrayList<>();
         entrie3.add("johnttt333");
@@ -46,13 +49,13 @@ public class App {
         byte[] buffer3 = new byte[10];
         buffer3[9] = (byte) 0xff;
         entrie3.add(buffer2);
-        Entry entry3 = new Entry(entrie3, table.getMazSizeOfID());
+        Entry entry3 = new Entry(entrie3, table.getMaxIDSize());
         
 
         //block
         Block block = new Block(0, (short)table.getMaxNumOfEntriesPerBlock());
         block.setMaxSizeOfEntry(table.getMaxSizeOfEntry());
-        block.setMaxSizeOfID(table.getColumnSizes()[0]);
+        block.setMaxSizeOfID(table.getMaxIDSize());
         try {
             block.addEntry(entry1);
             block.addEntry(entry2);
@@ -73,27 +76,6 @@ public class App {
             System.out.println("NEW_BLOCK:\n"+newBlock.blockStats());
         } catch (IOException e) {
             e.printStackTrace();
-        }*/
-        BPlusTree tree = new BPlusTree(3);
-                // Insert keys
-        tree.insert("key1".getBytes(StandardCharsets.UTF_8));
-        tree.insert("key2".getBytes(StandardCharsets.UTF_8));
-        tree.insert("key3".getBytes(StandardCharsets.UTF_8));
-        tree.insert("key4".getBytes(StandardCharsets.UTF_8));
-        tree.insert("key11".getBytes(StandardCharsets.UTF_8));
-        tree.insert("key22".getBytes(StandardCharsets.UTF_8));
-        tree.insert("key33".getBytes(StandardCharsets.UTF_8));
-        tree.insert("key44".getBytes(StandardCharsets.UTF_8));
-        tree.insert("key15".getBytes(StandardCharsets.UTF_8));
-        tree.insert("key267".getBytes(StandardCharsets.UTF_8));
-        tree.insert("key37".getBytes(StandardCharsets.UTF_8));
-        tree.insert("key48".getBytes(StandardCharsets.UTF_8));
-        tree.insert("key19".getBytes(StandardCharsets.UTF_8));
-        tree.insert("key20".getBytes(StandardCharsets.UTF_8));
-        tree.insert("key390".getBytes(StandardCharsets.UTF_8));
-        tree.insert("key4890".getBytes(StandardCharsets.UTF_8));
-
-        // Verify tree structure using printTree (manual verification or use assertions)
-        tree.printTree();
+        }
     }
 }
