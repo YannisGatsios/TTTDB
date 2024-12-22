@@ -1,12 +1,13 @@
 package com.database.db.bPlusTree;
 
-import java.util.Comparator;
-import java.util.stream.Collectors;
-import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 public class BPlusTree {
-    private BPlusTreeNode root;
+    private Node root;
     private final int order;
     private final Comparator<byte[]> keyComparator = (a, b) -> {
         for(int i = 0; i < Math.min(a.length, b.length); i++){
@@ -20,164 +21,223 @@ public class BPlusTree {
         if(order < 3){
             throw new IllegalArgumentException("BPlus Tree Order must be at least 3.");
         }
-        this.root = new BPlusTreeNode(true);
+        this.root = null;
         this.order = order;
     }
 
+
+
+
+    //========! INSERTION !==========
     public void insert(byte[] key){
-        BPlusTreeNode leaf = this.findLeaf(key);
-        this.insertIntoLeaf(leaf, key);
-        if(leaf.keys.size() > this.order -1){
-            splitLeaf(leaf);
-        }
-    }
-
-    private BPlusTreeNode findLeaf(byte[] key) {
-        BPlusTreeNode node = this.root;
-    
-        while (!node.isLeaf) {
-            int i = 0;
-            while (i < node.keys.size() && keyComparator.compare(key, node.keys.get(i)) >= 0) {
-                i++;
-            }
-            // Move to the chosen child node
-            node = node.children.get(i);
-        }
-        return node; // Return the leaf node
-    }
-
-    private void insertIntoLeaf(BPlusTreeNode leaf, byte[] key){
-        int pos = Collections.binarySearch(leaf.keys, key, keyComparator);
-        if(pos < 0){
-            pos = -(pos + 1);
-        }
-        leaf.keys.add(pos, key);
-    }
-
-    private void splitLeaf(BPlusTreeNode leaf) {
-        int mid = (this.order + 1) / 2;
-        BPlusTreeNode newLeaf = new BPlusTreeNode(true);
-    
-        newLeaf.keys.addAll(leaf.keys.subList(mid, leaf.keys.size()));
-        leaf.keys.subList(mid, leaf.keys.size()).clear();
-    
-        // Set the next pointer correctly after splitting
-        newLeaf.next = leaf.next;
-        leaf.next = newLeaf;
-    
-        // If leaf is the root, create a new root
-        if (leaf == root) {
-            BPlusTreeNode newRoot = new BPlusTreeNode(false);
-            newRoot.keys.add(newLeaf.keys.get(0));
-            newRoot.children.add(leaf);
-            newRoot.children.add(newLeaf);
-            this.root = newRoot;
-        } else {
-            insertIntoParent(leaf, newLeaf, newLeaf.keys.get(0));
-        }
-    }
-    
-
-    private void insertIntoParent(BPlusTreeNode left, BPlusTreeNode right, byte[] key){
-        BPlusTreeNode parent = this.findParent(this.root, left);
-        if(parent == null){
-            throw new RuntimeException("Parent node not found for insertion.");
-        }
-        int pos = Collections.binarySearch(parent.keys, key, keyComparator);
-        if(pos < 0){
-            pos = -(pos + 1);
-        }
-
-        parent.keys.add(pos, key);
-        parent.children.add(pos + 1, right);
-
-        if(parent.keys.size() > this.order - 1){
-            splitInternal(parent);
-        }
-    }
-
-    private void splitInternal(BPlusTreeNode internal) {
-        int mid = (this.order + 1) / 2;
-        BPlusTreeNode newInternal = new BPlusTreeNode(false);
-    
-        newInternal.keys.addAll(internal.keys.subList(mid + 1, internal.keys.size()));
-        internal.keys.subList(mid, internal.keys.size()).clear();
-    
-        newInternal.children.addAll(internal.children.subList(mid + 1, internal.children.size()));
-        internal.children.subList(mid + 1, internal.children.size()).clear();
-    
-        // If internal is the root, create a new root
-        if (internal == this.root) {
-            BPlusTreeNode newRoot = new BPlusTreeNode(false);
-            newRoot.keys.add(internal.keys.get(mid));
-            newRoot.children.add(internal);
-            newRoot.children.add(newInternal);
-            this.root = newRoot;
-        } else {
-            this.insertIntoParent(internal, newInternal, internal.keys.remove(mid));
-        }
-    }
-    
-
-    private BPlusTreeNode findParent(BPlusTreeNode current, BPlusTreeNode target){
-        if(current.isLeaf || current.children.isEmpty()){
-            return null;
-        }
-
-        for(int i = 0; i < current.children.size(); i++){
-            BPlusTreeNode child = current.children.get(i);
-            if (child == target){
-                return current;
-            }
-
-            BPlusTreeNode possibleParent = this.findParent(child, target);
-            if(possibleParent != null){
-                return possibleParent;
-            }
-        }
-        return null;
-    }
-    public boolean search(byte[] key){
-        BPlusTreeNode node = findLeaf(key);
-        int pos = Collections.binarySearch(node.keys, key, this.keyComparator);
-        return pos >= 0;
-    }
-
-    public void remove(byte[] key){
-        BPlusTreeNode leaf = this.findLeaf(key);
-        int pos = Collections.binarySearch(leaf.keys, key, keyComparator);
-        if(pos >= 0){
-            leaf.keys.remove(pos);
-            if(leaf.keys.size() < (this.order - 1) / 2 && leaf != root){
-                this.handleUnderFlow(leaf);
-            }
-        }
-    }
-
-    private void handleUnderFlow(BPlusTreeNode node){
-        BPlusTreeNode parent = this.findParent(root, node);
-
-        int index = parent.children.indexOf(node);
-        BPlusTreeNode leftSliding = index > 0 ? parent.children.get(index - 1) : null;
-        BPlusTreeNode rightSliding = index < parent.children.size() - 1 ? parent.children.get(index + 1) : null;
-        if(leftSliding != null && leftSliding.keys.size() > (this.order -1) / 2){
-
-        }else if(rightSliding != null && rightSliding.keys.size() > (this.order -1) / 2){
-
+        if(this.root == null){
+            this.root = new Node(true);
+            this.root.keys.add(key);
         }else{
-
+            if(this.root.keys.size() == 2 * this.order - 1){
+                Node newRoot = new Node(false);
+                newRoot.children.add(this.root);
+                this.splitChild(newRoot, 0, this.root);
+                this.root = newRoot;
+            }
+            this.insertNonFull(root, key);
         }
     }
-    
-    public void printTree() {
-        printNode(root, 0);
+
+    private void splitChild(Node parent, int index, Node child){
+        Node newChild = new Node(child.isLeaf);
+
+        parent.children.add(index + 1,newChild);
+        parent.keys.add(index, child.keys.get(this.order-1));
+
+        newChild.keys.addAll(child.keys.subList(this.order, child.keys.size()));
+        child.keys.subList(this.order - 1, child.keys.size()).clear();
+
+        if(!child.isLeaf){
+            newChild.children.addAll(child.children.subList(this.order, child.children.size()));
+            child.children.subList(this.order, child.children.size()).clear();
+        }
+
+        if(child.isLeaf){
+            newChild.next = child.next;
+            child.next = newChild;
+        }
     }
 
-    private void printNode(BPlusTreeNode node, int level) {
-        System.out.println("Level " + level + ": " + node.keys);
-        if (!node.isLeaf) {
-            for (BPlusTreeNode child : node.children) {
-                printNode(child, level + 1);
+    private void insertNonFull(Node node, byte[] key){
+        if (node.isLeaf){
+            int pos = Collections.binarySearch(node.keys, key, keyComparator);
+            if(pos < 0) pos = -(pos+1);
+            node.keys.add(pos, key);
+        }else{
+            int i = node.keys.size() - 1;
+            while (i >= 0 && Arrays.compare(key, node.keys.get(i)) < 0) {
+                i--;
+            }
+            i++;
+            if (node.children.get(i).keys.size() == 2*this.order - 1){
+                this.splitChild(node, i, node.children.get(i));
+                if(Arrays.compare(key, node.keys.get(i)) > 0){
+                    i++;
+                }
+            }
+            this.insertNonFull(node.children.get(i), key);
+        }
+    }
+
+    //===========! REMOVING !=============
+    public void remove(byte[] key){
+        if(root == null){
+            return;
+        }
+        this.remove(this.root, key);
+        if(root.keys.isEmpty() && !this.root.isLeaf){
+            this.root.children.get(0);
+        }
+    }
+
+    private void remove(Node node, byte[] key){
+        if(node.isLeaf){
+            node.keys.remove(key);
+        }else{
+            int idx = Collections.binarySearch(node.keys, key, keyComparator);
+            if(idx < 0) idx = -(idx + 1);
+
+            if(idx < node.keys.size() && key.equals(node.keys.get(idx))){
+                if(node.children.get(idx).keys.size() >= this.order){
+                    Node predNode = node.children.get(idx);
+                    while ((!predNode.isLeaf)) {
+                        predNode = predNode.children.get(predNode.keys.size() - 1);
+                    }
+                    byte[] pred = predNode.keys.get(predNode.keys.size() - 1);
+                    node.keys.set(idx, pred);
+                    this.remove(node.children.get(idx), pred);
+                }else if(node.children.get(idx + 1).keys.size() >= this.order){
+                    Node succNode = node.children.get(idx + 1);
+                    while (!succNode.isLeaf) {
+                        succNode = succNode.children.get(0);
+                    }
+                    byte[] succ = succNode.keys.get(0);
+                    node.keys.set(idx, succ);
+                    this.remove(node.children.get(idx + 1), succ);
+                }else{
+                    this.merge(node, idx);
+                    this.remove(node.children.get(idx), key);
+                }
+            }else{
+                Node child = node.children.get(idx);
+                if(child.keys.size() < this.order){
+                    if(idx > 0 && node.children.get(idx - 1).keys.size() >= this.order){
+                        this.borrowFromPrev(node, idx);
+                    }else if(idx < node.children.size() -1 && node.children.get(idx + 1).keys.size() >= this.order){
+                        this.borrowFromNext(node, idx);
+                    }else{
+                        if(idx < node.children.size() - 1){
+                            this.merge(node, idx);
+                        }else{
+                            this.merge(node, idx - 1);
+                        }
+                    }
+                }
+                this.remove(child, key);
+            }
+        }
+    }
+
+    private void borrowFromPrev(Node node, int index){
+        Node child = node.children.get(index);
+        Node sibling = node.children.get(index - 1);
+
+        child.keys.add(0, node.keys.get(index - 1));
+        node.keys.set(index - 1, sibling.keys.remove(sibling.keys.size() - 1));
+
+        if(!child.isLeaf){
+            child.children.add(0, sibling.children.remove(sibling.children.size() -1));
+        }
+    }
+
+    private void borrowFromNext(Node node, int index){
+        Node child = node.children.get(index);
+        Node sibling = node.children.get(index + 1);
+
+        child.keys.add(node.keys.get(index));
+        node.keys.set(index, sibling.keys.remove(0));
+
+        if(!child.isLeaf){
+            child.children.add(sibling.children.remove(0));
+        }
+    }
+
+    private void merge(Node node, int index){
+        Node child = node.children.get(index);
+        Node sibling = node.children.get(index +1);
+
+        child.keys.add(node.keys.remove(index));
+        child.keys.addAll(sibling.keys);
+
+        if(!child.isLeaf){
+            child.children.addAll(sibling.children);
+        }
+        node.children.remove(index + 1);
+    }
+
+    //==========! SEARCHING !===========
+    public boolean search(byte[] key){
+        Node current = this.root;
+        while (current != null) {
+            int idx = Collections.binarySearch(current.keys, key, keyComparator);
+            if(idx >= 0){
+                return true;
+            }
+            idx = -(idx + 1);
+            if(current.isLeaf){
+                return false;
+            }
+            current =current.children.get(idx);
+        }
+        return false;
+    }
+
+    public List<byte[]> rangeQuery(byte[] lower, byte[] upper){
+        List<byte[]> result = new ArrayList<>();
+        Node current = root;
+        while (current != null && !current.isLeaf) {
+            int idx = 0;
+            while (idx < current.keys.size() && Arrays.compare(lower, current.keys.get(idx)) > 0) {
+                idx++;
+            }
+            current = current.children.get(idx);
+        }
+        while (current != null) {
+            for(byte[] key : current.keys){
+                if(Arrays.compare(key, lower) >= 0 && Arrays.compare(key, upper) <= 0){
+                    result.add(key);
+                }
+                if(Arrays.compare(key, upper) > 0){
+                    return result;
+                }
+            }
+            current = current.next;
+        }
+        return result;
+    }
+
+    //===! PRINTING !====
+    public void printTree() {
+        printTree(root, 0);
+    }
+
+    private void printTree(Node node, int level) {
+        if (node != null) {
+            for (int i = 0; i < level; i++) {
+                System.out.print("  ");
+            }
+            for (byte[] key : node.keys) {
+                System.out.print(key + " ");
+            }
+            System.out.println();
+            for (Node child : node.children) {
+                printTree(child, level + 1);
             }
         }
     }

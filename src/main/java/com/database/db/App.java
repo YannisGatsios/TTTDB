@@ -2,6 +2,10 @@ package com.database.db;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import com.database.db.bPlusTree.BPlusTree;
 import com.database.db.block.Block;
 
 /**
@@ -11,6 +15,35 @@ import com.database.db.block.Block;
 public class App {
 
     public static void main(String[] args) {
+        BPlusTree tree = new BPlusTree(3);
+
+        // Insert elements
+        tree.insert(new byte[] {10});
+        tree.insert(new byte[] {20});
+        tree.insert(new byte[] {5});
+        tree.insert(new byte[] {15});
+        tree.insert(new byte[] {25});
+        tree.insert(new byte[] {30});
+
+        System.out.println("B+ Tree after insertions:");
+        tree.printTree();
+
+        // Search for a key
+        byte[] searchKey = {15};
+        System.out.println("\nSearching for key " + Arrays.toString(searchKey) + ": " + (tree.search(searchKey) ? "Found" : "Not Found"));
+
+        // Perform a range query
+        byte[] lower = {10}, upper = {25};
+        List<byte[]> rangeResult = tree.rangeQuery(lower, upper);
+        System.out.println("\nRange query [" + Arrays.toString(lower) + ", " + Arrays.toString(upper) + "]: " + rangeResult);
+
+        // Remove a key
+        byte[] removeKey = {20};
+        tree.remove(removeKey);
+        System.out.println("\nB+ Tree after removing " + Arrays.toString(removeKey) + ":");
+        tree.printTree();
+
+        /* 
         String databaseName = "database";
         String tableName = "users";
 
@@ -76,6 +109,6 @@ public class App {
             System.out.println("NEW_BLOCK:\n"+newBlock.blockStats());
         } catch (IOException e) {
             e.printStackTrace();
-        }
+        }*/
     }
 }

@@ -3,16 +3,16 @@ package com.database.db.bPlusTree;
 import java.util.ArrayList;
 import java.util.List;
 
-public class BPlusTreeNode {
+public class Node {
     boolean isLeaf;
     List<byte[]> keys;
-    List<BPlusTreeNode> children;
-    BPlusTreeNode next;
+    List<Node> children;
+    Node next;
 
-    public BPlusTreeNode(Boolean isLeaf){
+    public Node(Boolean isLeaf){
         this.isLeaf = isLeaf;
         this.keys = new ArrayList<byte[]>();
-        this.children = new ArrayList<BPlusTreeNode>();
+        this.children = new ArrayList<Node>();
         this.next = null;
     }
 }
