@@ -1,21 +1,31 @@
 package com.database.db;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
+import java.io.IOException;
+import java.util.ArrayList;
 
 import com.database.db.bPlusTree.BPlusTree;
 import com.database.db.block.Block;
 
-/**
- * Hello world!
- *
- */
 public class App {
 
     public static void main(String[] args) {
-        BPlusTree tree = new BPlusTree(3);
+        
+        BPlusTree tree = new BPlusTree(5);
+        Random random = new Random();
+        int i = 0;
+        while(i < 400){
+            int num = random.nextInt(127);
+            int num1 = random.nextInt(127);
+            byte[] data = {(byte) num,(byte) num1};
+            if(!tree.search(data)){
+                tree.insert(data);
+                i++;
+            }
+        }
+        
 
         // Insert elements
         tree.insert(new byte[] {10});
@@ -24,31 +34,41 @@ public class App {
         tree.insert(new byte[] {15});
         tree.insert(new byte[] {25});
         tree.insert(new byte[] {30});
+        tree.insert(new byte[] {11});
+        tree.insert(new byte[] {22});
+        tree.insert(new byte[] {6});
+        tree.insert(new byte[] {16});
+        tree.insert(new byte[] {26});
+        tree.insert(new byte[] {31});
 
         System.out.println("B+ Tree after insertions:");
         tree.printTree();
 
         // Search for a key
-        byte[] searchKey = {15};
+        byte[] searchKey = {100};
         System.out.println("\nSearching for key " + Arrays.toString(searchKey) + ": " + (tree.search(searchKey) ? "Found" : "Not Found"));
 
         // Perform a range query
-        byte[] lower = {10}, upper = {25};
+        byte[] lower = {10}, upper = {30};
         List<byte[]> rangeResult = tree.rangeQuery(lower, upper);
-        System.out.println("\nRange query [" + Arrays.toString(lower) + ", " + Arrays.toString(upper) + "]: " + rangeResult);
+        System.out.println("\nRange query [" + Arrays.toString(lower) + ", " + Arrays.toString(upper) + "]: ");
+        for (byte[] bs : rangeResult) {
+            System.out.print(Arrays.toString(bs));
+        }
 
         // Remove a key
         byte[] removeKey = {20};
         tree.remove(removeKey);
         System.out.println("\nB+ Tree after removing " + Arrays.toString(removeKey) + ":");
-        tree.printTree();
+        
+        
 
         /* 
         String databaseName = "database";
         String tableName = "users";
 
-        Schema schema = new Schema("username:10:String;num:4:Integer;message:5:String;data:10:Byte");
-        //Schema schema = new Schema("num:4:Integer;username:10:String;message:5:String;data:10:Byte");
+        Schema schema = new Schema("username:10:String;num:4:Integer;message:5:String;data:10:Byte".split(";"));
+        //Schema schema = new Schema("num:4:Integer;username:10:String;message:5:String;data:10:Byte".split(";"));
 
         Table table = new Table(databaseName, tableName, schema);
         table.setMaxNumOfEntriesPerBlock((short)3);
@@ -94,7 +114,7 @@ public class App {
             block.addEntry(entry2);
             block.addEntry(entry3);
 
-            block.removeEntry(entry1.getID());
+            //block.removeEntry(entry1.getID());
             //block.removeEntry(entry3.getID());
             //block.removeEntry(entry2.getID());
             System.out.println(block.blockStats());

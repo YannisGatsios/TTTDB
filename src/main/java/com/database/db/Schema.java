@@ -6,10 +6,10 @@ public class Schema {
     private String[] columnTypes;
     private int[] columnSizes;
 
-    public Schema(String schema){
-        this.columnNames = this.setColumnNames(schema.split(";"));
-        this.columnTypes = this.setColumnTypes(schema.split(";"));
-        this.columnSizes = this.setColumnSizes(schema.split(";"));
+    public Schema(String[] schema){
+        this.columnNames = this.setColumnNames(schema);
+        this.columnTypes = this.setColumnTypes(schema);
+        this.columnSizes = this.setColumnSizes(schema);
     }
         
     private String[] setColumnNames(String[] tableConfig){

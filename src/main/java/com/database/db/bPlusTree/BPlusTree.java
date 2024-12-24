@@ -7,14 +7,16 @@ import java.util.Comparator;
 import java.util.List;
 
 public class BPlusTree {
+
     private Node root;
     private final int order;
-    private final Comparator<byte[]> keyComparator = (a, b) -> {
-        for(int i = 0; i < Math.min(a.length, b.length); i++){
-            int cmp = Byte.compare(a[i],b[i]);
+
+    private final Comparator<byte[]> keyComparator = (kay1, key2) -> {
+        for(int i = 0; i < Math.min(kay1.length, key2.length); i++){
+            int cmp = kay1[i] - key2[i];
             if(cmp != 0) return cmp;
         }
-        return Integer.compare(a.length, b.length);
+        return Integer.compare(kay1.length, key2.length);
     };
 
     public BPlusTree(int order){
@@ -25,16 +27,17 @@ public class BPlusTree {
         this.order = order;
     }
 
-
-
-
     //========! INSERTION !==========
     public void insert(byte[] key){
         if(this.root == null){
             this.root = new Node(true);
             this.root.keys.add(key);
         }else{
-            if(this.root.keys.size() == 2 * this.order - 1){
+            if(this.search(key)){
+                //TODO ERROR for insert existin key.
+                return;
+            }
+            if(this.root.keys.size() == this.order){
                 Node newRoot = new Node(false);
                 newRoot.children.add(this.root);
                 this.splitChild(newRoot, 0, this.root);
@@ -47,15 +50,17 @@ public class BPlusTree {
     private void splitChild(Node parent, int index, Node child){
         Node newChild = new Node(child.isLeaf);
 
-        parent.children.add(index + 1,newChild);
-        parent.keys.add(index, child.keys.get(this.order-1));
+        byte[] medKey = child.keys.get(this.order / 2);
 
-        newChild.keys.addAll(child.keys.subList(this.order, child.keys.size()));
-        child.keys.subList(this.order - 1, child.keys.size()).clear();
+        parent.children.add(index + 1,newChild);
+        parent.keys.add(index, medKey);
+
+        newChild.keys.addAll(child.keys.subList(this.order / 2 + 1, child.keys.size()));
+        child.keys.subList(this.order / 2 + 1, child.keys.size()).clear();
 
         if(!child.isLeaf){
-            newChild.children.addAll(child.children.subList(this.order, child.children.size()));
-            child.children.subList(this.order, child.children.size()).clear();
+            newChild.children.addAll(child.children.subList(this.order / 2 + 1, child.children.size()));
+            child.children.subList(this.order / 2 + 1, child.children.size()).clear();
         }
 
         if(child.isLeaf){
@@ -75,7 +80,7 @@ public class BPlusTree {
                 i--;
             }
             i++;
-            if (node.children.get(i).keys.size() == 2*this.order - 1){
+            if (node.children.get(i).keys.size() == this.order){
                 this.splitChild(node, i, node.children.get(i));
                 if(Arrays.compare(key, node.keys.get(i)) > 0){
                     i++;
@@ -92,13 +97,14 @@ public class BPlusTree {
         }
         this.remove(this.root, key);
         if(root.keys.isEmpty() && !this.root.isLeaf){
-            this.root.children.get(0);
+            byte[] lastKeyOfChild = this.root.children.get(0).keys.get(this.root.children.get(0).keys.size()-1);
+            this.root.keys.add(lastKeyOfChild);
         }
     }
 
     private void remove(Node node, byte[] key){
-        if(node.isLeaf){
-            node.keys.remove(key);
+        if(node.isLeaf && node.keys.size() > 0){
+            node.keys.removeIf(k -> Arrays.equals(k, key));
         }else{
             int idx = Collections.binarySearch(node.keys, key, keyComparator);
             if(idx < 0) idx = -(idx + 1);
@@ -106,7 +112,7 @@ public class BPlusTree {
             if(idx < node.keys.size() && key.equals(node.keys.get(idx))){
                 if(node.children.get(idx).keys.size() >= this.order){
                     Node predNode = node.children.get(idx);
-                    while ((!predNode.isLeaf)) {
+                    while (!predNode.isLeaf) {
                         predNode = predNode.children.get(predNode.keys.size() - 1);
                     }
                     byte[] pred = predNode.keys.get(predNode.keys.size() - 1);
@@ -125,21 +131,19 @@ public class BPlusTree {
                     this.remove(node.children.get(idx), key);
                 }
             }else{
-                Node child = node.children.get(idx);
-                if(child.keys.size() < this.order){
+                if(node.children.get(idx).keys.size() < this.order){
                     if(idx > 0 && node.children.get(idx - 1).keys.size() >= this.order){
                         this.borrowFromPrev(node, idx);
                     }else if(idx < node.children.size() -1 && node.children.get(idx + 1).keys.size() >= this.order){
                         this.borrowFromNext(node, idx);
                     }else{
                         if(idx < node.children.size() - 1){
+                            node.keys.remove(idx);
                             this.merge(node, idx);
-                        }else{
-                            this.merge(node, idx - 1);
                         }
                     }
                 }
-                this.remove(child, key);
+                this.remove(node.children.get(idx), key);
             }
         }
     }
@@ -172,13 +176,16 @@ public class BPlusTree {
         Node child = node.children.get(index);
         Node sibling = node.children.get(index +1);
 
-        child.keys.add(node.keys.remove(index));
         child.keys.addAll(sibling.keys);
 
         if(!child.isLeaf){
             child.children.addAll(sibling.children);
         }
         node.children.remove(index + 1);
+        node.children.get(index).next = null;
+        if(child.keys.size() > this.order){
+            this.splitChild(node, index, child);
+        }
     }
 
     //==========! SEARCHING !===========
@@ -222,23 +229,52 @@ public class BPlusTree {
         return result;
     }
 
-    //===! PRINTING !====
-    public void printTree() {
-        printTree(root, 0);
+    //=======! PRINTING !======
+    public void printTree(){
+        List<List<String>> tree = new ArrayList<List<String>>();
+        tree.add(0 ,new ArrayList<>(List.of(this.printNode(this.root))));
+        tree = this.printTree(this.root, 1, tree);
+        for (int i = 0; i < tree.size(); i++) {
+            System.out.println("!=========! Level " + i + " !=========!\n" + tree.get(i));
+        }
+        for (int i = 0; i < tree.size(); i++) {
+            System.out.println("!=========! Level " + i + " !=========!\nNum Of Nodes : " + tree.get(i).size());
+        }
     }
-
-    private void printTree(Node node, int level) {
-        if (node != null) {
-            for (int i = 0; i < level; i++) {
-                System.out.print("  ");
-            }
-            for (byte[] key : node.keys) {
-                System.out.print(key + " ");
-            }
-            System.out.println();
-            for (Node child : node.children) {
-                printTree(child, level + 1);
+    private List<List<String>> printTree(Node node, int level, List<List<String>> tree){
+        if(!node.isLeaf){
+            if (tree.size() <= level) tree.add(new ArrayList<>());
+            for(int i = 0;i < node.children.size();i++){
+                Node curChild = node.children.get(i);
+                tree.get(level).add(this.printNode(curChild));
+                if(!curChild.isLeaf){
+                    tree = this.printTree(curChild, level+1, tree);
+                }
             }
         }
+        return tree;
+    }
+
+
+    private String printNode(Node node){
+        String keys = "|";
+        for(int i = 0; i < node.keys.size();i++){
+            keys += "  "+byteArrayToString(node.keys.get(i))+"  |";
+        }
+        String border = "+"+String.valueOf("-").repeat(keys.length()-2)+"+";
+        return "\n"+border+"\n"+
+                keys+"\n"+
+                border+"\n"+
+                "Children : "+node.children.size()+"\n";
+    }
+    private static String byteArrayToString(byte[] byteArray) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : byteArray) {
+            if (sb.length() > 0) {
+                sb.append(" ");
+            }
+            sb.append(b & 0xFF); // Convert byte to unsigned int representation
+        }
+        return sb.toString();
     }
 }
