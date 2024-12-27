@@ -7,12 +7,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 
 import com.database.db.bPlusTree.BPlusTree;
-import com.database.db.block.Block;
+import com.database.db.page.Page;
 
 public class App {
 
     public static void main(String[] args) {
-        
+        /* 
         BPlusTree tree = new BPlusTree(5);
         Random random = new Random();
         int i = 0;
@@ -25,7 +25,6 @@ public class App {
                 i++;
             }
         }
-        
 
         // Insert elements
         tree.insert(new byte[] {10});
@@ -42,7 +41,6 @@ public class App {
         tree.insert(new byte[] {31});
 
         System.out.println("B+ Tree after insertions:");
-        tree.printTree();
 
         // Search for a key
         byte[] searchKey = {100};
@@ -57,23 +55,18 @@ public class App {
         }
 
         // Remove a key
-        byte[] removeKey = {20};
+        byte[] removeKey = {15};
         tree.remove(removeKey);
         System.out.println("\nB+ Tree after removing " + Arrays.toString(removeKey) + ":");
-        
+        tree.printTree();*/
         
 
-        /* 
-        String databaseName = "database";
+        
+        String databaseName = "system";
         String tableName = "users";
-
         Schema schema = new Schema("username:10:String;num:4:Integer;message:5:String;data:10:Byte".split(";"));
         //Schema schema = new Schema("num:4:Integer;username:10:String;message:5:String;data:10:Byte".split(";"));
-
         Table table = new Table(databaseName, tableName, schema);
-        table.setMaxNumOfEntriesPerBlock((short)3);
-
-        System.out.println(table.getSchema().getColumnSizes()+"===================");
 
         //entry 1
         ArrayList<Object> entrie = new ArrayList<>();
@@ -95,6 +88,7 @@ public class App {
         entrie2.add(buffer2);
         Entry entry2 = new Entry(entrie2, table.getMaxIDSize());
 
+        //entry 3
         ArrayList<Object> entrie3 = new ArrayList<>();
         entrie3.add("johnttt333");
         entrie3.add(103);
@@ -104,31 +98,33 @@ public class App {
         entrie3.add(buffer2);
         Entry entry3 = new Entry(entrie3, table.getMaxIDSize());
         
-
-        //block
-        Block block = new Block(0, (short)table.getMaxNumOfEntriesPerBlock());
-        block.setMaxSizeOfEntry(table.getMaxSizeOfEntry());
-        block.setMaxSizeOfID(table.getMaxIDSize());
+        BPlusTree tree = new BPlusTree(table.getMaxEntriesPerPage());
+        //Page
+        Page page = new Page(0, (short)table.getMaxEntriesPerPage());
+        page.setMaxSizeOfEntry(table.getSizeOfEntry());
+        page.setMaxSizeOfID(table.getMaxIDSize());
         try {
-            block.addEntry(entry1);
-            block.addEntry(entry2);
-            block.addEntry(entry3);
-
-            //block.removeEntry(entry1.getID());
-            //block.removeEntry(entry3.getID());
-            //block.removeEntry(entry2.getID());
-            System.out.println(block.blockStats());
+            page.addEntry(entry1);
+            tree.insert(entry1.getID());
+            page.addEntry(entry2);
+            tree.insert(entry2.getID());
+            page.addEntry(entry3);
+            tree.insert(entry3.getID());
+            //page.removeEntry(entry1.getID());
+            //page.removeEntry(entry3.getID());
+            //page.removeEntry(entry2.getID());
+            System.out.println(page.pageStats());
             
-            byte[] data = block.blockToBuffer(block);
-            String path = "storage/" + table.getDatabase() + "." + table.getTableName() + ".tb";
-            block.writeBlock(path, data, block.getBlockID()*block.getSizeOfBlock());
+            byte[] data = page.pageToBuffer(page);
+            String path = "storage/" + table.getDatabaseName() + "." + table.getTableName() + ".tb";
+            page.writePage(path, data, page.getPageID()*page.sizeOfPage());
             
-            Block newBlock = new Block(0, (short)table.getMaxNumOfEntriesPerBlock());
-            byte[] bufferBlock = newBlock.readBlock(path, block.getBlockID() * block.getSizeOfBlock(), block.getSizeOfBlock());
-            newBlock = newBlock.bufferToBlock(bufferBlock, table);
-            System.out.println("NEW_BLOCK:\n"+newBlock.blockStats());
+            Page newPage = new Page(0, (short)table.getMaxEntriesPerPage());
+            byte[] bufferPage = newPage.readPage(path, page.getPageID() * page.sizeOfPage(), page.sizeOfPage());
+            newPage = newPage.bufferToPage(bufferPage, table);
+            System.out.println("NEW PAGE:\n"+newPage.pageStats());
         } catch (IOException e) {
             e.printStackTrace();
-        }*/
+        }
     }
 }

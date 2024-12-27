@@ -11,14 +11,16 @@ public class Schema {
         this.columnTypes = this.setColumnTypes(schema);
         this.columnSizes = this.setColumnSizes(schema);
     }
-        
+    
     private String[] setColumnNames(String[] tableConfig){
         String[] result = new String[tableConfig.length];
         for (int i = 0;i<tableConfig.length;i++){
             result[i] = tableConfig[i].split(":")[0].trim();
         }
         return result;
-    }
+    }public String[] getColumnNames() {
+        return this.columnNames;
+    } 
 
     private String[] setColumnTypes(String[] tableConfig){
         String[] result = new String[tableConfig.length];
@@ -26,6 +28,8 @@ public class Schema {
             result[i] = tableConfig[i].split(":")[2].trim();
         }
         return result;
+    }public String[] getColumnTypes() {
+        return this.columnTypes;
     }
 
     private int[] setColumnSizes(String[] tableConfig){
@@ -34,17 +38,7 @@ public class Schema {
             result[i] = Integer.parseInt(tableConfig[i].split(":")[1].trim());
         }
         return result;
-    }
-
-    public String[] getColumnNames() {
-        return this.columnNames;
-    }
-
-    public String[] getColumnTypes() {
-        return this.columnTypes;
-    }
-
-    public int[] getColumnSizes() {
+    }public int[] getColumnSizes() {
         return this.columnSizes;
     }
 }

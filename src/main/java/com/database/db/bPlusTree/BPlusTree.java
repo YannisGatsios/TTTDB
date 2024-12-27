@@ -254,9 +254,7 @@ public class BPlusTree {
         }
         return tree;
     }
-
-
-    private String printNode(Node node){
+    private static String printNode(Node node){
         String keys = "|";
         for(int i = 0; i < node.keys.size();i++){
             keys += "  "+byteArrayToString(node.keys.get(i))+"  |";

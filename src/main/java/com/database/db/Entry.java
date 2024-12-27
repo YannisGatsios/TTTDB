@@ -5,6 +5,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
 public class Entry {
+    
     private byte[] ID;
     private ArrayList<Object> entryData;
     private int[] sizeOfElementsOfEntry;
@@ -12,7 +13,7 @@ public class Entry {
 
     //Constructor
     public Entry(ArrayList<Object> newEntry, int sizeOfID){
-        // first element of a Row is must Always be the Primary Key And is always converted to byte[].
+        // first element of thr Entry is must Always be the Primary Key And is always converted to byte[].
         this.ID = this.refactorID(newEntry, sizeOfID);
         this.sizeOfElementsOfEntry = this.getSizeOfElementsOfEntry(newEntry);
         this.indexOfElementsOfEntry = this.getIndexOfElemntsOfEntry(this.sizeOfElementsOfEntry);
@@ -29,16 +30,10 @@ public class Entry {
                 return buffer.array();
         
             case "String":
-                byte[] oldIDString = ((String) newEntry.get(0)).getBytes(StandardCharsets.UTF_8);
-                byte[] newIDString = new byte[sizeOfID];
-                System.arraycopy(oldIDString, 0, newIDString, 0, oldIDString.length);
-                return newIDString;
+                return ((String) newEntry.get(0)).getBytes(StandardCharsets.UTF_8);
         
             case "byte[]":
-                byte[] oldIDByteArray = (byte[]) newEntry.get(0);
-                byte[] newIDByteArray = new byte[sizeOfID];
-                System.arraycopy(oldIDByteArray, 0, newIDByteArray, 0, oldIDByteArray.length);
-                return newIDByteArray;
+                return (byte[])newEntry.get(0);
         
             default:
                 throw new IllegalArgumentException("Invalid Type Of ID (primary key).");
