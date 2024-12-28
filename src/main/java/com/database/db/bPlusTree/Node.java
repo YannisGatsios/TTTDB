@@ -8,11 +8,13 @@ public class Node {
     List<byte[]> keys;
     List<Node> children;
     Node next;
+    int leafIndex;
 
     public Node(Boolean isLeaf){
         this.isLeaf = isLeaf;
         this.keys = new ArrayList<byte[]>();
         this.children = new ArrayList<Node>();
         this.next = null;
+        this.leafIndex = -1;
     }
 }

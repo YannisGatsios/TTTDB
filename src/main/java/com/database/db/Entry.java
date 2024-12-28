@@ -6,38 +6,18 @@ import java.util.ArrayList;
 
 public class Entry {
     
-    private byte[] ID;
+    private Object ID;
     private ArrayList<Object> entryData;
     private int[] sizeOfElementsOfEntry;
     private int[] indexOfElementsOfEntry;
+    private int sizeInBytes;
 
     //Constructor
     public Entry(ArrayList<Object> newEntry, int sizeOfID){
-        // first element of thr Entry is must Always be the Primary Key And is always converted to byte[].
-        this.ID = this.refactorID(newEntry, sizeOfID);
+        this.entryData = newEntry;
         this.sizeOfElementsOfEntry = this.getSizeOfElementsOfEntry(newEntry);
         this.indexOfElementsOfEntry = this.getIndexOfElemntsOfEntry(this.sizeOfElementsOfEntry);
-        newEntry.remove(0);
-        newEntry.add(0, this.ID);
-        this.entryData = newEntry;
-    }
-
-    private byte[] refactorID(ArrayList<Object> newEntry, int sizeOfID){
-        switch (newEntry.get(0).getClass().getSimpleName()) {
-            case "Integer":
-                ByteBuffer buffer = ByteBuffer.allocate(4); // Allocate 4 bytes
-                buffer.putInt((int) newEntry.get(0));
-                return buffer.array();
-        
-            case "String":
-                return ((String) newEntry.get(0)).getBytes(StandardCharsets.UTF_8);
-        
-            case "byte[]":
-                return (byte[])newEntry.get(0);
-        
-            default:
-                throw new IllegalArgumentException("Invalid Type Of ID (primary key).");
-        }
+        this.sizeInBytes = this.getEntrySizeInBytes();
     }
     
     //the following returns an [] of the size for each value of the entry.
@@ -83,32 +63,40 @@ public class Entry {
     }
 
     // the following gives the size the entry would take when stored
-    public int getEntrySizeInBytes() {
-        ArrayList<Object> tmpEntry = new ArrayList<Object>(this.entryData);
-        tmpEntry.remove(0);
-        int sum = this.ID.length;
-        for (Object element : tmpEntry) {
-            switch (element.getClass().getSimpleName()) {
-                case "String":
-                    byte[] strBytes = ((String) element).getBytes(StandardCharsets.UTF_8);
-                    sum += strBytes.length + Short.BYTES; // String length + 2 bytes for length prefix
-                    break;
-                case "Integer":
-                    sum += Integer.BYTES; // Add 4 bytes for an integer
-                    break;
-                case "byte[]":
-                    byte[] byteArray = (byte[]) element;
-                    sum += byteArray.length + Short.BYTES; // Byte array length + 2 bytes for length prefix
-                    break;
-                default:
-                    throw new IllegalArgumentException("Invalid Element Type For Entry.");
-            }
+    private int getEntrySizeInBytes() {
+        int sum = 0;
+        for (int element : this.sizeOfElementsOfEntry) {
+            sum += sum + element;
         }
         return sum;
     }
+    
+    public byte[] IDintoByteArray(){
+        switch (this.ID.getClass().getSimpleName()) {
+        case "Integer":
+                ByteBuffer buffer = ByteBuffer.allocate(4); // Allocate 4 bytes
+                buffer.putInt((int) this.ID);
+                return buffer.array();
+        
+            case "String":
+                return ((String) this.ID).getBytes(StandardCharsets.UTF_8);
+        
+            case "byte[]":
+                return (byte[]) this.ID;
+        
+            default:
+                throw new IllegalArgumentException("Invalid Type Of ID (primary key).");
+        }
+    }
 
-    public byte[] getID(){
+    public void setID(int index){
+        this.ID = this.entryData.get(index);
+    }public Object getID(){
         return this.ID;
+    }
+
+    public int size(){
+        return this.sizeInBytes;
     }
 
     public ArrayList<Object> getEntry(){

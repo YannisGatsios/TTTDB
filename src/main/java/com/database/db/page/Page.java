@@ -1,100 +1,63 @@
 package com.database.db.page;
 
-import java.util.HashMap;
+//import static org.junit.jupiter.api.DynamicTest.stream;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import com.database.db.Entry;
-import java.util.ArrayList;
 
 public class Page extends PageManager {
 
     private int pageID;
     private short numOfEntries;
     private int spaceInUse;
-    private HashMap<byte[], Short> indexOfEntries;;
-    private List<ArrayList<Object>> entries;
+    private List<Entry> entries;
 
     private short maxNumOfEntries;
     private int maxSizeOfEntry;
-    private int maxSizeOfID;
 
     private static int BLOCK_SIZE = 4096;
+
+    public Page(){}
 
     public Page(int PageID, short maxNumOfEtries) {
         this.pageID = PageID;
         this.numOfEntries = 0;
         this.spaceInUse = 0;
         this.maxNumOfEntries = maxNumOfEtries;
-        this.indexOfEntries = new HashMap<>();
-        this.entries = new ArrayList<ArrayList<Object>>();
+        this.entries = new ArrayList<>();
     }
 
     // ==========ADDING_ENTRIES==========
     public void addEntry(Entry newEntry) throws IllegalArgumentException {
-        if (this.numOfEntries == this.maxNumOfEntries || indexOfEntries.containsKey(newEntry.getID())) {
-            throw new IllegalArgumentException("New Entry ID Already Exists In Page.");
+        if (this.numOfEntries == this.maxNumOfEntries) {
+            throw new IllegalArgumentException("this Paage is full, current Max Size : " + this.maxNumOfEntries);
         }
         this.numOfEntries++;
-        this.entries.add(newEntry.getEntry());
-
-        int sizeOfNewEntrty = newEntry.getEntrySizeInBytes();
-        this.spaceInUse += sizeOfNewEntrty;
-        this.indexOfEntries.put(newEntry.getID(), (short)this.spaceInUse);
+        this.entries.add(newEntry);
+        this.spaceInUse += newEntry.size();
     }
 
     // ===========REMOVING_ENTRIES===============
-    public void removeEntry(byte[] entryID) throws IllegalArgumentException {
-        if (!indexOfEntries.containsKey(entryID)) {
-            throw new IllegalArgumentException("Entry ID to Delete Dose Not Exist On Page.");
+    public void removeEntry(int numOfEntry) {
+        if(numOfEntry > this.entries.size()-1 || numOfEntry < 0){
+            throw new IllegalArgumentException("Invalid Number OF Entry to remove out of bounds yu=ou gave :" + numOfEntry);
         }
-        for (int i = 0; i < this.numOfEntries; i++) {
-            if (this.getEntryID(i) == entryID) {
-                this.removeEntry(i);
-            }
-        }
-    }
-
-    private void removeEntry(int numOfEntry) {
-        short sizeOfEntry = this.getEntrySize(numOfEntry);
-        this.spaceInUse -= sizeOfEntry;
-        if (numOfEntry == this.numOfEntries - 1) {//Checks If It's The First Entry.
-            this.indexOfEntries.remove(this.entries.get(numOfEntry).get(0));
-        } else {
-            this.indexOfEntries.remove(this.getEntryID(numOfEntry));
-            for (int i = numOfEntry; i < this.numOfEntries - 1; i++) {
-                this.indexOfEntries.put(this.getEntryID(i+1), (short) (this.indexOfEntries.get(this.getEntryID(i+1))-sizeOfEntry));
-            }
-        }
-        this.numOfEntries--;
+        this.spaceInUse -= this.getEntrySize(numOfEntry);
         this.entries.remove(this.getEntry(numOfEntry));
     }
 
-    private short getEntrySize(int numOfEntryToRemove){
-        short start;
-        short end;
-        if(numOfEntryToRemove == 0){
-            start = 0;
-            end = this.indexOfEntries.get(this.getEntryID(numOfEntryToRemove));
-        }else{
-            start = this.indexOfEntries.get(this.getEntryID(numOfEntryToRemove-1));
-            end = this.indexOfEntries.get(this.getEntryID(numOfEntryToRemove));
-        }
-        return (short)(end-start);
-    }
-    
-    private byte[] getEntryID(int numOfEntry){
-        return (byte[]) this.getEntry(numOfEntry).get(0);
+    private int getEntrySize(int numOfEntry){
+        return this.entries.get(numOfEntry).size();
     }
 
-    private ArrayList<Object> getEntry(int numOfEntry){
+    private Entry getEntry(int numOfEntry){
         return this.entries.get(numOfEntry);
     }
 
     public void setMaxSizeOfEntry(int maxSizeOfEntry) {
         this.maxSizeOfEntry = maxSizeOfEntry;
-    }
-    public void setMaxSizeOfID(int maxSizeOfID){
-        this.maxSizeOfID = maxSizeOfID;
     }
 
     public int getPageID() {
@@ -109,16 +72,8 @@ public class Page extends PageManager {
         return this.spaceInUse;
     }
 
-    public HashMap<byte[], Short> getIndexOfEntries() {
-        return this.indexOfEntries;
-    }
-
-    public List<ArrayList<Object>> getEntries() {
+    public List<Entry> getEntries() {
         return this.entries;
-    }
-
-    public int getMazSizeOfID(){
-        return this.maxSizeOfID;
     }
 
     public int sizeOfPage() {
@@ -140,8 +95,18 @@ public class Page extends PageManager {
                 "\n\tSize Of Page :           [" + this.sizeOfPage() + "]" +
                 "\n\tSize Of Page Header :   [" + this.sizeOfHeader() + "]" +
                 "\n\tSpace in Use :            [ " + this.spaceInUse + "/" + this.sizeOfEntries() + " ]" +
-                "\n\tIndex Of Rows :            " + this.indexOfEntries + 
-                "\n\tEntry data :               " + this.entries;
+                "\n\tEntry data :               " + String.join(", ", this.getEntriesList());
+    }
+    private String[] getEntriesList(){
+        String[] result = new String[this.numOfEntries];
+        int ind = 0;
+        for (Entry entry : this.entries) {
+            result[ind] = entry.getEntry()
+                        .stream().map(Object::toString)
+                        .collect(Collectors.joining(", "));
+            ind++;
+        }
+        return result;
     }
 
 }

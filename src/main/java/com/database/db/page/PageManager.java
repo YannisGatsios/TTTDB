@@ -12,7 +12,7 @@ import com.database.db.Table;
 import com.database.db.Entry;
 
 public class PageManager {
-    public static void writePage(String path, byte[] pageBuffer, int pagePosition){
+    public void writePage(String path, byte[] pageBuffer, int pagePosition){
         try {
             RandomAccessFile raf = new RandomAccessFile(path, "rw");
 
@@ -25,7 +25,7 @@ public class PageManager {
         }
     }
 
-    public static byte[] readPage(String path, int pagePosition, int pageMaxSize){
+    public byte[] readPage(String path, int pagePosition, int pageMaxSize){
         byte[] buffer = new byte[pageMaxSize];
         try {
             RandomAccessFile raf = new RandomAccessFile(path, "r");
@@ -58,7 +58,8 @@ public class PageManager {
         headBuffer.flip();
 
         // Add entries
-        for (ArrayList<Object> entry : page.getEntries()) {
+        for (Entry entryObj : page.getEntries()) {
+            ArrayList<Object> entry = entryObj.getEntry();
             for (Object element : entry) {
                 switch (element.getClass().getSimpleName()) {
                     case "Integer":
@@ -82,12 +83,10 @@ public class PageManager {
         buffer.flip();
 
         ByteBuffer combinedArray = ByteBuffer.allocate(page.sizeOfPage());
-
         // Get the remaining bytes from buffer1 and buffer2 into the combinedArray
         combinedArray.put(headBuffer.array());
         combinedArray.put(buffer.array());
         combinedArray.flip();
-
         // Return the underlying byte array
         return combinedArray.array();
     }
@@ -100,7 +99,6 @@ public class PageManager {
         //Initializing New Empty Page.
         Page newPage = new Page(pageID, table.getMaxEntriesPerPage());
         newPage.setMaxSizeOfEntry(table.getSizeOfEntry());
-        newPage.setMaxSizeOfID(table.getMaxIDSize());
 
         //Reading The Number Of Entries.
         short numOfEtries = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, 0, 2)).getShort();
@@ -138,6 +136,7 @@ public class PageManager {
                 }
             }
             Entry newEntry = new Entry(entry, table.getMaxIDSize());
+            newEntry.setID(table.getIDindex());
             newPage.addEntry(newEntry);
         }
         if(spaceInUse != newPage.getSpaceInUse()){

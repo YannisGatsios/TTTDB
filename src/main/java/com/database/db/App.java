@@ -12,7 +12,7 @@ import com.database.db.page.Page;
 public class App {
 
     public static void main(String[] args) {
-        /* 
+        
         BPlusTree tree = new BPlusTree(5);
         Random random = new Random();
         int i = 0;
@@ -58,14 +58,15 @@ public class App {
         byte[] removeKey = {15};
         tree.remove(removeKey);
         System.out.println("\nB+ Tree after removing " + Arrays.toString(removeKey) + ":");
-        tree.printTree();*/
+        tree.printTree();
         
 
         
         String databaseName = "system";
         String tableName = "users";
-        Schema schema = new Schema("username:10:String;num:4:Integer;message:5:String;data:10:Byte".split(";"));
+        Schema schema = new Schema("username:10:String:false:fasle:true;num:4:Integer:false:true:false;message:5:String:true:true:false;data:10:Byte:false:false:false".split(";"));
         //Schema schema = new Schema("num:4:Integer;username:10:String;message:5:String;data:10:Byte".split(";"));
+        schema.printSchema();
         Table table = new Table(databaseName, tableName, schema);
 
         //entry 1
@@ -77,6 +78,7 @@ public class App {
         buffer[9] = (byte) 0xff;
         entrie.add(buffer);
         Entry entry1 = new Entry(entrie, table.getMaxIDSize());
+        entry1.setID(table.getIDindex());
 
         //entry 2
         ArrayList<Object> entrie2 = new ArrayList<>();
@@ -87,6 +89,7 @@ public class App {
         buffer2[9] = (byte) 0xff;
         entrie2.add(buffer2);
         Entry entry2 = new Entry(entrie2, table.getMaxIDSize());
+        entry2.setID(table.getIDindex());
 
         //entry 3
         ArrayList<Object> entrie3 = new ArrayList<>();
@@ -97,32 +100,38 @@ public class App {
         buffer3[9] = (byte) 0xff;
         entrie3.add(buffer2);
         Entry entry3 = new Entry(entrie3, table.getMaxIDSize());
+        entry3.setID(table.getIDindex());
         
-        BPlusTree tree = new BPlusTree(table.getMaxEntriesPerPage());
+        //B+Tree
+        BPlusTree tree2 = new BPlusTree(table.getMaxEntriesPerPage());
         //Page
-        Page page = new Page(0, (short)table.getMaxEntriesPerPage());
+        Page page = new Page(0, (short) table.getMaxEntriesPerPage());
         page.setMaxSizeOfEntry(table.getSizeOfEntry());
-        page.setMaxSizeOfID(table.getMaxIDSize());
+
         try {
             page.addEntry(entry1);
-            tree.insert(entry1.getID());
+            tree2.insert(entry1.IDintoByteArray());
             page.addEntry(entry2);
-            tree.insert(entry2.getID());
+            tree2.insert(entry2.IDintoByteArray());
             page.addEntry(entry3);
-            tree.insert(entry3.getID());
+            tree2.insert(entry3.IDintoByteArray());
+
             //page.removeEntry(entry1.getID());
             //page.removeEntry(entry3.getID());
             //page.removeEntry(entry2.getID());
+            tree2.printTree();
             System.out.println(page.pageStats());
             
+            //Writing page to memory 
             byte[] data = page.pageToBuffer(page);
-            String path = "storage/" + table.getDatabaseName() + "." + table.getTableName() + ".tb";
+            String path = "storage/" + table.getDatabaseName() + "." + table.getTableName() + ".table";
             page.writePage(path, data, page.getPageID()*page.sizeOfPage());
             
+            //Reading page from memory
             Page newPage = new Page(0, (short)table.getMaxEntriesPerPage());
             byte[] bufferPage = newPage.readPage(path, page.getPageID() * page.sizeOfPage(), page.sizeOfPage());
             newPage = newPage.bufferToPage(bufferPage, table);
-            System.out.println("NEW PAGE:\n"+newPage.pageStats());
+            System.out.println("NEW PAGE:"+newPage.pageStats());
         } catch (IOException e) {
             e.printStackTrace();
         }

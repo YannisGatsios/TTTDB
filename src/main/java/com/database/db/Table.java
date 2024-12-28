@@ -9,6 +9,7 @@ public class Table {
 
     private short numOfColumns;
     private int sizeOfEntry;
+    private int IDindex;
     private static int BLOCK_SIZE = 4096;
     private static int SIZE_OF_HEADER = 2 * (Integer.BYTES) + Short.BYTES;
 
@@ -18,9 +19,11 @@ public class Table {
         this.Database = databaseName;
         this.tableName = tableName;
         this.tablSchema = schema;
+        
         this.numOfColumns = (short) this.tablSchema.getColumnSizes().length;
         this.sizeOfEntry = this.setSizeOfEntry();
         this.maxEntriesPerPage = this.setMaxEntriesPerPage();
+        this.IDindex = this.tablSchema.getPrimaryKeyIndex();
     }
 
     private int setSizeOfEntry(){
@@ -43,7 +46,7 @@ public class Table {
         return sum;
     }
 
-    public boolean isValidEntry(Entry entry) {
+    public boolean isValidEntry(Entry entry){
         //Check if the number of columns matches the number of elements in the entry.
         if (entry.getEntry().size() != this.numOfColumns) {
             return false;
@@ -134,5 +137,9 @@ public class Table {
         return (short) (numOfPages * (BLOCK_SIZE-SIZE_OF_HEADER)/this.sizeOfEntry);
     }public short getMaxEntriesPerPage(){
         return this.maxEntriesPerPage;
+    }
+
+    public int getIDindex(){
+        return this.IDindex;
     }
 }

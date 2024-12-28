@@ -34,7 +34,7 @@ public class BPlusTree {
             this.root.keys.add(key);
         }else{
             if(this.search(key)){
-                //TODO ERROR for insert existin key.
+                //TODO ERROR for insert existing key.
                 return;
             }
             if(this.root.keys.size() == this.order){
@@ -176,15 +176,15 @@ public class BPlusTree {
         Node child = node.children.get(index);
         Node sibling = node.children.get(index +1);
 
+        child.keys.add(node.keys.remove(index));
         child.keys.addAll(sibling.keys);
 
         if(!child.isLeaf){
             child.children.addAll(sibling.children);
         }
         node.children.remove(index + 1);
-        node.children.get(index).next = null;
-        if(child.keys.size() > this.order){
-            this.splitChild(node, index, child);
+        if(child.isLeaf){
+            child.next = sibling.next;
         }
     }
 
@@ -254,7 +254,7 @@ public class BPlusTree {
         }
         return tree;
     }
-    private static String printNode(Node node){
+    private String printNode(Node node){
         String keys = "|";
         for(int i = 0; i < node.keys.size();i++){
             keys += "  "+byteArrayToString(node.keys.get(i))+"  |";
@@ -265,7 +265,7 @@ public class BPlusTree {
                 border+"\n"+
                 "Children : "+node.children.size()+"\n";
     }
-    private static String byteArrayToString(byte[] byteArray) {
+    private String byteArrayToString(byte[] byteArray) {
         StringBuilder sb = new StringBuilder();
         for (byte b : byteArray) {
             if (sb.length() > 0) {
