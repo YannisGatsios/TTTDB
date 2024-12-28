@@ -33,10 +33,6 @@ public class BPlusTree {
             this.root = new Node(true);
             this.root.keys.add(key);
         }else{
-            if(this.search(key)){
-                //TODO ERROR for insert existing key.
-                return;
-            }
             if(this.root.keys.size() == this.order){
                 Node newRoot = new Node(false);
                 newRoot.children.add(this.root);
@@ -102,50 +98,61 @@ public class BPlusTree {
         }
     }
 
-    private void remove(Node node, byte[] key){
-        if(node.isLeaf && node.keys.size() > 0){
-            node.keys.removeIf(k -> Arrays.equals(k, key));
-        }else{
-            int idx = Collections.binarySearch(node.keys, key, keyComparator);
-            if(idx < 0) idx = -(idx + 1);
-
-            if(idx < node.keys.size() && key.equals(node.keys.get(idx))){
-                if(node.children.get(idx).keys.size() >= this.order){
-                    Node predNode = node.children.get(idx);
-                    while (!predNode.isLeaf) {
-                        predNode = predNode.children.get(predNode.keys.size() - 1);
-                    }
-                    byte[] pred = predNode.keys.get(predNode.keys.size() - 1);
+    private void remove(Node node, byte[] key) {
+        int idx = Collections.binarySearch(node.keys, key, keyComparator);
+        if (idx >= 0) {
+            if (node.isLeaf) {
+                // Key found in leaf node
+                node.keys.remove(idx);
+            } else {
+                // Key found in internal node
+                Node predNode = node.children.get(idx);
+                if (predNode.keys.size() >= (order + 1) / 2) {
+                    byte[] pred = getPredecessor(predNode);
                     node.keys.set(idx, pred);
-                    this.remove(node.children.get(idx), pred);
-                }else if(node.children.get(idx + 1).keys.size() >= this.order){
+                    remove(predNode, pred);
+                } else if (node.children.get(idx + 1).keys.size() >= (order + 1) / 2) {
                     Node succNode = node.children.get(idx + 1);
-                    while (!succNode.isLeaf) {
-                        succNode = succNode.children.get(0);
-                    }
-                    byte[] succ = succNode.keys.get(0);
+                    byte[] succ = getSuccessor(succNode);
                     node.keys.set(idx, succ);
-                    this.remove(node.children.get(idx + 1), succ);
-                }else{
-                    this.merge(node, idx);
-                    this.remove(node.children.get(idx), key);
+                    remove(succNode, succ);
+                } else {
+                    merge(node, idx);
+                    remove(node.children.get(idx), key);
                 }
-            }else{
-                if(node.children.get(idx).keys.size() < this.order){
-                    if(idx > 0 && node.children.get(idx - 1).keys.size() >= this.order){
-                        this.borrowFromPrev(node, idx);
-                    }else if(idx < node.children.size() -1 && node.children.get(idx + 1).keys.size() >= this.order){
-                        this.borrowFromNext(node, idx);
-                    }else{
-                        if(idx < node.children.size() - 1){
-                            node.keys.remove(idx);
-                            this.merge(node, idx);
-                        }
+            }
+        } else {
+            // Key not found in current node
+            idx = -(idx + 1);
+            if (node.children.get(idx).keys.size() < (order + 1) / 2) {
+                if (idx > 0 && node.children.get(idx - 1).keys.size() >= (order + 1) / 2) {
+                    borrowFromPrev(node, idx);
+                } else if (idx < node.children.size() - 1 && node.children.get(idx + 1).keys.size() >= (order + 1) / 2) {
+                    borrowFromNext(node, idx);
+                } else {
+                    if (idx < node.children.size() - 1) {
+                        merge(node, idx);
+                    } else {
+                        merge(node, idx - 1);
                     }
                 }
-                this.remove(node.children.get(idx), key);
             }
+            remove(node.children.get(idx), key);
         }
+    }
+    
+    private byte[] getPredecessor(Node node) {
+        while (!node.isLeaf) {
+            node = node.children.get(node.children.size() - 1);
+        }
+        return node.keys.get(node.keys.size() - 1);
+    }
+    
+    private byte[] getSuccessor(Node node) {
+        while (!node.isLeaf) {
+            node = node.children.get(0);
+        }
+        return node.keys.get(0);
     }
 
     private void borrowFromPrev(Node node, int index){
@@ -257,7 +264,7 @@ public class BPlusTree {
     private String printNode(Node node){
         String keys = "|";
         for(int i = 0; i < node.keys.size();i++){
-            keys += "  "+byteArrayToString(node.keys.get(i))+"  |";
+            keys += "  "+ this.byteArrayToString(node.keys.get(i))+"  |";
         }
         String border = "+"+String.valueOf("-").repeat(keys.length()-2)+"+";
         return "\n"+border+"\n"+
@@ -271,7 +278,7 @@ public class BPlusTree {
             if (sb.length() > 0) {
                 sb.append(" ");
             }
-            sb.append(b & 0xFF); // Convert byte to unsigned int representation
+            sb.append(b & 0xFF);
         }
         return sb.toString();
     }

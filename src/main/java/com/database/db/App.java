@@ -41,6 +41,7 @@ public class App {
         tree.insert(new byte[] {31});
 
         System.out.println("B+ Tree after insertions:");
+        tree.printTree();
 
         // Search for a key
         byte[] searchKey = {100};
@@ -58,7 +59,7 @@ public class App {
         byte[] removeKey = {15};
         tree.remove(removeKey);
         System.out.println("\nB+ Tree after removing " + Arrays.toString(removeKey) + ":");
-        tree.printTree();
+        //tree.printTree();
         
 
         
