@@ -6,6 +6,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+
+
 public class BPlusTree {
 
     private Node root;
@@ -196,21 +198,31 @@ public class BPlusTree {
     }
 
     //==========! SEARCHING !===========
-    public boolean search(byte[] key){
+    public boolean search(byte[] key) {
         Node current = this.root;
+        // Traverse down the tree to find the leaf node
         while (current != null) {
             int idx = Collections.binarySearch(current.keys, key, keyComparator);
-            if(idx >= 0){
-                return true;
+            if (idx >= 0) {
+                // If the key is found in the current node, we check if it's a leaf node
+                if (current.isLeaf) {
+                    return true;  // Key found in a leaf node
+                } else {
+                    // If not a leaf, continue to the appropriate child
+                    current = current.children.get(idx);
+                }
+            } else {
+                // Key not found in the current node, determine which child to go to
+                idx = -(idx + 1);
+                if (current.isLeaf) {
+                    return false;  // Key is not found in a leaf node
+                }
+                current = current.children.get(idx);
             }
-            idx = -(idx + 1);
-            if(current.isLeaf){
-                return false;
-            }
-            current =current.children.get(idx);
         }
         return false;
     }
+    
 
     public List<byte[]> rangeQuery(byte[] lower, byte[] upper){
         List<byte[]> result = new ArrayList<>();

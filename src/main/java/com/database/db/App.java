@@ -7,11 +7,15 @@ import java.io.IOException;
 import java.util.ArrayList;
 
 import com.database.db.bPlusTree.BPlusTree;
+import com.database.db.bPlusTree.TreeUtils.Pair;
 import com.database.db.page.Page;
 
 public class App {
 
     public static void main(String[] args) {
+
+        Pair<Byte[], Integer> pair = new Pair<>(new Byte[]{20}, 0);
+        System.out.println(pair.toString());
         
         BPlusTree tree = new BPlusTree(5);
         Random random = new Random();
@@ -41,10 +45,10 @@ public class App {
         tree.insert(new byte[] {31});
 
         System.out.println("B+ Tree after insertions:");
-        tree.printTree();
+        //tree.printTree();
 
         // Search for a key
-        byte[] searchKey = {100};
+        byte[] searchKey = {15};
         System.out.println("\nSearching for key " + Arrays.toString(searchKey) + ": " + (tree.search(searchKey) ? "Found" : "Not Found"));
 
         // Perform a range query
@@ -59,9 +63,9 @@ public class App {
         byte[] removeKey = {15};
         tree.remove(removeKey);
         System.out.println("\nB+ Tree after removing " + Arrays.toString(removeKey) + ":");
-        //tree.printTree();
+        ///tree.printTree();
         
-
+        /* 
         
         String databaseName = "system";
         String tableName = "users";
@@ -103,24 +107,18 @@ public class App {
         Entry entry3 = new Entry(entrie3, table.getMaxIDSize());
         entry3.setID(table.getIDindex());
         
-        //B+Tree
-        BPlusTree tree2 = new BPlusTree(table.getMaxEntriesPerPage());
         //Page
         Page page = new Page(0, (short) table.getMaxEntriesPerPage());
         page.setMaxSizeOfEntry(table.getSizeOfEntry());
 
         try {
             page.addEntry(entry1);
-            tree2.insert(entry1.IDintoByteArray());
             page.addEntry(entry2);
-            tree2.insert(entry2.IDintoByteArray());
             page.addEntry(entry3);
-            tree2.insert(entry3.IDintoByteArray());
 
-            //page.removeEntry(entry1.getID());
-            //page.removeEntry(entry3.getID());
-            //page.removeEntry(entry2.getID());
-            tree2.printTree();
+            page.removeEntry(0);
+            //page.removeEntry(1);
+            //page.removeEntry(2);
             System.out.println(page.pageStats());
             
             //Writing page to memory 
@@ -135,6 +133,6 @@ public class App {
             System.out.println("NEW PAGE:"+newPage.pageStats());
         } catch (IOException e) {
             e.printStackTrace();
-        }
+        }*/
     }
 }

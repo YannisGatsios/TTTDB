@@ -1,6 +1,5 @@
 package com.database.db.page;
 
-//import static org.junit.jupiter.api.DynamicTest.stream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -46,6 +45,7 @@ public class Page extends PageManager {
         }
         this.spaceInUse -= this.getEntrySize(numOfEntry);
         this.entries.remove(this.getEntry(numOfEntry));
+        this.numOfEntries--;
     }
 
     private int getEntrySize(int numOfEntry){
