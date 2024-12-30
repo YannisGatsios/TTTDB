@@ -5,20 +5,20 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-
-
+import com.database.db.bPlusTree.TreeUtils.Pair;;
 
 public class BPlusTree {
 
     private Node root;
     private final int order;
-
-    private final Comparator<byte[]> keyComparator = (kay1, key2) -> {
-        for(int i = 0; i < Math.min(kay1.length, key2.length); i++){
-            int cmp = kay1[i] - key2[i];
+    private final Comparator<Pair<byte[], Integer>> keyComparator = (pair, pair1) -> {
+        byte[] key = pair.getKey();
+        byte[] key1 = pair1.getKey();
+        for(int i = 0; i < Math.min(key.length, key1.length); i++){
+            int cmp = key[i] - key1[i];
             if(cmp != 0) return cmp;
         }
-        return Integer.compare(kay1.length, key2.length);
+        return Integer.compare(key.length, key1.length);
     };
 
     public BPlusTree(int order){
@@ -30,7 +30,7 @@ public class BPlusTree {
     }
 
     //========! INSERTION !==========
-    public void insert(byte[] key){
+    public void insert(Pair<byte[], Integer> key){
         if(this.root == null){
             this.root = new Node(true);
             this.root.keys.add(key);
@@ -48,7 +48,7 @@ public class BPlusTree {
     private void splitChild(Node parent, int index, Node child){
         Node newChild = new Node(child.isLeaf);
 
-        byte[] medKey = child.keys.get(this.order / 2);
+        Pair<byte[], Integer> medKey = child.keys.get(this.order / 2);
 
         parent.children.add(index + 1,newChild);
         parent.keys.add(index, medKey);
@@ -67,20 +67,20 @@ public class BPlusTree {
         }
     }
 
-    private void insertNonFull(Node node, byte[] key){
+    private void insertNonFull(Node node, Pair<byte[], Integer> key){
         if (node.isLeaf){
             int pos = Collections.binarySearch(node.keys, key, keyComparator);
             if(pos < 0) pos = -(pos+1);
             node.keys.add(pos, key);
         }else{
             int i = node.keys.size() - 1;
-            while (i >= 0 && Arrays.compare(key, node.keys.get(i)) < 0) {
+            while (i >= 0 && Arrays.compare(key.getKey(), node.keys.get(i).getKey()) < 0) {
                 i--;
             }
             i++;
             if (node.children.get(i).keys.size() == this.order){
                 this.splitChild(node, i, node.children.get(i));
-                if(Arrays.compare(key, node.keys.get(i)) > 0){
+                if(Arrays.compare(key.getKey(), node.keys.get(i).getKey()) > 0){
                     i++;
                 }
             }
@@ -93,14 +93,15 @@ public class BPlusTree {
         if(root == null){
             return;
         }
-        this.remove(this.root, key);
+        Pair<byte[], Integer> tempPair = new Pair<>(key, null);
+        this.remove(this.root, tempPair);
         if(root.keys.isEmpty() && !this.root.isLeaf){
-            byte[] lastKeyOfChild = this.root.children.get(0).keys.get(this.root.children.get(0).keys.size()-1);
+            Pair<byte[], Integer> lastKeyOfChild = this.root.children.get(0).keys.get(this.root.children.get(0).keys.size()-1);
             this.root.keys.add(lastKeyOfChild);
         }
     }
 
-    private void remove(Node node, byte[] key) {
+    private void remove(Node node, Pair<byte[], Integer> key) {
         int idx = Collections.binarySearch(node.keys, key, keyComparator);
         if (idx >= 0) {
             if (node.isLeaf) {
@@ -110,12 +111,12 @@ public class BPlusTree {
                 // Key found in internal node
                 Node predNode = node.children.get(idx);
                 if (predNode.keys.size() >= (order + 1) / 2) {
-                    byte[] pred = getPredecessor(predNode);
+                    Pair<byte[], Integer> pred = getPredecessor(predNode);
                     node.keys.set(idx, pred);
                     remove(predNode, pred);
                 } else if (node.children.get(idx + 1).keys.size() >= (order + 1) / 2) {
                     Node succNode = node.children.get(idx + 1);
-                    byte[] succ = getSuccessor(succNode);
+                    Pair<byte[], Integer> succ = getSuccessor(succNode);
                     node.keys.set(idx, succ);
                     remove(succNode, succ);
                 } else {
@@ -143,14 +144,14 @@ public class BPlusTree {
         }
     }
     
-    private byte[] getPredecessor(Node node) {
+    private Pair<byte[], Integer> getPredecessor(Node node) {
         while (!node.isLeaf) {
             node = node.children.get(node.children.size() - 1);
         }
         return node.keys.get(node.keys.size() - 1);
     }
     
-    private byte[] getSuccessor(Node node) {
+    private Pair<byte[], Integer> getSuccessor(Node node) {
         while (!node.isLeaf) {
             node = node.children.get(0);
         }
@@ -199,10 +200,11 @@ public class BPlusTree {
 
     //==========! SEARCHING !===========
     public boolean search(byte[] key) {
+        Pair<byte[], Integer> tempPair = new Pair<>(key, null);
         Node current = this.root;
         // Traverse down the tree to find the leaf node
         while (current != null) {
-            int idx = Collections.binarySearch(current.keys, key, keyComparator);
+            int idx = Collections.binarySearch(current.keys, tempPair, keyComparator);
             if (idx >= 0) {
                 // If the key is found in the current node, we check if it's a leaf node
                 if (current.isLeaf) {
@@ -224,22 +226,22 @@ public class BPlusTree {
     }
     
 
-    public List<byte[]> rangeQuery(byte[] lower, byte[] upper){
-        List<byte[]> result = new ArrayList<>();
+    public List<Pair<byte[], Integer>> rangeQuery( byte[] lower, byte[] upper){
+        List<Pair<byte[], Integer>> result = new ArrayList<>();
         Node current = root;
         while (current != null && !current.isLeaf) {
             int idx = 0;
-            while (idx < current.keys.size() && Arrays.compare(lower, current.keys.get(idx)) > 0) {
+            while (idx < current.keys.size() && Arrays.compare(lower, current.keys.get(idx).getKey()) > 0) {
                 idx++;
             }
             current = current.children.get(idx);
         }
         while (current != null) {
-            for(byte[] key : current.keys){
-                if(Arrays.compare(key, lower) >= 0 && Arrays.compare(key, upper) <= 0){
+            for(Pair<byte[], Integer> key : current.keys){
+                if(Arrays.compare(key.getKey(), lower) >= 0 && Arrays.compare(key.getKey(), upper) <= 0){
                     result.add(key);
                 }
-                if(Arrays.compare(key, upper) > 0){
+                if(Arrays.compare(key.getKey(), upper) > 0){
                     return result;
                 }
             }
@@ -276,7 +278,7 @@ public class BPlusTree {
     private String printNode(Node node){
         String keys = "|";
         for(int i = 0; i < node.keys.size();i++){
-            keys += "  "+ this.byteArrayToString(node.keys.get(i))+"  |";
+            keys += "  "+ this.byteArrayToString(node.keys.get(i).getKey())+"  |";
         }
         String border = "+"+String.valueOf("-").repeat(keys.length()-2)+"+";
         return "\n"+border+"\n"+

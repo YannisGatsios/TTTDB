@@ -25,27 +25,27 @@ public class App {
             int num1 = random.nextInt(127);
             byte[] data = {(byte) num,(byte) num1};
             if(!tree.search(data)){
-                tree.insert(data);
+                tree.insert(new Pair<byte[],Integer>(data, i));
                 i++;
             }
         }
 
         // Insert elements
-        tree.insert(new byte[] {10});
-        tree.insert(new byte[] {20});
-        tree.insert(new byte[] {5});
-        tree.insert(new byte[] {15});
-        tree.insert(new byte[] {25});
-        tree.insert(new byte[] {30});
-        tree.insert(new byte[] {11});
-        tree.insert(new byte[] {22});
-        tree.insert(new byte[] {6});
-        tree.insert(new byte[] {16});
-        tree.insert(new byte[] {26});
-        tree.insert(new byte[] {31});
+        tree.insert(new Pair<byte[],Integer>(new byte[] {10}, 1));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {20}, 2));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {5}, 3));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {15}, 4));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {25}, 5));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {30}, 6));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {11}, 7));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {22}, 8));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {6}, 9));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {16}, 10));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {26}, 11));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {31}, 12));
 
         System.out.println("B+ Tree after insertions:");
-        //tree.printTree();
+        tree.printTree();
 
         // Search for a key
         byte[] searchKey = {15};
@@ -53,10 +53,10 @@ public class App {
 
         // Perform a range query
         byte[] lower = {10}, upper = {30};
-        List<byte[]> rangeResult = tree.rangeQuery(lower, upper);
+        List<Pair<byte[],Integer>> rangeResult = tree.rangeQuery(lower, upper);
         System.out.println("\nRange query [" + Arrays.toString(lower) + ", " + Arrays.toString(upper) + "]: ");
-        for (byte[] bs : rangeResult) {
-            System.out.print(Arrays.toString(bs));
+        for (Pair<byte[],Integer> bs : rangeResult) {
+            System.out.print(Arrays.toString(bs.getKey())+"Vallue : [ " + bs.getValue() + " ]");
         }
 
         // Remove a key
@@ -65,7 +65,6 @@ public class App {
         System.out.println("\nB+ Tree after removing " + Arrays.toString(removeKey) + ":");
         ///tree.printTree();
         
-        /* 
         
         String databaseName = "system";
         String tableName = "users";
@@ -133,6 +132,6 @@ public class App {
             System.out.println("NEW PAGE:"+newPage.pageStats());
         } catch (IOException e) {
             e.printStackTrace();
-        }*/
+        }
     }
 }

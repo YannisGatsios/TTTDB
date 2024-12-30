@@ -2,6 +2,9 @@ package com.database.db.bPlusTree;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import com.database.db.bPlusTree.TreeUtils.Pair;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.Arrays;
@@ -21,18 +24,18 @@ public class BPlusTreeTest {
     @Test
     public void testInsertionAndSearch() {
         // Insert elements
-        tree.insert(new byte[] {10});
-        tree.insert(new byte[] {20});
-        tree.insert(new byte[] {5});
-        tree.insert(new byte[] {15});
-        tree.insert(new byte[] {25});
-        tree.insert(new byte[] {30});
-        tree.insert(new byte[] {11});
-        tree.insert(new byte[] {22});
-        tree.insert(new byte[] {6});
-        tree.insert(new byte[] {16});
-        tree.insert(new byte[] {26});
-        tree.insert(new byte[] {31});
+        tree.insert(new Pair<byte[],Integer>(new byte[] {10}, 1));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {20}, 2));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {5}, 3));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {15}, 4));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {25}, 5));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {30}, 6));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {11}, 7));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {22}, 8));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {6}, 9));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {16}, 10));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {26}, 11));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {31}, 12));
 
         // Assert that the keys are inserted correctly by searching for each key
         assertTrue(tree.search(new byte[] {10}));
@@ -52,43 +55,43 @@ public class BPlusTreeTest {
     @Test
     public void testRangeQuery() {
         // Insert elements
-        tree.insert(new byte[] {10});
-        tree.insert(new byte[] {20});
-        tree.insert(new byte[] {5});
-        tree.insert(new byte[] {15});
-        tree.insert(new byte[] {25});
-        tree.insert(new byte[] {30});
-        tree.insert(new byte[] {11});
-        tree.insert(new byte[] {22});
-        tree.insert(new byte[] {6});
-        tree.insert(new byte[] {16});
-        tree.insert(new byte[] {26});
-        tree.insert(new byte[] {31});
+        tree.insert(new Pair<byte[],Integer>(new byte[] {10}, 1));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {20}, 2));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {5}, 3));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {15}, 4));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {25}, 5));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {30}, 6));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {11}, 7));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {22}, 8));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {6}, 9));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {16}, 10));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {26}, 11));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {31}, 12));
 
         // Perform a range query and check if the range is correct
-        byte[] lower = {10};
-        byte[] upper = {25};
-        List<byte[]> result = tree.rangeQuery(lower, upper);
+        byte[] lower = new byte[] {10};
+        byte[] upper = new byte[] {25};
+        List<Pair<byte[],Integer>> result = tree.rangeQuery(lower, upper);
 
         // The expected output should contain keys in the range [10, 25]
         assertNotNull(result);
         assertEquals(7, result.size());  // There should be 9 keys in the range [10, 25]
 
         // Check if all keys in result are within the range [10, 25]
-        for (byte[] key : result) {
-            assertTrue(Arrays.compare(key, lower) >= 0 && Arrays.compare(key, upper) <= 0);
+        for (Pair<byte[],Integer> key : result) {
+            assertTrue(Arrays.compare(key.getKey(), lower) >= 0 && Arrays.compare(key.getKey(), upper) <= 0);
         }
     }
 
     @Test
     public void testRemove() {
         // Insert elements
-        tree.insert(new byte[] {10});
-        tree.insert(new byte[] {20});
-        tree.insert(new byte[] {5});
-        tree.insert(new byte[] {15});
-        tree.insert(new byte[] {25});
-        tree.insert(new byte[] {30});
+        tree.insert(new Pair<byte[],Integer>(new byte[] {10}, 1));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {20}, 2));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {5}, 3));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {15}, 4));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {25}, 5));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {30}, 6));
 
         // Remove an element
         byte[] keyToRemove = {15};
@@ -114,7 +117,7 @@ public class BPlusTreeTest {
             int num1 = random.nextInt(127);
             byte[] data = { (byte) num, (byte) num1 };
             if (!tree.search(data)) {
-                tree.insert(data);
+                tree.insert(new Pair<byte[],Integer>(data, i));
                 i++;
             }
         }
@@ -122,10 +125,10 @@ public class BPlusTreeTest {
 
     @Test
     void testRemoveWithMerge() {
-        byte[] key1 = new byte[] {1};
-        byte[] key2 = new byte[] {2};
-        byte[] key3 = new byte[] {3};
-        byte[] key4 = new byte[] {4};
+        Pair<byte[],Integer> key1 = new Pair<>(new byte[] {1}, 1);
+        Pair<byte[],Integer> key2 = new Pair<>(new byte[] {2}, 2);
+        Pair<byte[],Integer> key3 = new Pair<>(new byte[] {3}, 3);
+        Pair<byte[],Integer> key4 = new Pair<>(new byte[] {4}, 4);
         
         tree.insert(key1);
         tree.insert(key2);
@@ -133,13 +136,13 @@ public class BPlusTreeTest {
         tree.insert(key4);
         
         // Remove key1, which should trigger a merge
-        tree.remove(key1);
+        tree.remove(key1.getKey());
         
         // Verify the structure after merge
-        assertFalse(tree.search(key1));
-        assertTrue(tree.search(key2));
-        assertTrue(tree.search(key3));
-        assertTrue(tree.search(key4));
+        assertFalse(tree.search(key1.getKey()));
+        assertTrue(tree.search(key2.getKey()));
+        assertTrue(tree.search(key3.getKey()));
+        assertTrue(tree.search(key4.getKey()));
     }
 
     @Test
@@ -151,9 +154,9 @@ public class BPlusTreeTest {
     @Test
     public void testInsertAndPrintTree() {
         // Insert elements
-        tree.insert(new byte[] {10});
-        tree.insert(new byte[] {20});
-        tree.insert(new byte[] {30});
+        tree.insert(new Pair<byte[],Integer>(new byte[] {10}, 1));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {20}, 2));
+        tree.insert(new Pair<byte[],Integer>(new byte[] {30}, 3));
 
         // Optionally, print tree structure
         tree.printTree();  // This will print the tree structure for debugging purposes
@@ -166,8 +169,8 @@ public class BPlusTreeTest {
 
     @Test
     void testSearchNotFound() {
-        byte[] key1 = new byte[] {1};
-        byte[] key2 = new byte[] {2};
+        Pair<byte[],Integer> key1 = new Pair<>(new byte[] {1}, 1);
+        Pair<byte[],Integer> key2 = new Pair<>(new byte[] {2}, 2);
         
         tree.insert(key1);
         tree.insert(key2);
