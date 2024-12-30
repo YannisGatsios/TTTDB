@@ -3,21 +3,48 @@ package com.database.db.bPlusTree;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.database.db.bPlusTree.TreeUtils.Pair;
+import com.database.db.bPlusTree.TreeUtils.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 
 public class BPlusTreeTest {
 
     private BPlusTree tree;
+    private Comparator<Pair<?, Integer>> comparator;
 
     @BeforeEach
     public void setUp() {
         // Initialize the tree with an order of 5 for testing.
+        comparator = (pair1, pair2) -> {
+            Object key1 = pair1.getKey();
+            Object key2 = pair2.getKey();
+
+            // Ensure both keys are of the same type (String or Integer)
+            if (key1.getClass() != key2.getClass()) {
+                throw new IllegalArgumentException("Keys must be of the same type (String or Integer).");
+            }
+
+            if (key1 instanceof String && key2 instanceof String) {
+                return ((String) key1).compareTo((String) key2);
+            } else if (key1 instanceof Integer && key2 instanceof Integer) {
+                return Integer.compare((Integer) key1, (Integer) key2);
+            } else if (key1 instanceof byte[] && key2 instanceof byte[]) {
+                byte[] bkey1 = (byte[]) key1;
+                byte[] bkey2 = (byte[]) key2;
+                for (int i = 0; i < Math.min(bkey1.length, bkey2.length); i++) {
+                    int cmp = bkey1[i] - bkey2[i];
+                    if (cmp != 0)
+                        return cmp;
+                }
+                return Integer.compare(bkey1.length, bkey2.length);
+            } else {
+                throw new IllegalArgumentException("Unsupported key type. Only String and Integer are allowed.");
+            }
+        };
         tree = new BPlusTree(5);
     }
 
@@ -71,15 +98,17 @@ public class BPlusTreeTest {
         // Perform a range query and check if the range is correct
         byte[] lower = new byte[] {10};
         byte[] upper = new byte[] {25};
-        List<Pair<byte[],Integer>> result = tree.rangeQuery(lower, upper);
+        List<Pair<?,Integer>> result = tree.rangeQuery(lower, upper);
+        Pair<?,Integer> pairLow = new Pair<>(lower, 0);
+        Pair<?,Integer> pairUp = new Pair<>(upper, 0);
 
         // The expected output should contain keys in the range [10, 25]
         assertNotNull(result);
         assertEquals(7, result.size());  // There should be 9 keys in the range [10, 25]
 
         // Check if all keys in result are within the range [10, 25]
-        for (Pair<byte[],Integer> key : result) {
-            assertTrue(Arrays.compare(key.getKey(), lower) >= 0 && Arrays.compare(key.getKey(), upper) <= 0);
+        for (Pair<?,Integer> key : result) {
+            assertTrue(comparator.compare(key, pairLow) >= 0 && comparator.compare(key, pairUp) <= 0);
         }
     }
 

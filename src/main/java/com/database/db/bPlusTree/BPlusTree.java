@@ -1,7 +1,6 @@
 package com.database.db.bPlusTree;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -10,15 +9,32 @@ public class BPlusTree extends TreeUtils{
 
     private Node root;
     private final int order;
-    public int numOfPages;
-    private final Comparator<Pair<byte[], Integer>> keyComparator = (pair, pair1) -> {
-        byte[] key = pair.getKey();
-        byte[] key1 = pair1.getKey();
-        for(int i = 0; i < Math.min(key.length, key1.length); i++){
-            int cmp = key[i] - key1[i];
-            if(cmp != 0) return cmp;
+    private int lastPageID;
+    private final Comparator<Pair<?, Integer>> keyComparator = (pair1, pair2) -> {
+        Object key1 = pair1.getKey();
+        Object key2 = pair2.getKey();
+    
+        // Ensure both keys are of the same type (String or Integer)
+        if (key1.getClass() != key2.getClass()) {
+            throw new IllegalArgumentException("Keys must be of the same type (String or Integer).");
         }
-        return Integer.compare(key.length, key1.length);
+    
+        if (key1 instanceof String && key2 instanceof String) {
+            return ((String) key1).compareTo((String) key2);
+        } else if (key1 instanceof Integer && key2 instanceof Integer) {
+            return Integer.compare((Integer) key1, (Integer) key2);
+        } else if (key1 instanceof byte[] && key2 instanceof byte[]) {
+            byte[] bkey1 = (byte[]) key1;
+            byte[] bkey2 = (byte[]) key2;
+            for (int i = 0; i < Math.min(bkey1.length, bkey2.length); i++) {
+                int cmp = bkey1[i] - bkey2[i];
+                if (cmp != 0)
+                    return cmp;
+            }
+            return Integer.compare(bkey1.length, bkey2.length);
+        } else {
+            throw new IllegalArgumentException("Unsupported key type. Only String and Integer are allowed.");
+        }
     };
 
     public BPlusTree(int order){
@@ -27,11 +43,11 @@ public class BPlusTree extends TreeUtils{
         }
         this.root = null;
         this.order = order;
-        this.numOfPages = 0;
+        this.lastPageID = 0;
     }
 
     //========! INSERTION !==========
-    public void insert(Pair<byte[], Integer> key){
+    public void insert(Pair<?, Integer> key){
         if(this.root == null){
             this.root = new Node(true);
             this.root.keys.add(key);
@@ -49,7 +65,7 @@ public class BPlusTree extends TreeUtils{
     private void splitChild(Node parent, int index, Node child){
         Node newChild = new Node(child.isLeaf);
 
-        Pair<byte[], Integer> medKey = child.keys.get(this.order / 2);
+        Pair<?, Integer> medKey = child.keys.get(this.order / 2);
 
         parent.children.add(index + 1,newChild);
         parent.keys.add(index, medKey);
@@ -68,20 +84,20 @@ public class BPlusTree extends TreeUtils{
         }
     }
 
-    private void insertNonFull(Node node, Pair<byte[], Integer> key){
+    private void insertNonFull(Node node, Pair<?, Integer> key){
         if (node.isLeaf){
             int pos = Collections.binarySearch(node.keys, key, keyComparator);
             if(pos < 0) pos = -(pos+1);
             node.keys.add(pos, key);
         }else{
             int i = node.keys.size() - 1;
-            while (i >= 0 && Arrays.compare(key.getKey(), node.keys.get(i).getKey()) < 0) {
+            while (i >= 0 && keyComparator.compare(key, node.keys.get(i)) < 0) {
                 i--;
             }
             i++;
             if (node.children.get(i).keys.size() == this.order){
                 this.splitChild(node, i, node.children.get(i));
-                if(Arrays.compare(key.getKey(), node.keys.get(i).getKey()) > 0){
+                if(keyComparator.compare(key, node.keys.get(i)) > 0){
                     i++;
                 }
             }
@@ -90,19 +106,19 @@ public class BPlusTree extends TreeUtils{
     }
 
     //===========! REMOVING !=============
-    public void remove(byte[] key){
+    public void remove(Object key){
         if(root == null){
             return;
         }
-        Pair<byte[], Integer> tempPair = new Pair<>(key, null);
+        Pair<?, Integer> tempPair = new Pair<>(key, null);
         this.remove(this.root, tempPair);
         if(root.keys.isEmpty() && !this.root.isLeaf){
-            Pair<byte[], Integer> lastKeyOfChild = this.root.children.get(0).keys.get(this.root.children.get(0).keys.size()-1);
+            Pair<?, Integer> lastKeyOfChild = this.root.children.get(0).keys.get(this.root.children.get(0).keys.size()-1);
             this.root.keys.add(lastKeyOfChild);
         }
     }
 
-    private void remove(Node node, Pair<byte[], Integer> key) {
+    private void remove(Node node, Pair<?, Integer> key) {
         int idx = Collections.binarySearch(node.keys, key, keyComparator);
         if (idx >= 0) {
             if (node.isLeaf) {
@@ -112,12 +128,12 @@ public class BPlusTree extends TreeUtils{
                 // Key found in internal node
                 Node predNode = node.children.get(idx);
                 if (predNode.keys.size() >= (order + 1) / 2) {
-                    Pair<byte[], Integer> pred = getPredecessor(predNode);
+                    Pair<?, Integer> pred = getPredecessor(predNode);
                     node.keys.set(idx, pred);
                     remove(predNode, pred);
                 } else if (node.children.get(idx + 1).keys.size() >= (order + 1) / 2) {
                     Node succNode = node.children.get(idx + 1);
-                    Pair<byte[], Integer> succ = getSuccessor(succNode);
+                    Pair<?, Integer> succ = getSuccessor(succNode);
                     node.keys.set(idx, succ);
                     remove(succNode, succ);
                 } else {
@@ -145,14 +161,14 @@ public class BPlusTree extends TreeUtils{
         }
     }
     
-    private Pair<byte[], Integer> getPredecessor(Node node) {
+    private Pair<?, Integer> getPredecessor(Node node) {
         while (!node.isLeaf) {
             node = node.children.get(node.children.size() - 1);
         }
         return node.keys.get(node.keys.size() - 1);
     }
     
-    private Pair<byte[], Integer> getSuccessor(Node node) {
+    private Pair<?, Integer> getSuccessor(Node node) {
         while (!node.isLeaf) {
             node = node.children.get(0);
         }
@@ -200,8 +216,9 @@ public class BPlusTree extends TreeUtils{
     }
 
     //==========! SEARCHING !===========
-    public boolean search(byte[] key) {
-        Pair<byte[], Integer> tempPair = new Pair<>(key, null);
+    public boolean search(Object key) {
+        if(this.root == null) return false;
+        Pair<?, Integer> tempPair = new Pair<>(key, null);
         Node current = this.root;
         // Traverse down the tree to find the leaf node
         while (current != null) {
@@ -225,24 +242,52 @@ public class BPlusTree extends TreeUtils{
         }
         return false;
     }
+
+    public Pair<?, Integer> findPair(Object key) {
+        Pair<?, Integer> tempPair = new Pair<>(key, null);
+        Node current = this.root;
+        // Traverse down the tree to find the leaf node
+        while (current != null) {
+            int idx = Collections.binarySearch(current.keys, tempPair, keyComparator);
+            if (idx >= 0) {
+                // If the key is found in the current node, we check if it's a leaf node
+                if (current.isLeaf) {
+                    return current.keys.get(idx);  // Key found in a leaf node
+                } else {
+                    // If not a leaf, continue to the appropriate child
+                    current = current.children.get(idx);
+                }
+            } else {
+                // Key not found in the current node, determine which child to go to
+                idx = -(idx + 1);
+                if (current.isLeaf) {
+                    return null;  // Key is not found in a leaf node
+                }
+                current = current.children.get(idx);
+            }
+        }
+        return null;
+    }
     
 
-    public List<Pair<byte[], Integer>> rangeQuery( byte[] lower, byte[] upper){
-        List<Pair<byte[], Integer>> result = new ArrayList<>();
+    public List<Pair<?, Integer>> rangeQuery( Object lower, Object upper){
+        List<Pair<?, Integer>> result = new ArrayList<>();
+        Pair<?, Integer> tempLow = new Pair<>(lower, null);
+        Pair<?, Integer> tempUp = new Pair<>(upper, null);
         Node current = root;
         while (current != null && !current.isLeaf) {
             int idx = 0;
-            while (idx < current.keys.size() && Arrays.compare(lower, current.keys.get(idx).getKey()) > 0) {
+            while (idx < current.keys.size() && keyComparator.compare(tempLow, current.keys.get(idx)) > 0) {
                 idx++;
             }
             current = current.children.get(idx);
         }
         while (current != null) {
-            for(Pair<byte[], Integer> key : current.keys){
-                if(Arrays.compare(key.getKey(), lower) >= 0 && Arrays.compare(key.getKey(), upper) <= 0){
+            for(Pair<?, Integer> key : current.keys){
+                if(keyComparator.compare(key, tempLow) >= 0 && keyComparator.compare(key, tempUp) <= 0){
                     result.add(key);
                 }
-                if(Arrays.compare(key.getKey(), upper) > 0){
+                if(keyComparator.compare(key, tempLow) > 0){
                     return result;
                 }
             }
@@ -287,18 +332,29 @@ public class BPlusTree extends TreeUtils{
                 border+"\n"+
                 "Children : "+node.children.size()+"\n";
     }
-    private String byteArrayToString(byte[] byteArray) {
-        StringBuilder sb = new StringBuilder();
-        for (byte b : byteArray) {
-            if (sb.length() > 0) {
-                sb.append(" ");
+    private String byteArrayToString(Object byteArray) {
+        if(byteArray instanceof byte[]){
+            StringBuilder sb = new StringBuilder();
+            for (byte b : (byte[])byteArray) {
+                if (sb.length() > 0) {
+                    sb.append(" ");
+                }
+                sb.append(b & 0xFF);
             }
-            sb.append(b & 0xFF);
+            return sb.toString();
         }
-        return sb.toString();
+        return byteArray.toString();
     }
 
     public Node getRoot(){
         return this.root;
+    }
+
+    public int getLastPageID(){
+        return this.lastPageID;
+    }public void addOnePageID(){
+        this.lastPageID = this.lastPageID + 1;
+    }public void setLastPageID(int lastPageID){
+        this.lastPageID = lastPageID;
     }
 }

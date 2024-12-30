@@ -1,7 +1,5 @@
 package com.database.db;
 
-import java.nio.charset.StandardCharsets;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
 public class Entry {
@@ -69,24 +67,6 @@ public class Entry {
             sum += sum + element;
         }
         return sum;
-    }
-    
-    public byte[] IDintoByteArray(){
-        switch (this.ID.getClass().getSimpleName()) {
-        case "Integer":
-                ByteBuffer buffer = ByteBuffer.allocate(4); // Allocate 4 bytes
-                buffer.putInt((int) this.ID);
-                return buffer.array();
-        
-            case "String":
-                return ((String) this.ID).getBytes(StandardCharsets.UTF_8);
-        
-            case "byte[]":
-                return (byte[]) this.ID;
-        
-            default:
-                throw new IllegalArgumentException("Invalid Type Of ID (primary key).");
-        }
     }
 
     public void setID(int index){

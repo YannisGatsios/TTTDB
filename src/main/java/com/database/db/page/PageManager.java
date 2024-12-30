@@ -31,6 +31,10 @@ public class PageManager {
             RandomAccessFile raf = new RandomAccessFile(path, "r");
             raf.seek(pagePosition);
             int bytesRead = raf.read(buffer, 0, pageMaxSize);
+            if (bytesRead == -1) {
+                // File is empty or end of file is reached
+                return null; // Return an empty byte array
+            }
             if (bytesRead < pageMaxSize) {
                 byte[] actualBytes = new byte[bytesRead];
                 System.arraycopy(buffer, 0, actualBytes, 0, bytesRead);

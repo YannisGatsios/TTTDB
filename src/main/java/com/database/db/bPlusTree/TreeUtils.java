@@ -4,12 +4,13 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 public class TreeUtils {
     public static class Pair<K, V> {
-        private final K key;
-        private final V value;
+        private K key;
+        private V value;
     
         public Pair(K key, V value) {
             this.key = key;
@@ -24,12 +25,12 @@ public class TreeUtils {
             return value;
         }
     
-        @Override
-        public String toString() {
-            return "Pair{" +
-                    "key=" + key +
-                    ", value=" + value +
-                    '}';
+        public void setKey(K key) {
+            this.key = key;
+        }
+    
+        public void setValue(V value) {
+            this.value = value;
         }
     }
 
@@ -47,24 +48,24 @@ public class TreeUtils {
         while (node != null) {
             for (int i = 0; i < node.keys.size(); i++) {
                 estimatedSize += Short.BYTES; // Key length
-                estimatedSize += node.keys.get(i).getKey().length; // Actual key size
+                estimatedSize += this.getKeySize(node.keys.get(i).getKey()); // Actual key size
                 estimatedSize += Integer.BYTES; // Value size
             }
             node = node.next;
         }
         // Allocate buffer with the estimated size
         ByteBuffer buffer = ByteBuffer.allocate(estimatedSize);
-        buffer.putInt(tree.numOfPages);
+        buffer.putInt(tree.getLastPageID());
         //Adding the key value Pairs.
         //starting from the left most Leaf Node
         node = this.getLeftMostLeaf(tree);
         while (node.next != null) {
             for(int i = 0; i < node.keys.size(); i++){
-                byte[] key = node.keys.get(i).getKey();
+                Object key = node.keys.get(i).getKey();
                 int value = node.keys.get(i).getValue();
 
-                buffer.putShort((short) key.length);
-                buffer.put(key);
+                buffer.putShort((short) this.getKeySize(key));
+                buffer.put(this.keyToByteArray(key));
                 buffer.putInt(value);
             }
             node = node.next;
@@ -74,9 +75,38 @@ public class TreeUtils {
         return buffer.array();
     }
 
+    private int getKeySize(Object key){
+        if(key instanceof String){
+            return ((String) key).length();
+        } else if(key instanceof Integer){
+            return Integer.BYTES;
+        } else if(key instanceof byte[]){
+            return ((byte[]) key).length;
+        }
+        throw new IllegalArgumentException("Invalid key type(Can not read key size)");
+    }
+
+    public byte[] keyToByteArray(Object key) {
+        switch (key.getClass().getSimpleName()) {
+            case "Integer":
+                ByteBuffer buffer = ByteBuffer.allocate(4); // Allocate 4 bytes
+                buffer.putInt((int) key);
+                return buffer.array();
+
+            case "String":
+                return ((String) key).getBytes(StandardCharsets.UTF_8);
+
+            case "byte[]":
+                return (byte[]) key;
+
+            default:
+                throw new IllegalArgumentException("Invalid Type Of ID (primary key).");
+        }
+    }
+
     public BPlusTree bufferToTree(byte[] treeBuffer, int treeOrder){
         BPlusTree newTree = new BPlusTree(treeOrder);
-        newTree.numOfPages = ByteBuffer.wrap(Arrays.copyOfRange(treeBuffer, 0, 4)).getInt();
+        newTree.setLastPageID(treeOrder = ByteBuffer.wrap(Arrays.copyOfRange(treeBuffer, 0, 4)).getInt());
         treeBuffer = Arrays.copyOfRange(treeBuffer, 4, treeBuffer.length);
 
         short size = ByteBuffer.wrap(Arrays.copyOfRange(treeBuffer, 0, 2)).getShort();
@@ -98,6 +128,7 @@ public class TreeUtils {
     public void writeTree(String filePath, byte[] treeBuffer) {
         try (FileOutputStream fos = new FileOutputStream(filePath)) {
             fos.write(treeBuffer);
+            fos.getChannel().truncate(treeBuffer.length);
             System.out.println("Data successfully written to " + filePath);
         } catch (IOException e) {
             System.err.println("Error writing to file: " + e.getMessage());

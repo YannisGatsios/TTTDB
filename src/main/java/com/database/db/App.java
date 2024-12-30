@@ -4,25 +4,66 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.io.IOException;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 
 import com.database.db.bPlusTree.BPlusTree;
 import com.database.db.bPlusTree.TreeUtils.Pair;
 import com.database.db.page.Page;
+import com.database.db.parser.DBMSprocesses;
 
 public class App {
+    private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
-    public static void main(String[] args) {
+    public static String generateRandomString(int length) {
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            int randomIndex = SECURE_RANDOM.nextInt(CHARACTERS.length());
+            sb.append(CHARACTERS.charAt(randomIndex));
+        }
+        return sb.toString();
+    }
+
+    public static void main(String[] args) throws IOException{
         //Table INIT.
         String databaseName = "system";
         String tableName = "users";
         Schema schema = new Schema("username:10:String:false:fasle:true;num:4:Integer:false:true:false;message:5:String:true:true:false;data:10:Byte:false:false:false".split(";"));
         schema.printSchema();
         Table table = new Table(databaseName, tableName, schema);
-        
-        BPlusTree tree = new BPlusTree(5);
+        BPlusTree tree = new BPlusTree(table.getMaxEntriesPerPage());
+        System.out.println(tree.getLastPageID());
+        DBMSprocesses DBMS = new DBMSprocesses();
+
         Random random = new Random();
-        int i = 0;
+        int ind = 0;
+        while (ind < 400) {
+            System.out.println(ind);
+            int sizeOfID = random.nextInt(table.getMaxIDSize()-1)+1;
+            String userName = generateRandomString(sizeOfID);
+            if(!tree.search(userName)){
+                ArrayList<Object> entryData = new ArrayList<>();
+                entryData.add(userName);
+                int intNum = random.nextInt();
+                entryData.add(intNum);
+                int sizeOfString = random.nextInt(table.getSchema().getColumnSizes()[2]);
+                String randStr = generateRandomString(sizeOfString);
+                entryData.add(randStr);
+                int sizeOfData = random.nextInt(table.getSchema().getColumnSizes()[3]);
+                byte[] data = new byte[sizeOfData];
+                for(int y = 0; y < sizeOfData; y++){
+                    data[y] = (byte) random.nextInt(127);
+                }
+                entryData.add(data);
+                Entry entry = new Entry(entryData, table.getMaxIDSize());
+                entry.setID(table.getIDindex());
+                tree = DBMS.insertionProcess(table, entry, tree);
+                ind++;
+            }
+        }
+        
+        ind = 0;/* 
         while(i < 400){
             int num = random.nextInt(127);
             int num1 = random.nextInt(127);
@@ -56,10 +97,10 @@ public class App {
 
         // Perform a range query
         byte[] lower = {10}, upper = {30};
-        List<Pair<byte[],Integer>> rangeResult = tree.rangeQuery(lower, upper);
+        List<Pair<?,Integer>> rangeResult = tree.rangeQuery(lower, upper);
         System.out.println("\nRange query [" + Arrays.toString(lower) + ", " + Arrays.toString(upper) + "]: ");
-        for (Pair<byte[],Integer> bs : rangeResult) {
-            System.out.print(" { "+Arrays.toString(bs.getKey())+" : " + bs.getValue() + " } ");
+        for (Pair<?,Integer> bs : rangeResult) {
+            System.out.print(" { "+Arrays.toString(tree.keyToByteArray(bs.getKey()))+" : " + bs.getValue() + " } ");
         }
 
         // Remove a key
@@ -68,7 +109,7 @@ public class App {
         System.out.println("\nB+ Tree after removing " + Arrays.toString(removeKey) + ":");
 
         //writing tree1
-        tree.numOfPages = 10;
+        tree.lastPageID = 10;
         String indexPath = "storage/index/"+table.getDatabaseName()+"."+table.getTableName()+".index";
         byte[] bufferTree = tree.treeToBuffer(tree, table.getMaxIDSize(), table.getMaxEntriesPerPage());
         tree.writeTree(indexPath, bufferTree);
@@ -76,8 +117,8 @@ public class App {
         //creating and readin tree2
         BPlusTree tree2 = new BPlusTree(3);
         bufferTree = tree2.readTree(indexPath);
-        tree2 = tree2.bufferToTree(bufferTree, 5);
-        tree2.printTree();
+        tree2 = tree2.bufferToTree(bufferTree, 5);*/
+        //tree.printTree();
         
         /* 
         //entry 1

@@ -101,6 +101,10 @@ public class Table {
         return false;
     }
 
+    public String getTablePath(){
+        return "storage/"+this.getDatabaseName()+"."+this.getTableName()+".table";
+    }
+
     public String getDatabaseName(){
         return this.Database;
     }

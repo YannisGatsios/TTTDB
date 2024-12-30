@@ -88,6 +88,10 @@ public class Page extends PageManager {
         return this.maxSizeOfEntry * this.maxNumOfEntries + this.numOfEntries * Short.BYTES;
     }
 
+    public int getPagePos(){
+        return this.pageID * this.sizeOfPage();
+    }
+
     public String pageStats() {
         return "\nPage Stats :" + 
                 "\n\tPage ID :                 " + this.pageID +
