@@ -5,12 +5,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import com.database.db.bPlusTree.TreeUtils.Pair;;
 
-public class BPlusTree {
+public class BPlusTree extends TreeUtils{
 
     private Node root;
     private final int order;
+    public int numOfPages;
     private final Comparator<Pair<byte[], Integer>> keyComparator = (pair, pair1) -> {
         byte[] key = pair.getKey();
         byte[] key1 = pair1.getKey();
@@ -27,6 +27,7 @@ public class BPlusTree {
         }
         this.root = null;
         this.order = order;
+        this.numOfPages = 0;
     }
 
     //========! INSERTION !==========
@@ -278,7 +279,7 @@ public class BPlusTree {
     private String printNode(Node node){
         String keys = "|";
         for(int i = 0; i < node.keys.size();i++){
-            keys += "  "+ this.byteArrayToString(node.keys.get(i).getKey())+"  |";
+            keys += "  "+ this.byteArrayToString(node.keys.get(i).getKey())+" : "+node.keys.get(i).getValue()+"  |";
         }
         String border = "+"+String.valueOf("-").repeat(keys.length()-2)+"+";
         return "\n"+border+"\n"+
@@ -295,5 +296,9 @@ public class BPlusTree {
             sb.append(b & 0xFF);
         }
         return sb.toString();
+    }
+
+    public Node getRoot(){
+        return this.root;
     }
 }

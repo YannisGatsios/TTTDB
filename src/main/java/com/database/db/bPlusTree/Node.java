@@ -9,13 +9,11 @@ public class Node {
     List<Pair<byte[] ,Integer>> keys;
     List<Node> children;
     Node next;
-    int leafIndex;
 
     public Node(Boolean isLeaf){
         this.isLeaf = isLeaf;
         this.keys = new ArrayList<Pair<byte[] ,Integer>>();
         this.children = new ArrayList<Node>();
         this.next = null;
-        this.leafIndex = -1;
     }
 }

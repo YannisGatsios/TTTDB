@@ -13,9 +13,12 @@ import com.database.db.page.Page;
 public class App {
 
     public static void main(String[] args) {
-
-        Pair<Byte[], Integer> pair = new Pair<>(new Byte[]{20}, 0);
-        System.out.println(pair.toString());
+        //Table INIT.
+        String databaseName = "system";
+        String tableName = "users";
+        Schema schema = new Schema("username:10:String:false:fasle:true;num:4:Integer:false:true:false;message:5:String:true:true:false;data:10:Byte:false:false:false".split(";"));
+        schema.printSchema();
+        Table table = new Table(databaseName, tableName, schema);
         
         BPlusTree tree = new BPlusTree(5);
         Random random = new Random();
@@ -56,23 +59,27 @@ public class App {
         List<Pair<byte[],Integer>> rangeResult = tree.rangeQuery(lower, upper);
         System.out.println("\nRange query [" + Arrays.toString(lower) + ", " + Arrays.toString(upper) + "]: ");
         for (Pair<byte[],Integer> bs : rangeResult) {
-            System.out.print(Arrays.toString(bs.getKey())+"Vallue : [ " + bs.getValue() + " ]");
+            System.out.print(" { "+Arrays.toString(bs.getKey())+" : " + bs.getValue() + " } ");
         }
 
         // Remove a key
         byte[] removeKey = {15};
         tree.remove(removeKey);
         System.out.println("\nB+ Tree after removing " + Arrays.toString(removeKey) + ":");
-        ///tree.printTree();
-        
-        
-        String databaseName = "system";
-        String tableName = "users";
-        Schema schema = new Schema("username:10:String:false:fasle:true;num:4:Integer:false:true:false;message:5:String:true:true:false;data:10:Byte:false:false:false".split(";"));
-        //Schema schema = new Schema("num:4:Integer;username:10:String;message:5:String;data:10:Byte".split(";"));
-        schema.printSchema();
-        Table table = new Table(databaseName, tableName, schema);
 
+        //writing tree1
+        tree.numOfPages = 10;
+        String indexPath = "storage/index/"+table.getDatabaseName()+"."+table.getTableName()+".index";
+        byte[] bufferTree = tree.treeToBuffer(tree, table.getMaxIDSize(), table.getMaxEntriesPerPage());
+        tree.writeTree(indexPath, bufferTree);
+
+        //creating and readin tree2
+        BPlusTree tree2 = new BPlusTree(3);
+        bufferTree = tree2.readTree(indexPath);
+        tree2 = tree2.bufferToTree(bufferTree, 5);
+        tree2.printTree();
+        
+        /* 
         //entry 1
         ArrayList<Object> entrie = new ArrayList<>();
         entrie.add("johnttt1");
@@ -122,16 +129,16 @@ public class App {
             
             //Writing page to memory 
             byte[] data = page.pageToBuffer(page);
-            String path = "storage/" + table.getDatabaseName() + "." + table.getTableName() + ".table";
-            page.writePage(path, data, page.getPageID()*page.sizeOfPage());
+            String tablePath = "storage/" + table.getDatabaseName() + "." + table.getTableName() + ".table";
+            page.writePage(tablePath, data, page.getPageID()*page.sizeOfPage());
             
             //Reading page from memory
             Page newPage = new Page(0, (short)table.getMaxEntriesPerPage());
-            byte[] bufferPage = newPage.readPage(path, page.getPageID() * page.sizeOfPage(), page.sizeOfPage());
+            byte[] bufferPage = newPage.readPage(tablePath, page.getPageID() * page.sizeOfPage(), page.sizeOfPage());
             newPage = newPage.bufferToPage(bufferPage, table);
             System.out.println("NEW PAGE:"+newPage.pageStats());
         } catch (IOException e) {
             e.printStackTrace();
-        }
+        }*/
     }
 }
