@@ -14,7 +14,7 @@ import java.util.Random;
 public class BPlusTreeTest {
 
     private BPlusTree tree;
-    private Comparator<Pair<?, Integer>> comparator;
+    private Comparator<Pair<?, ?>> comparator;
 
     @BeforeEach
     public void setUp() {
@@ -98,7 +98,7 @@ public class BPlusTreeTest {
         // Perform a range query and check if the range is correct
         byte[] lower = new byte[] {10};
         byte[] upper = new byte[] {25};
-        List<Pair<?,Integer>> result = tree.rangeQuery(lower, upper);
+        List<Pair<?,?>> result = tree.rangeQuery(lower, upper);
         Pair<?,Integer> pairLow = new Pair<>(lower, 0);
         Pair<?,Integer> pairUp = new Pair<>(upper, 0);
 
@@ -107,7 +107,7 @@ public class BPlusTreeTest {
         assertEquals(7, result.size());  // There should be 9 keys in the range [10, 25]
 
         // Check if all keys in result are within the range [10, 25]
-        for (Pair<?,Integer> key : result) {
+        for (Pair<?,?> key : result) {
             assertTrue(comparator.compare(key, pairLow) >= 0 && comparator.compare(key, pairUp) <= 0);
         }
     }

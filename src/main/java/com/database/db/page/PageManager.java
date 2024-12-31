@@ -33,6 +33,7 @@ public class PageManager {
             int bytesRead = raf.read(buffer, 0, pageMaxSize);
             if (bytesRead == -1) {
                 // File is empty or end of file is reached
+                raf.close();
                 return null; // Return an empty byte array
             }
             if (bytesRead < pageMaxSize) {
@@ -101,8 +102,7 @@ public class PageManager {
         bufferData = Arrays.copyOfRange(bufferData, 4, bufferData.length);
 
         //Initializing New Empty Page.
-        Page newPage = new Page(pageID, table.getMaxEntriesPerPage());
-        newPage.setMaxSizeOfEntry(table.getSizeOfEntry());
+        Page newPage = new Page(pageID, table);
 
         //Reading The Number Of Entries.
         short numOfEtries = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, 0, 2)).getShort();

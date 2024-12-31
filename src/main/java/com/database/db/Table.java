@@ -101,6 +101,10 @@ public class Table {
         return false;
     }
 
+    public int getNumOfColumns(){
+        return this.numOfColumns;
+    }
+
     public String getTablePath(){
         return "storage/"+this.getDatabaseName()+"."+this.getTableName()+".table";
     }
@@ -119,10 +123,6 @@ public class Table {
 
     public int getSizeOfEntry(){
         return this.sizeOfEntry;
-    }
-
-    public short getNumOfColumns(){
-        return this.numOfColumns;
     }
 
     public int getMaxIDSize(){

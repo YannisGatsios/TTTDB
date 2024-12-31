@@ -6,13 +6,13 @@ import com.database.db.bPlusTree.TreeUtils.Pair;;
 
 public class Node {
     boolean isLeaf;
-    List<Pair<? ,Integer>> keys;
+    List<Pair<? ,?>> keys;
     List<Node> children;
     Node next;
 
     public Node(Boolean isLeaf){
         this.isLeaf = isLeaf;
-        this.keys = new ArrayList<Pair<? ,Integer>>();
+        this.keys = new ArrayList<Pair<? ,?>>();
         this.children = new ArrayList<Node>();
         this.next = null;
     }

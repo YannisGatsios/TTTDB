@@ -62,7 +62,7 @@ public class TreeUtils {
         while (node.next != null) {
             for(int i = 0; i < node.keys.size(); i++){
                 Object key = node.keys.get(i).getKey();
-                int value = node.keys.get(i).getValue();
+                int value = (int) node.keys.get(i).getValue();
 
                 buffer.putShort((short) this.getKeySize(key));
                 buffer.put(this.keyToByteArray(key));

@@ -59,8 +59,7 @@ class PageTest {
         entry3 = new Entry(entryData3, table.getMaxIDSize());
         entry3.setID(table.getIDindex());
 
-        page = new Page(0, (short) table.getMaxEntriesPerPage());
-        page.setMaxSizeOfEntry(table.getSizeOfEntry());
+        page = new Page(0, table);
     }
 
     @Test
@@ -126,7 +125,7 @@ class PageTest {
         String path = "storage/" + table.getDatabaseName() + "." + table.getTableName() + ".table";
         page.writePage(path, data, page.getPageID() * page.sizeOfPage());
 
-        Page newPage = new Page(0, (short) table.getMaxEntriesPerPage());
+        Page newPage = new Page(0, table);
         byte[] bufferPage = newPage.readPage(path, page.getPageID() * page.sizeOfPage(), page.sizeOfPage());
         newPage = newPage.bufferToPage(bufferPage, table);
 
