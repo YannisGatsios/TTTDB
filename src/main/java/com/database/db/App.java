@@ -58,7 +58,7 @@ public class App {
                 entryData.add(data);
                 Entry entry = new Entry(entryData, table.getMaxIDSize());
                 entry.setID(table.getIDindex());
-                if(ind >= 136){
+                if(ind >= 127){
                     ind = ind;//for debuger beak point
                 }
                 tree = DBMS.insertionProcess(table, entry, tree);

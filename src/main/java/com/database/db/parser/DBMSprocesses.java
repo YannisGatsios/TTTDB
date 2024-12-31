@@ -38,8 +38,8 @@ public class DBMSprocesses {
     private void insertionSteps(Table table, BPlusTree tree, Entry entry, Page Page, byte[] pageBuffer) throws IOException{
         Page.addEntry(entry);
         Pair<?,Integer> pair = new Pair<>(entry.getID(), Page.getPageID());
-        pageBuffer = Page.pageToBuffer(Page);
-        Page.writePage(table.getTablePath(), pageBuffer, Page.getPagePos());
+        byte[] pageToWrite = Page.pageToBuffer(Page);
+        Page.writePage(table.getTablePath(), pageToWrite, Page.getPagePos());
         tree.insert(pair);
         System.out.println("Inseted Key = "+pair.getKey()+" : Value = "+pair.getValue()+"\n insert "+Page.getNumOfEntries());
     }
