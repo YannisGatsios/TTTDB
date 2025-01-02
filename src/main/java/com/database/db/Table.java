@@ -108,6 +108,9 @@ public class Table {
     public String getTablePath(){
         return "storage/"+this.getDatabaseName()+"."+this.getTableName()+".table";
     }
+    public String getIndexPath(){
+        return "storage/index/"+this.getDatabaseName()+"."+this.getTableName()+".index";
+    }
 
     public String getDatabaseName(){
         return this.Database;
@@ -128,7 +131,14 @@ public class Table {
     public int getMaxIDSize(){
         return this.tablSchema.getColumnSizes()[0];
     }
+    public int getIDindex(){
+        return this.IDindex;
+    }
+    public String getIDtype(){
+        return this.getSchema().getColumnTypes()[this.getIDindex()];
+    }
 
+    
     public short setMaxEntriesPerPage(){
         if(!((BLOCK_SIZE-SIZE_OF_HEADER)/this.sizeOfEntry >= 3)){
             return this.setMaxEntriesPerPage(2);
@@ -141,9 +151,5 @@ public class Table {
         return (short) (numOfPages * (BLOCK_SIZE-SIZE_OF_HEADER)/this.sizeOfEntry);
     }public short getMaxEntriesPerPage(){
         return this.maxEntriesPerPage;
-    }
-
-    public int getIDindex(){
-        return this.IDindex;
     }
 }

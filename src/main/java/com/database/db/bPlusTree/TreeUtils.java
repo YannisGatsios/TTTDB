@@ -47,26 +47,31 @@ public class TreeUtils {
         Node node = this.getLeftMostLeaf(tree);
         while (node != null) {
             for (int i = 0; i < node.keys.size(); i++) {
-                estimatedSize += Short.BYTES; // Key length
-                estimatedSize += this.getKeySize(node.keys.get(i).getKey()); // Actual key size
-                estimatedSize += Integer.BYTES; // Value size
+                estimatedSize += this.getObjectSize(node.keys.get(i).getKey(),(byte)1); // Actual key size
+                estimatedSize += this.getObjectSize(node.keys.get(i).getValue(), (byte)1); // Value size
             }
             node = node.next;
         }
+        estimatedSize += Short.BYTES; //This accounts for the EOF flag that is a Short = 0
         // Allocate buffer with the estimated size
         ByteBuffer buffer = ByteBuffer.allocate(estimatedSize);
         buffer.putInt(tree.getLastPageID());
         //Adding the key value Pairs.
         //starting from the left most Leaf Node
         node = this.getLeftMostLeaf(tree);
-        while (node.next != null) {
+        while (node != null) {
             for(int i = 0; i < node.keys.size(); i++){
                 Object key = node.keys.get(i).getKey();
-                int value = (int) node.keys.get(i).getValue();
+                Object value = node.keys.get(i).getValue();
 
-                buffer.putShort((short) this.getKeySize(key));
-                buffer.put(this.keyToByteArray(key));
-                buffer.putInt(value);
+                buffer.putShort((short) this.getObjectSize(key, (byte)0));
+                buffer.put(this.objectToByteArray(key));
+                if(value instanceof Integer){
+                    buffer.putInt((int)value);
+                }else{
+                    buffer.putShort((short)this.getObjectSize(value , (byte)0));
+                    buffer.put(this.objectToByteArray(value));
+                }
             }
             node = node.next;
         }
@@ -75,18 +80,19 @@ public class TreeUtils {
         return buffer.array();
     }
 
-    private int getKeySize(Object key){
+    //Account size must only be 1 or 0
+    private int getObjectSize(Object key, byte accountSize){
         if(key instanceof String){
-            return ((String) key).length();
+            return ((String) key).length() + (accountSize*Short.BYTES);
         } else if(key instanceof Integer){
             return Integer.BYTES;
         } else if(key instanceof byte[]){
-            return ((byte[]) key).length;
+            return ((byte[]) key).length + (accountSize*Short.BYTES);
         }
         throw new IllegalArgumentException("Invalid key type(Can not read key size)");
     }
 
-    public byte[] keyToByteArray(Object key) {
+    private byte[] objectToByteArray(Object key) {
         switch (key.getClass().getSimpleName()) {
             case "Integer":
                 ByteBuffer buffer = ByteBuffer.allocate(4); // Allocate 4 bytes
@@ -104,24 +110,42 @@ public class TreeUtils {
         }
     }
 
-    public BPlusTree bufferToTree(byte[] treeBuffer, int treeOrder){
+    public BPlusTree bufferToTree(byte[] treeBuffer, int treeOrder, String instaneOfKey){
         BPlusTree newTree = new BPlusTree(treeOrder);
         newTree.setLastPageID(treeOrder = ByteBuffer.wrap(Arrays.copyOfRange(treeBuffer, 0, 4)).getInt());
         treeBuffer = Arrays.copyOfRange(treeBuffer, 4, treeBuffer.length);
 
         short size = ByteBuffer.wrap(Arrays.copyOfRange(treeBuffer, 0, 2)).getShort();
         treeBuffer = Arrays.copyOfRange(treeBuffer, 2, treeBuffer.length);
+        int ind = 0;
         while(size != 0){
-            byte[] key = ByteBuffer.wrap(Arrays.copyOfRange(treeBuffer, 0, size)).array();
-            treeBuffer = Arrays.copyOfRange(treeBuffer, size, treeBuffer.length);
+            Object key;
+            switch (instaneOfKey) {
+                case "Integer":
+                    key = ByteBuffer.wrap(Arrays.copyOfRange(treeBuffer, 0, 4)).getInt();
+                    treeBuffer = Arrays.copyOfRange(treeBuffer, 4, treeBuffer.length);
+                    break;
+                case "String":
+                    key = new String(Arrays.copyOfRange(treeBuffer, 0, size), StandardCharsets.UTF_8);
+                    treeBuffer = Arrays.copyOfRange(treeBuffer, size, treeBuffer.length);
+                    break;
+                case "Byte":
+                    key = ByteBuffer.wrap(Arrays.copyOfRange(treeBuffer, 0, size)).array();
+                    treeBuffer = Arrays.copyOfRange(treeBuffer, size, treeBuffer.length);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Invalid primary key type.(From reading indexes)");
+            }
             int value = ByteBuffer.wrap(Arrays.copyOfRange(treeBuffer, 0, 4)).getInt();
             treeBuffer = Arrays.copyOfRange(treeBuffer, 4, treeBuffer.length);
-            Pair<byte[], Integer> pair = new Pair<>(key, value);
+            Pair<?, Integer> pair = new Pair<>(key, value);
             newTree.insert(pair);
 
             size = ByteBuffer.wrap(Arrays.copyOfRange(treeBuffer, 0, 2)).getShort();
             treeBuffer = Arrays.copyOfRange(treeBuffer, 2, treeBuffer.length);
+            ind++;
         }
+        System.out.println("Number Of Indexes read From Index File."+ind);
         return newTree;
     }
 
