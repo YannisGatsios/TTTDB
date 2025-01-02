@@ -33,23 +33,24 @@ public class App {
         schema.printSchema();
         Table table = new Table(databaseName, tableName, schema);
         BPlusTree tree = new BPlusTree(table.getMaxEntriesPerPage());
-        System.out.println(tree.getLastPageID());
         DBMSprocesses DBMS = new DBMSprocesses();
 
         Random random = new Random();
         int ind = 0;
         while (ind < 400) {
-            System.out.println(ind);
             int sizeOfID = random.nextInt(table.getMaxIDSize()-1)+1;
             String userName = generateRandomString(sizeOfID);
             if(!tree.search(userName)){
                 ArrayList<Object> entryData = new ArrayList<>();
                 entryData.add(userName);
+
                 int intNum = random.nextInt();
                 entryData.add(intNum);
+
                 int sizeOfString = random.nextInt(table.getSchema().getColumnSizes()[2]);
                 String randStr = generateRandomString(sizeOfString);
                 entryData.add(randStr);
+
                 int sizeOfData = random.nextInt(table.getSchema().getColumnSizes()[3]);
                 byte[] data = new byte[sizeOfData];
                 for(int y = 0; y < sizeOfData; y++){
@@ -58,9 +59,6 @@ public class App {
                 entryData.add(data);
                 Entry entry = new Entry(entryData, table.getMaxIDSize());
                 entry.setID(table.getIDindex());
-                if(ind >= 127){
-                    ind = ind;//for debuger beak point
-                }
                 tree = DBMS.insertionProcess(table, entry, tree);
                 ind++;
             }

@@ -16,7 +16,6 @@ public class Page extends PageManager {
 
     private short maxNumOfEntries;
     private int maxSizeOfEntry;
-    private int numOfColumns;
 
     private static int BLOCK_SIZE = 4096;
 
@@ -29,7 +28,6 @@ public class Page extends PageManager {
         this.entries = new ArrayList<>();
         this.maxNumOfEntries = table.getMaxEntriesPerPage();
         this.maxSizeOfEntry = table.getSizeOfEntry();
-        this.numOfColumns = table.getNumOfColumns();
     }
 
     // ==========ADDING_ENTRIES==========
@@ -60,10 +58,6 @@ public class Page extends PageManager {
         return this.entries.get(numOfEntry);
     }
 
-    public void setMaxSizeOfEntry(int maxSizeOfEntry) {
-        this.maxSizeOfEntry = maxSizeOfEntry;
-    }
-
     public int getPageID() {
         return this.pageID;
     }
@@ -89,19 +83,7 @@ public class Page extends PageManager {
     }
 
     public int sizeOfEntries() {
-        return (this.maxSizeOfEntry * this.maxNumOfEntries) + (this.numOfEntries * (Short.BYTES * (this.numOfColumns - this.numOfIntInEntry())));
-    }
-
-    private int numOfIntInEntry(){
-        int sum = 0;
-        if(this.entries.size() != 0){
-            for (Object elemnt : this.entries.get(0).getEntry()) {
-                if(elemnt instanceof Integer){
-                    sum++;
-                }
-            }
-        }
-        return sum;
+        return (this.maxSizeOfEntry * this.maxNumOfEntries);
     }
 
     public int getPagePos(){

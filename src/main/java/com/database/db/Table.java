@@ -130,25 +130,17 @@ public class Table {
     }
 
     public short setMaxEntriesPerPage(){
-        if(!((BLOCK_SIZE-SIZE_OF_HEADER)/(this.sizeOfEntry + (Short.BYTES * (this.numOfColumns - this.numOfIntInEntry()))) >= 3)){
+        if(!((BLOCK_SIZE-SIZE_OF_HEADER)/this.sizeOfEntry >= 3)){
             return this.setMaxEntriesPerPage(2);
         }
         return (short) ((BLOCK_SIZE-SIZE_OF_HEADER)/this.sizeOfEntry);
     }private short setMaxEntriesPerPage(int numOfPages){
-        if(!((numOfPages*(BLOCK_SIZE-SIZE_OF_HEADER))/(this.sizeOfEntry + (Short.BYTES * (this.numOfColumns - this.numOfIntInEntry()))) >= 3)){
+        if(!((numOfPages*(BLOCK_SIZE-SIZE_OF_HEADER))/this.sizeOfEntry >= 3)){
             return this.setMaxEntriesPerPage(numOfPages + 1);
         }
         return (short) (numOfPages * (BLOCK_SIZE-SIZE_OF_HEADER)/this.sizeOfEntry);
     }public short getMaxEntriesPerPage(){
         return this.maxEntriesPerPage;
-    }private int numOfIntInEntry(){
-        int sum = 0;
-        for (String elemnt : this.tablSchema.getColumnTypes()) {
-            if (elemnt.equals("Integer")) {
-                sum++;
-            }
-        }
-        return sum;
     }
 
     public int getIDindex(){

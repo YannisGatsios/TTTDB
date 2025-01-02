@@ -41,7 +41,7 @@ public class DBMSprocesses {
         byte[] pageToWrite = Page.pageToBuffer(Page);
         Page.writePage(table.getTablePath(), pageToWrite, Page.getPagePos());
         tree.insert(pair);
-        System.out.println("Inseted Key = "+pair.getKey()+" : Value = "+pair.getValue()+"\n insert "+Page.getNumOfEntries());
+        //System.out.println("Inseted Key = "+pair.getKey()+" : Value = "+pair.getValue()+"\n insert "+Page.getNumOfEntries());
     }
 
 
