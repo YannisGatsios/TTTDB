@@ -13,7 +13,6 @@ public class Page extends PageManager {
     private short numOfEntries;
     private int spaceInUse;
     private List<Entry> entries;
-
     private short maxNumOfEntries;
     private int maxSizeOfEntry;
 
@@ -31,7 +30,7 @@ public class Page extends PageManager {
     }
 
     // ==========ADDING_ENTRIES==========
-    public void addEntry(Entry newEntry) throws IllegalArgumentException {
+    public void add(Entry newEntry) throws IllegalArgumentException {
         if (this.numOfEntries == this.maxNumOfEntries) {
             throw new IllegalArgumentException("this Paage is full, current Max Size : " + this.maxNumOfEntries);
         }
@@ -41,28 +40,40 @@ public class Page extends PageManager {
     }
 
     // ===========REMOVING_ENTRIES===============
-    public void removeEntry(int numOfEntry) {
-        if(numOfEntry > this.entries.size()-1 || numOfEntry < 0){
-            throw new IllegalArgumentException("Invalid Number OF Entry to remove out of bounds yu=ou gave :" + numOfEntry);
+    public void remove(int index) {
+        if(index > this.entries.size()-1 || index < 0){
+            throw new IllegalArgumentException("Invalid Number OF Entry to remove out of bounds yu=ou gave :" + index);
         }
-        this.spaceInUse -= this.getEntrySize(numOfEntry);
-        this.entries.remove(this.getEntry(numOfEntry));
+        this.spaceInUse -= this.getEntrySize(index);
+        this.entries.remove(this.get(index));
         this.numOfEntries--;
+    }
+
+    //===========SEARCHING_ENTRIES===============
+    public Entry get(int index){
+        return this.entries.get(index);
+    }
+
+    public int getIndex(Object key){
+        int ind = 0;
+        for (Entry entry : this.entries) {
+            if(entry.getID() == key){
+                return ind;
+            }
+            ind++;
+        }
+        return -1;
     }
 
     private int getEntrySize(int numOfEntry){
         return this.entries.get(numOfEntry).size();
     }
 
-    private Entry getEntry(int numOfEntry){
-        return this.entries.get(numOfEntry);
-    }
-
     public int getPageID() {
         return this.pageID;
     }
 
-    public short getNumOfEntries() {
+    public short size() {
         return this.numOfEntries;
     }
 

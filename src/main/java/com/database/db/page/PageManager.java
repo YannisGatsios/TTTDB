@@ -58,7 +58,7 @@ public class PageManager {
 
         // Add primitive fields
         headBuffer.putInt(page.getPageID()); // Serialize pageID as 4 bytes (int)
-        headBuffer.putShort(page.getNumOfEntries()); // Serialize numOfEtries as 2 bytes (short)
+        headBuffer.putShort(page.size()); // Serialize numOfEtries as 2 bytes (short)
         headBuffer.putInt(page.getSpaceInUse()); // Serialize spaceInUse as 4 bytes (int)
         headBuffer.flip();
 
@@ -141,7 +141,7 @@ public class PageManager {
             }
             Entry newEntry = new Entry(entry, table.getMaxIDSize());
             newEntry.setID(table.getIDindex());
-            newPage.addEntry(newEntry);
+            newPage.add(newEntry);
         }
         if(spaceInUse != newPage.getSpaceInUse()){
             //TODO

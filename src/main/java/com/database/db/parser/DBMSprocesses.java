@@ -19,34 +19,58 @@ public class DBMSprocesses {
     }
 
     public BPlusTree insertionProcess(Table table, Entry entry, BPlusTree tree) throws IOException{
-        //TODO not sure if i need to write the updated tree for the moment i just return it. 
         Page Page = new Page(tree.getLastPageID(), table);
         byte[] pageBuffer = Page.readPage(table.getTablePath(), Page.getPagePos(), Page.sizeOfPage());
         if(pageBuffer != null){
             Page = Page.bufferToPage(pageBuffer, table);
         }
 
-        if(Page.getNumOfEntries() < table.getMaxEntriesPerPage()){
-            this.insertionSteps(table, tree, entry, Page, pageBuffer);
-            return tree;
+        if(Page.size() < table.getMaxEntriesPerPage()){
+            return this.insertionSteps(table, tree, entry, Page);
         }
         tree.addOnePageID();
         Page = new Page(tree.getLastPageID(), table);
-        this.insertionSteps(table, tree, entry, Page, pageBuffer);
+        return this.insertionSteps(table, tree, entry, Page);
+    }
+    private BPlusTree insertionSteps(Table table, BPlusTree tree, Entry entry, Page Page) throws IOException{
+        Page.add(entry);
+        Pair<?,Integer> pair = new Pair<>(entry.getID(), Page.getPageID());
+        tree.insert(pair);
+        Page.writePage(table.getTablePath(), Page.pageToBuffer(Page), Page.getPagePos());
         return tree;
     }
-    private void insertionSteps(Table table, BPlusTree tree, Entry entry, Page Page, byte[] pageBuffer) throws IOException{
-        Page.addEntry(entry);
-        Pair<?,Integer> pair = new Pair<>(entry.getID(), Page.getPageID());
-        byte[] pageToWrite = Page.pageToBuffer(Page);
-        Page.writePage(table.getTablePath(), pageToWrite, Page.getPagePos());
-        tree.insert(pair);
-        //System.out.println("Inseted Key = "+pair.getKey()+" : Value = "+pair.getValue()+"\n insert "+Page.getNumOfEntries());
-    }
 
+    public BPlusTree delete(Table table, BPlusTree tree, Object key) throws IllegalArgumentException,IOException{
+        Pair<?,?> pair = tree.findPair(key);
+        if(pair == null) throw new IllegalArgumentException("The key you are tring to delete is not found.");
 
-    public void delete(){
+        if((int)pair.getValue() == tree.getLastPageID()){
+            Page Page = new Page((int)pair.getValue(), table);
+            byte[] pageBuffer = Page.readPage(table.getTablePath(), Page.getPagePos(), Page.sizeOfPage());
+            Page = Page.bufferToPage(pageBuffer, table);
+            int index =  Page.getIndex(key);
+            Page.remove(index);
+            tree.remove(key);
+            Page.writePage(table.getTablePath(), Page.pageToBuffer(Page), Page.getPagePos());
+        }
+        Page Page = new Page(tree.getLastPageID(), table);
+        Page = Page.bufferToPage(Page.readPage(table.getTablePath(), Page.getPagePos(), Page.sizeOfPage()), table);
+        Entry lastEntry = Page.get(Page.size()-1);
+        Page.remove(Page.getIndex(lastEntry.getID()));
+        tree.remove(lastEntry.getID());
+        Page.writePage(table.getTablePath(), Page.pageToBuffer(Page), Page.getPagePos());
 
+        Page = new Page((int)pair.getValue(), table);
+        byte[] pageBuffer = Page.readPage(table.getTablePath(), Page.getPagePos(), Page.sizeOfPage());
+        Page = Page.bufferToPage(pageBuffer, table);
+        int index =  Page.getIndex(key);
+        Page.remove(index);
+        tree.remove(key);
+        Page.add(lastEntry);
+        Pair<?,?> newPair = new Pair<>(lastEntry.getID(), pair.getValue());
+        tree.insert(newPair);
+        Page.writePage(table.getTablePath(), Page.pageToBuffer(Page), Page.getPagePos());
+        return tree;
     }
 
     public void update(){
