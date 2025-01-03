@@ -13,7 +13,7 @@ public class Node {
     public Node(Boolean isLeaf){
         this.isLeaf = isLeaf;
         this.keys = new ArrayList<Pair<? ,?>>();
-        this.children = new ArrayList<Node>();
+        this.children = isLeaf ? null : new ArrayList<Node>();
         this.next = null;
     }
 }

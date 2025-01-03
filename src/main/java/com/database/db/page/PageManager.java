@@ -4,6 +4,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -52,6 +53,25 @@ public class PageManager {
         return buffer;
     }
 
+    public void deleteLastPage(String path, int pageSize){
+        try (RandomAccessFile file = new RandomAccessFile(path, "rw");
+                FileChannel fileChannel = file.getChannel()) {
+
+            // Get the current size of the file
+            long fileSize = fileChannel.size();
+            // Calculate the new size (truncate last 100 bytes)
+            long newSize = fileSize - pageSize;
+            if (newSize < 0) {
+                throw new IOException("File is smaller than 100 bytes; cannot truncate.");
+            }
+            // Truncate the file
+            fileChannel.truncate(newSize);
+            System.out.println("======== Last "+pageSize+" bytes truncated. New file size: " + newSize + " bytes.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     public byte[] pageToBuffer(Page page) throws IOException {
         ByteBuffer buffer = ByteBuffer.allocate(page.sizeOfEntries());
         ByteBuffer headBuffer = ByteBuffer.allocate(page.sizeOfHeader());
@@ -63,7 +83,7 @@ public class PageManager {
         headBuffer.flip();
 
         // Add entries
-        for (Entry entryObj : page.getEntries()) {
+        for (Entry entryObj : page.getAll()) {
             ArrayList<Object> entry = entryObj.getEntry();
             for (Object element : entry) {
                 switch (element.getClass().getSimpleName()) {
@@ -87,7 +107,7 @@ public class PageManager {
         }
         buffer.flip();
 
-        ByteBuffer combinedArray = ByteBuffer.allocate(page.sizeOfPage());
+        ByteBuffer combinedArray = ByteBuffer.allocate(page.sizeInBytes());
         // Get the remaining bytes from buffer1 and buffer2 into the combinedArray
         combinedArray.put(headBuffer.array());
         combinedArray.put(buffer.array());

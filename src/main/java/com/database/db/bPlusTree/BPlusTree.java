@@ -10,13 +10,13 @@ public class BPlusTree extends TreeUtils{
     private Node root;
     private final int order;
     private int lastPageID;
-    private final Comparator<Pair<?, ?>> keyComparator = (pair1, pair2) -> {
+    private final Comparator<Pair<?,?>> keyComparator = (pair1, pair2) -> {
         Object key1 = pair1.getKey();
         Object key2 = pair2.getKey();
     
         // Ensure both keys are of the same type (String or Integer)
         if (key1.getClass() != key2.getClass()) {
-            throw new IllegalArgumentException("Keys must be of the same type (String or Integer).");
+            throw new IllegalArgumentException("Keys must be of the same type (String or Integer). key1 = "+key1.getClass().getName()+" kay2 = "+key2.getClass().getName());
         }
     
         if (key1 instanceof String && key2 instanceof String) {
@@ -62,25 +62,26 @@ public class BPlusTree extends TreeUtils{
         }
     }
 
-    private void splitChild(Node parent, int index, Node child){
-        Node newChild = new Node(child.isLeaf);
+    private void splitChild(Node parent, int index, Node LChild){
+        //RChild and LChild corespont to right or left child.
+        Node RChild = new Node(LChild.isLeaf);
 
-        Pair<?, ?> medKey = child.keys.get(this.order / 2);
+        Pair<?, ?> keyForParent = LChild.keys.get(this.order / 2);
 
-        parent.children.add(index + 1,newChild);
-        parent.keys.add(index, medKey);
+        parent.children.add(index + 1,RChild);
+        parent.keys.add(index, keyForParent);
 
-        newChild.keys.addAll(child.keys.subList(this.order / 2 + 1, child.keys.size()));
-        child.keys.subList(this.order / 2 + 1, child.keys.size()).clear();
+        RChild.keys.addAll(LChild.keys.subList(this.order / 2 + 1, LChild.keys.size()));
+        LChild.keys.subList(this.order / 2 + 1, LChild.keys.size()).clear();
 
-        if(!child.isLeaf){
-            newChild.children.addAll(child.children.subList(this.order / 2 + 1, child.children.size()));
-            child.children.subList(this.order / 2 + 1, child.children.size()).clear();
+        if(!LChild.isLeaf){
+            RChild.children.addAll(LChild.children.subList(this.order / 2 + 1, LChild.children.size()));
+            LChild.children.subList(this.order / 2 +1, LChild.children.size()).clear();
         }
 
-        if(child.isLeaf){
-            newChild.next = child.next;
-            child.next = newChild;
+        if(LChild.isLeaf){
+            RChild.next = LChild.next;
+            LChild.next = RChild;
         }
     }
 
@@ -110,7 +111,7 @@ public class BPlusTree extends TreeUtils{
         if(root == null){
             return;
         }
-        Pair<?, ?> tempPair = new Pair<>(key, null);
+        Pair<?, ?> tempPair = new Pair<>(key, 0);
         this.remove(this.root, tempPair);
         if(root.keys.isEmpty() && !this.root.isLeaf){
             Pair<?, ?> lastKeyOfChild = this.root.children.get(0).keys.get(this.root.children.get(0).keys.size()-1);
@@ -218,7 +219,7 @@ public class BPlusTree extends TreeUtils{
     //==========! SEARCHING !===========
     public boolean search(Object key) {
         if(this.root == null) return false;
-        Pair<?, ?> tempPair = new Pair<>(key, null);
+        Pair<?, ?> tempPair = new Pair<>(key, 0);
         Node current = this.root;
         // Traverse down the tree to find the leaf node
         while (current != null) {
@@ -244,7 +245,7 @@ public class BPlusTree extends TreeUtils{
     }
 
     public Pair<?, ?> findPair(Object key) {
-        Pair<?, ?> tempPair = new Pair<>(key, null);
+        Pair<?, ?> tempPair = new Pair<>(key, 0);
         Node current = this.root;
         // Traverse down the tree to find the leaf node
         while (current != null) {
@@ -272,8 +273,8 @@ public class BPlusTree extends TreeUtils{
 
     public List<Pair<?, ?>> rangeQuery( Object lower, Object upper){
         List<Pair<?, ?>> result = new ArrayList<>();
-        Pair<?, ?> tempLow = new Pair<>(lower, null);
-        Pair<?, ?> tempUp = new Pair<>(upper, null);
+        Pair<?, ?> tempLow = new Pair<>(lower, 0);
+        Pair<?, ?> tempUp = new Pair<>(upper, 0);
         Node current = root;
         while (current != null && !current.isLeaf) {
             int idx = 0;
@@ -287,7 +288,7 @@ public class BPlusTree extends TreeUtils{
                 if(keyComparator.compare(key, tempLow) >= 0 && keyComparator.compare(key, tempUp) <= 0){
                     result.add(key);
                 }
-                if(keyComparator.compare(key, tempLow) > 0){
+                if(keyComparator.compare(key, tempUp) > 0){
                     return result;
                 }
             }
@@ -329,8 +330,7 @@ public class BPlusTree extends TreeUtils{
         String border = "+"+String.valueOf("-").repeat(keys.length()-2)+"+";
         return "\n"+border+"\n"+
                 keys+"\n"+
-                border+"\n"+
-                "Children : "+node.children.size()+"\n";
+                border+"\n";
     }
     private String byteArrayToString(Object byteArray) {
         if(byteArray instanceof byte[]){
@@ -350,11 +350,13 @@ public class BPlusTree extends TreeUtils{
         return this.root;
     }
 
-    public int getLastPageID(){
+    public void setLastPageID(int lastPageID){
+        this.lastPageID = lastPageID;
+    }public int getLastPageID(){
         return this.lastPageID;
     }public void addOnePageID(){
         this.lastPageID = this.lastPageID + 1;
-    }public void setLastPageID(int lastPageID){
-        this.lastPageID = lastPageID;
+    }public void removeOnePageID(){
+        this.lastPageID = this.lastPageID - 1;
     }
 }

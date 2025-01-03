@@ -69,8 +69,8 @@ class PageTest {
 
         assertEquals(2, page.size());
         assertEquals(entry1.size() + entry2.size(), page.getSpaceInUse());
-        assertTrue(page.getEntries().contains(entry1));
-        assertTrue(page.getEntries().contains(entry2));
+        assertTrue(page.getAll().contains(entry1));
+        assertTrue(page.getAll().contains(entry2));
     }
 
     @Test
@@ -94,7 +94,7 @@ class PageTest {
 
         assertEquals(2, page.size());
         assertEquals(initialSpace - entry2.size(), page.getSpaceInUse());
-        assertFalse(page.getEntries().contains(entry2));
+        assertFalse(page.getAll().contains(entry2));
     }
 
     @Test
@@ -123,10 +123,10 @@ class PageTest {
 
         byte[] data = page.pageToBuffer(page);
         String path = "storage/" + table.getDatabaseName() + "." + table.getTableName() + ".table";
-        page.writePage(path, data, page.getPageID() * page.sizeOfPage());
+        page.writePage(path, data, page.getPageID() * page.sizeInBytes());
 
         Page newPage = new Page(0, table);
-        byte[] bufferPage = newPage.readPage(path, page.getPageID() * page.sizeOfPage(), page.sizeOfPage());
+        byte[] bufferPage = newPage.readPage(path, page.getPageID() * page.sizeInBytes(), page.sizeInBytes());
         newPage = newPage.bufferToPage(bufferPage, table);
 
         assertEquals(page.size(), newPage.size());

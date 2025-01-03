@@ -1,17 +1,15 @@
 package com.database.db;
 
-//import java.util.Arrays;
+import java.util.Arrays;
 //import java.util.List;
 import java.util.Random;
-
-import javax.crypto.spec.PBEKeySpec;
 
 import java.io.IOException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 
 import com.database.db.bPlusTree.BPlusTree;
-//import com.database.db.bPlusTree.TreeUtils.Pair;
+import com.database.db.bPlusTree.TreeUtils.Pair;
 //import com.database.db.page.Page;
 import com.database.db.parser.DBMSprocesses;
 
@@ -39,7 +37,7 @@ public class App {
         BPlusTree tree = new BPlusTree(table.getMaxEntriesPerPage());
         DBMSprocesses DBMS = new DBMSprocesses();
 
-        Random random = new Random();
+        Random random = new Random(); 
         String[] keysList = new String[400];
         int ind = 0;
         while (ind < 400) {
@@ -72,26 +70,39 @@ public class App {
         byte[] treeBuffer = tree.treeToBuffer(tree, table.getMaxIDSize(), table.getMaxEntriesPerPage());
         tree.writeTree(table.getIndexPath(), treeBuffer);
         tree.printTree();
+        
+        BPlusTree tree2 = new BPlusTree(table.getMaxEntriesPerPage());
+        byte[] newTree = tree2.readTree(table.getIndexPath());
+        System.out.println(table.getIDtype()+new String().getClass().getName());
+        tree2 = tree2.bufferToTree(newTree, table.getMaxEntriesPerPage(), table.getIDtype());
+        tree2.printTree();
+
         int trues = 0;
         int falses = 0;
         for (String key : keysList) {
-            if(tree.search(key)){
+            if(tree2.search(key)){
                 trues++;
             }else{
                 falses++;
             }
+            System.out.println("Key is "+key+" : "+tree2.findPair(key).getValue());
         }
         System.out.println("True Are : "+trues+"\nFalse Are : "+falses);
-        
-        BPlusTree tree2 = new BPlusTree(table.getMaxEntriesPerPage());
-        byte[] newTree = tree2.readTree(table.getIndexPath());
-        tree2 = tree2.bufferToTree(newTree, table.getMaxEntriesPerPage(), table.getIDtype());
-        //tree2.printTree();
-        for (String key : keysList) {
-            System.out.println("The Key : "+key+"\nIs Stored At Page : "+tree2.findPair(key).getValue());
-        }
+
         ind = 0;
-        /* 
+        while (ind < 100) {
+            int randInd = random.nextInt(399);
+            if (ind == 99){
+                ind = ind;
+            }
+            if(tree2.search(keysList[randInd])){
+                System.out.println(ind+" : Random Index : "+keysList[randInd]+" : "+tree2.findPair(keysList[randInd]).getValue());
+                tree2 = DBMS.delete(table, tree2, keysList[randInd]);
+                ind++;
+            }
+        }
+
+        /*int i = 0;
         while(i < 400){
             int num = random.nextInt(127);
             int num1 = random.nextInt(127);
@@ -119,6 +130,7 @@ public class App {
         System.out.println("B+ Tree after insertions:");
         tree.printTree();
 
+        /* 
         // Search for a key
         byte[] searchKey = {15};
         System.out.println("\nSearching for key " + Arrays.toString(searchKey) + ": " + (tree.search(searchKey) ? "Found" : "Not Found"));
@@ -135,7 +147,9 @@ public class App {
         byte[] removeKey = {15};
         tree.remove(removeKey);
         System.out.println("\nB+ Tree after removing " + Arrays.toString(removeKey) + ":");
+        tree.printTree();
 
+        
         //writing tree1
         tree.lastPageID = 10;
         String indexPath = "storage/index/"+table.getDatabaseName()+"."+table.getTableName()+".index";
