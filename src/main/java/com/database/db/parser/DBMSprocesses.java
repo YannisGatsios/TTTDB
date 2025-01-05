@@ -6,14 +6,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import com.database.db.Entry;
-import com.database.db.Table;
-import com.database.db.Schema;
+
 import com.database.db.bPlusTree.Tree;
+import com.database.db.FileIO;
 import com.database.db.bPlusTree.BPlusTree;
 import com.database.db.page.Page;
+import com.database.db.table.Entry;
+import com.database.db.table.Schema;
+import com.database.db.table.Table;
 
 public class DBMSprocesses<K extends Comparable<K>> {
+    private static FileIO fileIO = new FileIO();
     public DBMSprocesses(){
     }
     //==SELECTING==
@@ -23,11 +26,11 @@ public class DBMSprocesses<K extends Comparable<K>> {
     //==INSERTION==
     public BPlusTree<K,Integer> insertionProcess(Table table, Entry<K> entry, BPlusTree<K,Integer> tree) throws IOException{
         Page<K> Page = new Page<>(tree.getLastPageID(), table);
-        byte[] pageBuffer = Page.readPage(table.getTablePath(), Page.getPagePos(), Page.sizeInBytes());
+        byte[] pageBuffer = fileIO.readPage(table.getTablePath(), Page.getPagePos(), Page.sizeInBytes());
         if(pageBuffer != null){
             Page = Page.bufferToPage(pageBuffer, table);
         }
-        if(Page.size() < table.getMaxEntriesPerPage()){
+        if(Page.size() < table.getPageMaxNumOfEntries()){
             return this.insertionSteps(table, tree, entry, Page);
         }
         tree.addOnePageID();
@@ -38,7 +41,7 @@ public class DBMSprocesses<K extends Comparable<K>> {
     private BPlusTree<K,Integer> insertionSteps(Table table, BPlusTree<K,Integer> tree, Entry<K> entry, Page<K> Page) throws IOException{
         Page.add(entry);
         tree.insert(entry.getID(), (Integer) (Integer)Page.getPageID());
-        Page.writePage(table.getTablePath(), Page.pageToBuffer(Page), Page.getPagePos());
+        fileIO.writePage(table.getTablePath(), Page.pageToBuffer(Page), Page.getPagePos());
         return tree;
     }
 
@@ -49,33 +52,33 @@ public class DBMSprocesses<K extends Comparable<K>> {
 
         if(value == tree.getLastPageID()){
             Page<K> Page = new Page<>(value, table);
-            byte[] pageBuffer = Page.readPage(table.getTablePath(), Page.getPagePos(), Page.sizeInBytes());
+            byte[] pageBuffer = fileIO.readPage(table.getTablePath(), Page.getPagePos(), Page.sizeInBytes());
             Page = Page.bufferToPage(pageBuffer, table);
             int index =  Page.getIndex(key);
             Page.remove(index);
             tree.remove(key);
-            Page.writePage(table.getTablePath(), Page.pageToBuffer(Page), Page.getPagePos());
+            fileIO.writePage(table.getTablePath(), Page.pageToBuffer(Page), Page.getPagePos());
             if(Page.size() == 0){
-                Page.deleteLastPage(table.getTablePath(), Page.sizeInBytes());
+                fileIO.deleteLastPage(table.getTablePath(), Page.sizeInBytes());
                 tree.removeOnePageID();
             }
             return tree;
         }
         //Removing the last entry from the last Page recorded.
         Page<K> Page = new Page<>(tree.getLastPageID(), table);
-        Page = Page.bufferToPage(Page.readPage(table.getTablePath(), Page.getPagePos(), Page.sizeInBytes()), table);
+        Page = Page.bufferToPage(fileIO.readPage(table.getTablePath(), Page.getPagePos(), Page.sizeInBytes()), table);
         Entry<K> lastEntry = Page.get(Page.size() - 1);//Keeping the removed entry for later.
         Page.remove(Page.getIndex(lastEntry.getID()));
         tree.remove(lastEntry.getID());
-        Page.writePage(table.getTablePath(), Page.pageToBuffer(Page), Page.getPagePos());
+        fileIO.writePage(table.getTablePath(), Page.pageToBuffer(Page), Page.getPagePos());
         if(Page.size() == 0){
-            Page.deleteLastPage(table.getTablePath(), Page.sizeInBytes());
+            fileIO.deleteLastPage(table.getTablePath(), Page.sizeInBytes());
             tree.removeOnePageID();
         }
 
         //Removing the Entry user asked for and replacing it the one deleted one above.
         Page<K> Page2 = new Page<>(value, table);
-        byte[] pageBuffer = Page2.readPage(table.getTablePath(), Page2.getPagePos(), Page2.sizeInBytes());
+        byte[] pageBuffer = fileIO.readPage(table.getTablePath(), Page2.getPagePos(), Page2.sizeInBytes());
         Page2 = Page2.bufferToPage(pageBuffer, table);
         int ind =  Page2.getIndex(key);
         if( ind == -1){
@@ -86,7 +89,7 @@ public class DBMSprocesses<K extends Comparable<K>> {
         tree.remove(key);
         Page2.add(lastEntry);
         tree.insert(lastEntry.getID(), value);
-        Page2.writePage(table.getTablePath(), Page2.pageToBuffer(Page2), Page2.getPagePos());
+        fileIO.writePage(table.getTablePath(), Page2.pageToBuffer(Page2), Page2.getPagePos());
         return tree;
     }
     //==UPDATING==

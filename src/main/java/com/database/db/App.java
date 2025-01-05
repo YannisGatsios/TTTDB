@@ -1,7 +1,5 @@
 package com.database.db;
 
-//import java.util.Arrays;
-//import java.util.List;
 import java.util.Random;
 
 import java.io.IOException;
@@ -10,9 +8,11 @@ import java.util.ArrayList;
 
 import com.database.db.bPlusTree.BPlusTree;
 import com.database.db.bPlusTree.Tree;
-//import com.database.db.bPlusTree.TreeUtils.Pair;
 import com.database.db.page.Page;
 import com.database.db.parser.DBMSprocesses;
+import com.database.db.table.Entry;
+import com.database.db.table.Schema;
+import com.database.db.table.Table;
 
 public class App {
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -27,6 +27,7 @@ public class App {
     }
 
     public static void main(String[] args) throws IOException{
+        FileIO fileIO = new FileIO();
         //Table INIT.
         String databaseName = "system";
         String tableName = "users";
@@ -34,8 +35,8 @@ public class App {
         schema.printSchema();
         Table table = new Table(databaseName, tableName, schema);
         //Tree INIT.
-        BPlusTree<String,Integer> tree = new Tree<>(table.getMaxEntriesPerPage());
-        tree = tree.bufferToTree(tree.readTree(table.getIndexPath()), table);
+        BPlusTree<String,Integer> tree = new Tree<>(table.getPageMaxNumOfEntries());
+        tree = tree.bufferToTree(fileIO.readTree(table.getIndexPath()), table);
         DBMSprocesses<String> DBMS = new DBMSprocesses<>();
 
         Random random = new Random(); 
@@ -69,11 +70,11 @@ public class App {
             }
         }
         byte[] treeBuffer = tree.treeToBuffer(tree, table.getMaxIDSize());
-        tree.writeTree(table.getIndexPath(), treeBuffer);
+        fileIO.writeTree(table.getIndexPath(), treeBuffer);
         tree.printTree();
         
-        BPlusTree<String,Integer> tree2 = new Tree<>(table.getMaxEntriesPerPage());
-        byte[] newTree = tree2.readTree(table.getIndexPath());
+        BPlusTree<String,Integer> tree2 = new Tree<>(table.getPageMaxNumOfEntries());
+        byte[] newTree = fileIO.readTree(table.getIndexPath());
         System.out.println(table.getIDtype()+new String().getClass().getName());
         tree2 = tree2.bufferToTree(newTree, table);
         //tree2.printTree();
@@ -99,7 +100,7 @@ public class App {
                 ind++;
             }
         }
-        tree2.writeTree(table.getIndexPath(), tree2.treeToBuffer(tree2, table.getMaxIDSize()));
+        fileIO.writeTree(table.getIndexPath(), tree2.treeToBuffer(tree2, table.getMaxIDSize()));
 
         /*int i = 0;
         while(i < 400){
@@ -211,11 +212,11 @@ public class App {
             //Writing page to memory 
             byte[] data = page.pageToBuffer(page);
             String tablePath = "storage/" + table.getDatabaseName() + "." + table.getTableName() + ".table";
-            page.writePage(tablePath, data, page.sizeInBytes());
+            fileIO.writePage(tablePath, data, page.sizeInBytes());
             
             //Reading page from memory
             Page<String> newPage = new Page<>(0, table);
-            byte[] bufferPage = newPage.readPage(tablePath, page.getPagePos(), page.sizeInBytes());
+            byte[] bufferPage = fileIO.readPage(tablePath, page.getPagePos(), page.sizeInBytes());
             newPage = newPage.bufferToPage(bufferPage, table);
             System.out.println("NEW PAGE:"+newPage.pageStats());
         } catch (IOException e) {

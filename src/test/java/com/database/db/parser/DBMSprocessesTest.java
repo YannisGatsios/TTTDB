@@ -20,14 +20,17 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 
-import com.database.db.Schema;
-import com.database.db.Table;
-import com.database.db.Entry;
+import com.database.db.FileIO;
 import com.database.db.bPlusTree.BPlusTree;
 import com.database.db.bPlusTree.Tree;
+import com.database.db.table.Entry;
+import com.database.db.table.Schema;
+import com.database.db.table.Table;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class DBMSprocessesTest {
+
+    private static FileIO fileIO = new FileIO();
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static String generateRandomString(int length) {
@@ -57,7 +60,7 @@ public class DBMSprocessesTest {
         DBMS.createTable(databaseName, tableName, schema); //Creating table
 
         table = new Table(databaseName, tableName, schema);//Table INIT
-        tree = new Tree<>(table.getMaxEntriesPerPage());//Tree INIT
+        tree = new Tree<>(table.getPageMaxNumOfEntries());//Tree INIT
         random = new Random();
         keysList = new String[400];
     }
@@ -75,7 +78,7 @@ public class DBMSprocessesTest {
         entry.setID(table.getIDindex());
         try {
             tree = DBMS.insertionProcess(table, entry, tree);
-            tree.writeTree(table.getIndexPath(), tree.treeToBuffer(tree, table.getMaxIDSize()));
+            fileIO.writeTree(table.getIndexPath(), tree.treeToBuffer(tree, table.getMaxIDSize()));
         } catch (IllegalArgumentException e) {
             fail(e);
         } catch (IOException e) {
@@ -85,10 +88,10 @@ public class DBMSprocessesTest {
     @Test
     @Order(2)
     void testDeleteLastEntry(){
-        tree = tree.bufferToTree(tree.readTree(table.getIndexPath()), table);
+        tree = tree.bufferToTree(fileIO.readTree(table.getIndexPath()), table);
         try {
             tree = DBMS.deletionProcess(table, tree, "firstEntry");
-            tree.writeTree(table.getIndexPath(), tree.treeToBuffer(tree, table.getMaxIDSize()));
+            fileIO.writeTree(table.getIndexPath(), tree.treeToBuffer(tree, table.getMaxIDSize()));
         } catch (IllegalArgumentException | IOException e) {
             fail(e);
         }
@@ -97,7 +100,7 @@ public class DBMSprocessesTest {
     @Test
     @Order(3)
     void testRandomEntryInsertion() {
-        tree = tree.bufferToTree(tree.readTree(table.getIndexPath()), table);
+        tree = tree.bufferToTree(fileIO.readTree(table.getIndexPath()), table);
         int ind = 0;
         while (ind < 400) {
             int sizeOfID = random.nextInt(table.getMaxIDSize()-1)+1;
@@ -130,7 +133,7 @@ public class DBMSprocessesTest {
                 ind++;
             }
         }
-        tree.writeTree(table.getIndexPath(),
+        fileIO.writeTree(table.getIndexPath(),
                 tree.treeToBuffer(tree, table.getMaxIDSize()));
         try (BufferedWriter writer = new BufferedWriter(new FileWriter("DBMSprocessesTest.txt"))) {
             for (String key : keysList) {
@@ -156,8 +159,8 @@ public class DBMSprocessesTest {
         java.io.File file = new java.io.File("DBMSprocessesTest.txt");
         if (!file.delete()) System.err.println("Failed to delete DBMSprocessesTest.txt");
 
-        BPlusTree<String,Integer> tree2 = new Tree<>(table.getMaxEntriesPerPage());
-        tree2 = tree2.bufferToTree(tree2.readTree(table.getIndexPath()), table);
+        BPlusTree<String,Integer> tree2 = new Tree<>(table.getPageMaxNumOfEntries());
+        tree2 = tree2.bufferToTree(fileIO.readTree(table.getIndexPath()), table);
 
         //Checking if all previously inserted keys are included in the new tree
         for (int i = 0; i < 400; i++) {
@@ -179,7 +182,7 @@ public class DBMSprocessesTest {
                 ind++;
             }
         }
-        tree2.writeTree(table.getIndexPath(), tree2.treeToBuffer(tree2, table.getMaxIDSize()));
+        fileIO.writeTree(table.getIndexPath(), tree2.treeToBuffer(tree2, table.getMaxIDSize()));
     }
 
     //@Test
@@ -188,7 +191,7 @@ public class DBMSprocessesTest {
         DBMS.dropTable(databaseName, tableName);
         DBMS.createTable(databaseName, tableName, null);
         
-        tree = tree.bufferToTree(tree.readTree(table.getIndexPath()), table);
+        tree = tree.bufferToTree(fileIO.readTree(table.getIndexPath()), table);
         int ind = 0;
         while(ind < 1000000){
             ArrayList<Object> entryData = new ArrayList<>();

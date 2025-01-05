@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import com.database.db.Entry;
-import com.database.db.Table;
+import com.database.db.table.Entry;
+import com.database.db.table.Table;
 
 public class Page<K> extends PageManager<K> {
 
@@ -26,7 +26,7 @@ public class Page<K> extends PageManager<K> {
         this.numOfEntries = 0;
         this.spaceInUse = 0;
         this.entries = new ArrayList<>();
-        this.maxNumOfEntries = table.getMaxEntriesPerPage();
+        this.maxNumOfEntries = table.getPageMaxNumOfEntries();
         this.maxSizeOfEntry = table.getSizeOfEntry();
     }
 

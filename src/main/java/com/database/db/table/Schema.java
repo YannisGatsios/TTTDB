@@ -1,4 +1,4 @@
-package com.database.db;
+package com.database.db.table;
 
 public class Schema {
 

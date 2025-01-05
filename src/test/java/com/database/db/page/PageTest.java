@@ -1,10 +1,12 @@
 package com.database.db.page;
 
-import com.database.db.Entry;
-import com.database.db.Schema;
-import com.database.db.Table;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import com.database.db.FileIO;
+import com.database.db.table.Entry;
+import com.database.db.table.Schema;
+import com.database.db.table.Table;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -13,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PageTest {
 
+    private static FileIO fileIO = new FileIO();
     private Table table;
     private Page<String> page;
     private Entry<String> entry1;
@@ -75,7 +78,7 @@ class PageTest {
 
     @Test
     void testAddEntryThrowsExceptionWhenFull() {
-        for (int i = 0; i < table.getMaxEntriesPerPage(); i++) {
+        for (int i = 0; i < table.getPageMaxNumOfEntries(); i++) {
             page.add(entry1);
         }
 
@@ -123,10 +126,10 @@ class PageTest {
 
         byte[] data = page.pageToBuffer(page);
         String path = "storage/" + table.getDatabaseName() + "." + table.getTableName() + ".table";
-        page.writePage(path, data, page.getPageID() * page.sizeInBytes());
+        fileIO.writePage(path, data, page.getPageID() * page.sizeInBytes());
 
         Page<String> newPage = new Page<>(0, table);
-        byte[] bufferPage = newPage.readPage(path, page.getPageID() * page.sizeInBytes(), page.sizeInBytes());
+        byte[] bufferPage = fileIO.readPage(path, page.getPageID() * page.sizeInBytes(), page.sizeInBytes());
         newPage = newPage.bufferToPage(bufferPage, table);
 
         assertEquals(page.size(), newPage.size());

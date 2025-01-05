@@ -1,11 +1,9 @@
 package com.database.db.bPlusTree;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import com.database.db.Table;
+
+import com.database.db.table.Table;
 
 public abstract class BPlusTree<K extends Comparable<K>,V> implements BTree<K,V> {
 
@@ -90,10 +88,10 @@ public abstract class BPlusTree<K extends Comparable<K>,V> implements BTree<K,V>
     //If the Index file is empty it returns a new empty B+Tree
     @SuppressWarnings("unchecked")
     public BPlusTree<K, V> bufferToTree(byte[] treeBuffer, Table table) {
-        if (treeBuffer.length == 0) return new Tree<>(table.getMaxEntriesPerPage()); // Return empty tree if file is empty
+        if (treeBuffer.length == 0) return new Tree<>(table.getPageMaxNumOfEntries()); // Return empty tree if file is empty
         
         ByteBuffer buffer = ByteBuffer.wrap(treeBuffer); // Wrap byte array for efficient parsing
-        BPlusTree<K, V> newTree = new Tree<>(table.getMaxEntriesPerPage());
+        BPlusTree<K, V> newTree = new Tree<>(table.getPageMaxNumOfEntries());
         newTree.setLastPageID(buffer.getInt()); // Read the last page ID
         
         int ind = 0; // Counter for debug purposes
@@ -123,31 +121,5 @@ public abstract class BPlusTree<K extends Comparable<K>,V> implements BTree<K,V>
             default:
                 throw new IllegalArgumentException("Invalid primary key type. (From reading indexes)");
         }
-    }
-
-    public void writeTree(String filePath, byte[] treeBuffer) {
-        try (FileOutputStream fos = new FileOutputStream(filePath)) {
-            fos.write(treeBuffer);
-            fos.getChannel().truncate(treeBuffer.length);
-            System.out.println("Index File successfully written to ./" + filePath);
-        } catch (IOException e) {
-            System.err.println("Error writing to Index file: " + e.getMessage());
-        }
-    }
-
-    public byte[] readTree(String indexPath) {
-        byte[] data = null;
-        try (FileInputStream fis = new FileInputStream(indexPath)) {
-            // Get the file length
-            long fileLength = fis.available();
-            // Create a byte array to hold the file data
-            data = new byte[(int) fileLength];
-            // Read the file into the byte array
-            fis.read(data);
-            System.out.println("Index File successfully read into byte array.");
-        } catch (IOException e) {
-            System.err.println("Error reading Index file: " + e.getMessage());
-        }
-        return data;
     }
 }
