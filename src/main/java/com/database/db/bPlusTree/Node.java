@@ -2,18 +2,17 @@ package com.database.db.bPlusTree;
 
 import java.util.ArrayList;
 import java.util.List;
-import com.database.db.bPlusTree.TreeUtils.Pair;;
 
-public class Node {
+public class Node<K,V> {
     boolean isLeaf;
-    List<Pair<? ,?>> keys;
-    List<Node> children;
-    Node next;
+    List<Pair<K,V>> keys;
+    List<Node<K,V>> children;
+    Node<K,V> next;
 
     public Node(Boolean isLeaf){
         this.isLeaf = isLeaf;
-        this.keys = new ArrayList<Pair<? ,?>>();
-        this.children = isLeaf ? null : new ArrayList<Node>();
+        this.keys = new ArrayList<>();
+        this.children = isLeaf ? null : new ArrayList<>();
         this.next = null;
     }
 }

@@ -7,12 +7,12 @@ import java.util.stream.Collectors;
 import com.database.db.Entry;
 import com.database.db.Table;
 
-public class Page extends PageManager {
+public class Page<K> extends PageManager<K> {
 
     private int pageID;
     private short numOfEntries;
     private int spaceInUse;
-    private List<Entry> entries;
+    private List<Entry<K>> entries;
     private short maxNumOfEntries;
     private int maxSizeOfEntry;
 
@@ -31,9 +31,9 @@ public class Page extends PageManager {
     }
 
     // ==========ADDING_ENTRIES==========
-    public void add(Entry newEntry) throws IllegalArgumentException {
+    public void add(Entry<K> newEntry) throws IllegalArgumentException {
         if (this.numOfEntries == this.maxNumOfEntries) {
-            throw new IllegalArgumentException("this Paage is full, current Max Size : " + this.maxNumOfEntries);
+            throw new IllegalArgumentException("this Page is full, current Max Size : " + this.maxNumOfEntries);
         }
         this.numOfEntries++;
         this.entries.add(newEntry);
@@ -52,7 +52,7 @@ public class Page extends PageManager {
     }
 
     // ===========SEARCHING_ENTRIES===============
-    public Entry get(int index) {
+    public Entry<K> get(int index) {
         if (index < 0) {
             throw new IllegalArgumentException("Can not get Entry from Page out of bounds Index for value : " + index);
         }
@@ -60,24 +60,12 @@ public class Page extends PageManager {
     }
 
     public int getIndex(Object key) {
+        if (key == null) throw new IllegalArgumentException("Key cannot be null");
         int ind = 0;
-        for (Entry entry : this.entries) {
-            switch (key.getClass().getSimpleName()) {
-                case "Integer":
-                    if (entry.getID() == key) {
-                        return ind;
-                    }
-                    break;
-                case "String":
-                    if (entry.getID().equals(key)) {
-                        return ind;
-                    }
-                    break;
-                case "Byte":
-                    if (entry.getID() == key) {
-                        return ind;
-                    }
-                    break;
+        for (Entry<K> entry : this.entries) {
+            Object entryId = entry.getID();
+            if (key.equals(entryId)) {
+                return ind;
             }
             ind++;
         }
@@ -93,12 +81,10 @@ public class Page extends PageManager {
                 "\n\tSize Of Page Header :   [" + this.sizeOfHeader() + "]" +
                 "\n\tSpace in Use :            [ " + this.spaceInUse + "/" + this.sizeOfEntries() + " ]" +
                 "\n\tEntry data :               " + String.join(", ", this.getEntriesList());
-    }
-
-    private String[] getEntriesList() {
+    }private String[] getEntriesList() {
         String[] result = new String[this.numOfEntries];
         int ind = 0;
-        for (Entry entry : this.entries) {
+        for (Entry<K> entry : this.entries) {
             result[ind] = entry.getEntry()
                     .stream().map(Object::toString)
                     .collect(Collectors.joining(", "));
@@ -123,7 +109,7 @@ public class Page extends PageManager {
         return this.spaceInUse;
     }
 
-    public List<Entry> getAll() {
+    public List<Entry<K>> getAll() {
         return this.entries;
     }
 

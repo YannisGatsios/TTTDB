@@ -5,7 +5,7 @@ import java.util.ArrayList;
 public class Table {
     private String Database;
     private String tableName;
-    private Schema tablSchema;
+    private Schema tableSchema;
 
     private short numOfColumns;
     private int sizeOfEntry;
@@ -18,18 +18,18 @@ public class Table {
     public Table(String databaseName, String tableName,Schema schema){
         this.Database = databaseName;
         this.tableName = tableName;
-        this.tablSchema = schema;
+        this.tableSchema = schema;
         
-        this.numOfColumns = (short) this.tablSchema.getColumnSizes().length;
+        this.numOfColumns = (short) this.tableSchema.getColumnSizes().length;
         this.sizeOfEntry = this.setSizeOfEntry();
         this.maxEntriesPerPage = this.setMaxEntriesPerPage();
-        this.IDindex = this.tablSchema.getPrimaryKeyIndex();
+        this.IDindex = this.tableSchema.getPrimaryKeyIndex();
     }
 
     private int setSizeOfEntry(){
         int sum = 0;
-        String type[] = this.tablSchema.getColumnTypes();
-        int size[] = this.tablSchema.getColumnSizes();
+        String type[] = this.tableSchema.getColumnTypes();
+        int size[] = this.tableSchema.getColumnSizes();
         for (int i = 0;i < this.numOfColumns; i++) {
             if(i == 0){
                 sum += size[i];
@@ -54,8 +54,8 @@ public class Table {
 
         // Get the entry data and check each element's type and size.
         ArrayList<Object> entryData = entry.getEntry();
-        String[] expectedTypes = this.tablSchema.getColumnTypes();
-        int[] expectedSizes = this.tablSchema.getColumnSizes();
+        String[] expectedTypes = this.tableSchema.getColumnTypes();
+        int[] expectedSizes = this.tableSchema.getColumnSizes();
 
         for (int i = 0; i < this.numOfColumns; i++) {
             Object value = entryData.get(i);
@@ -121,7 +121,7 @@ public class Table {
     }
 
     public Schema getSchema(){
-        return this.tablSchema;
+        return this.tableSchema;
     }
 
     public int getSizeOfEntry(){
@@ -129,7 +129,7 @@ public class Table {
     }
 
     public int getMaxIDSize(){
-        return this.tablSchema.getColumnSizes()[0];
+        return this.tableSchema.getColumnSizes()[0];
     }
     public int getIDindex(){
         return this.IDindex;

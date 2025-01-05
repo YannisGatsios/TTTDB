@@ -14,10 +14,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class PageTest {
 
     private Table table;
-    private Page page;
-    private Entry entry1;
-    private Entry entry2;
-    private Entry entry3;
+    private Page<String> page;
+    private Entry<String> entry1;
+    private Entry<String> entry2;
+    private Entry<String> entry3;
 
     @BeforeEach
     void setUp() {
@@ -34,7 +34,7 @@ class PageTest {
         byte[] buffer1 = new byte[10];
         buffer1[9] = (byte) 0xff;
         entryData1.add(buffer1);
-        entry1 = new Entry(entryData1, table.getMaxIDSize());
+        entry1 = new Entry<>(entryData1, table.getMaxIDSize());
         entry1.setID(table.getIDindex());
 
         // Entry 2
@@ -45,7 +45,7 @@ class PageTest {
         byte[] buffer2 = new byte[10];
         buffer2[9] = (byte) 0xff;
         entryData2.add(buffer2);
-        entry2 = new Entry(entryData2, table.getMaxIDSize());
+        entry2 = new Entry<>(entryData2, table.getMaxIDSize());
         entry2.setID(table.getIDindex());
 
         // Entry 3
@@ -56,10 +56,10 @@ class PageTest {
         byte[] buffer3 = new byte[10];
         buffer3[9] = (byte) 0xff;
         entryData3.add(buffer3);
-        entry3 = new Entry(entryData3, table.getMaxIDSize());
+        entry3 = new Entry<>(entryData3, table.getMaxIDSize());
         entry3.setID(table.getIDindex());
 
-        page = new Page(0, table);
+        page = new Page<>(0, table);
     }
 
     @Test
@@ -80,7 +80,7 @@ class PageTest {
         }
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> page.add(entry2));
-        assertEquals("this Paage is full, current Max Size : " + page.size(), exception.getMessage());
+        assertEquals("this Page is full, current Max Size : " + page.size(), exception.getMessage());
     }
 
     @Test
@@ -101,7 +101,7 @@ class PageTest {
     void testRemoveEntryThrowsExceptionWhenInvalidIndex() {
         page.add(entry1);
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> page.remove(5));
-        assertEquals("Invalid Number OF Entry to remove out of bounds yu=ou gave :5", exception.getMessage());
+        assertEquals("Invalid Number OF Entry to remove from Page out of bounds you gave : 5", exception.getMessage());
     }
 
     @Test
@@ -125,7 +125,7 @@ class PageTest {
         String path = "storage/" + table.getDatabaseName() + "." + table.getTableName() + ".table";
         page.writePage(path, data, page.getPageID() * page.sizeInBytes());
 
-        Page newPage = new Page(0, table);
+        Page<String> newPage = new Page<>(0, table);
         byte[] bufferPage = newPage.readPage(path, page.getPageID() * page.sizeInBytes(), page.sizeInBytes());
         newPage = newPage.bufferToPage(bufferPage, table);
 

@@ -2,9 +2,9 @@ package com.database.db;
 
 import java.util.ArrayList;
 
-public class Entry {
+public class Entry<K> {
     
-    private Object ID;
+    private K ID;
     private ArrayList<Object> entryData;
     private int[] sizeOfElementsOfEntry;
     private int[] indexOfElementsOfEntry;
@@ -14,7 +14,7 @@ public class Entry {
     public Entry(ArrayList<Object> newEntry, int sizeOfID){
         this.entryData = newEntry;
         this.sizeOfElementsOfEntry = this.getSizeOfElementsOfEntry(newEntry);
-        this.indexOfElementsOfEntry = this.getIndexOfElemntsOfEntry(this.sizeOfElementsOfEntry);
+        this.indexOfElementsOfEntry = this.getIndexOfElementsOfEntry(this.sizeOfElementsOfEntry);
         this.sizeInBytes = this.getEntrySizeInBytes();
     }
     
@@ -48,7 +48,7 @@ public class Entry {
     //        5     9         19
     //        |     |         |
     //    hello1000000000000000
-    private int[] getIndexOfElemntsOfEntry(int[] sizeOfElementsOfEntry) {
+    private int[] getIndexOfElementsOfEntry(int[] sizeOfElementsOfEntry) {
         int[] indexes = new int[sizeOfElementsOfEntry.length];
         int ind = 0;
         int sum = 0;
@@ -69,9 +69,10 @@ public class Entry {
         return sum;
     }
 
+    @SuppressWarnings("unchecked")
     public void setID(int index){
-        this.ID = this.entryData.get(index);
-    }public Object getID(){
+        this.ID = (K)this.entryData.get(index);
+    }public K getID(){
         return this.ID;
     }
 

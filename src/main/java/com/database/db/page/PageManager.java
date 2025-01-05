@@ -12,21 +12,30 @@ import java.util.Arrays;
 import com.database.db.Table;
 import com.database.db.Entry;
 
-public class PageManager {
+public class PageManager<K> {
     public void writePage(String path, byte[] pageBuffer, int pagePosition){
+        if (pageBuffer == null || pageBuffer.length == 0) throw new IllegalArgumentException("Page buffer cannot be null or empty. When Writing a Page.");
+        if (path == null || path.isEmpty()) throw new IllegalArgumentException("Path cannot be null or empty. When Writing a Page.");
         try {
             RandomAccessFile raf = new RandomAccessFile(path, "rw");
-
             raf.seek(pagePosition);
             raf.write(pageBuffer, 0, pageBuffer.length);
             raf.close();
         } catch (IOException e) {
-            // TODO Auto-generated catch page
+            //LOGGING
+            System.err.println("Error writing to file: " + path);
+            System.err.println("Page position: " + pagePosition);
             e.printStackTrace();
+
+            throw new RuntimeException("Failed to write page to file: " + path, e);
         }
     }
 
     public byte[] readPage(String path, int pagePosition, int pageMaxSize){
+        if (path == null || path.isEmpty()) throw new IllegalArgumentException("Path cannot be null or empty when trying to read Page.");
+        if (pageMaxSize <= 0) throw new IllegalArgumentException("Page max size must be greater than zero you gave : "+pageMaxSize);
+        if (pageMaxSize%4096 != 0) throw new IllegalArgumentException("Page size must be a modulo of a Blocks Size(4096 BYTES) value you gave is : "+pageMaxSize);
+        
         byte[] buffer = new byte[pageMaxSize];
         try {
             RandomAccessFile raf = new RandomAccessFile(path, "r");
@@ -44,11 +53,11 @@ public class PageManager {
             }
             raf.close();
         } catch (FileNotFoundException e) {
-            //TODO File Not Found TO READ
-            e.printStackTrace();
+            System.err.println("File not found(Can not read Page): " + path);
+            throw new RuntimeException("File not found at specified path: " + path, e);
         } catch (IOException e) {
-            //TODO Error During Reading
-            e.printStackTrace();
+            System.err.println("Error reading from file: " + path);
+            throw new RuntimeException("Failed to read page from file: " + path, e);
         }
         return buffer;
     }
@@ -72,18 +81,18 @@ public class PageManager {
         }
     }
 
-    public byte[] pageToBuffer(Page page) throws IOException {
+    public byte[] pageToBuffer(Page<K> page) throws IOException {
         ByteBuffer buffer = ByteBuffer.allocate(page.sizeOfEntries());
         ByteBuffer headBuffer = ByteBuffer.allocate(page.sizeOfHeader());
 
         // Add primitive fields
         headBuffer.putInt(page.getPageID()); // Serialize pageID as 4 bytes (int)
-        headBuffer.putShort(page.size()); // Serialize numOfEtries as 2 bytes (short)
+        headBuffer.putShort(page.size()); // Serialize numOfEntries as 2 bytes (short)
         headBuffer.putInt(page.getSpaceInUse()); // Serialize spaceInUse as 4 bytes (int)
         headBuffer.flip();
 
         // Add entries
-        for (Entry entryObj : page.getAll()) {
+        for (Entry<K> entryObj : page.getAll()) {
             ArrayList<Object> entry = entryObj.getEntry();
             for (Object element : entry) {
                 switch (element.getClass().getSimpleName()) {
@@ -116,25 +125,29 @@ public class PageManager {
         return combinedArray.array();
     }
 
-    public Page bufferToPage(byte[] bufferData, Table table) throws IOException{
+    public Page<K> bufferToPage(byte[] bufferData, Table table) throws IOException{
+        if (bufferData == null || bufferData.length == 0) throw new IllegalArgumentException("Buffer data cannot be null or empty.");
+        if (bufferData.length%4096 != 0) throw new IllegalArgumentException("Buffer data must be a modulo of a Blocks Size(4096 BYTES) you gave : "+bufferData.length);
+        if (table == null || table.getSchema() == null) throw new IllegalArgumentException("Table or table schema cannot be null.");
+
         //Reading The page ID.
         int pageID = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, 0, 4)).getInt();
         bufferData = Arrays.copyOfRange(bufferData, 4, bufferData.length);
 
         //Initializing New Empty Page.
-        Page newPage = new Page(pageID, table);
+        Page<K> newPage = new Page<>(pageID, table);
 
         //Reading The Number Of Entries.
-        short numOfEtries = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, 0, 2)).getShort();
+        short numOfEntries = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, 0, 2)).getShort();
         bufferData = Arrays.copyOfRange(bufferData, 2, bufferData.length);
 
         //Reading The Space In Use Of The Page.
         int spaceInUse = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, 0, 4)).getInt();
         bufferData = Arrays.copyOfRange(bufferData, 4, bufferData.length);
 
-        //==Reading The Actual Entries based On The IndexList==
+        //Reading The Actual Entries one by one based on the tables schema configuration.
         int startIndex = 0;
-        for(int i = 0; i < numOfEtries; i++){
+        for(int i = 0; i < numOfEntries; i++){
             ArrayList<Object> entry = new ArrayList<>();
             
             for (String type : table.getSchema().getColumnTypes()) {
@@ -159,14 +172,12 @@ public class PageManager {
                         throw new IllegalArgumentException("Unexpected type: " + type);
                 }
             }
-            Entry newEntry = new Entry(entry, table.getMaxIDSize());
+            Entry<K> newEntry = new Entry<>(entry, table.getMaxIDSize());
             newEntry.setID(table.getIDindex());
             newPage.add(newEntry);
         }
-        if(spaceInUse != newPage.getSpaceInUse()){
-            //TODO
-            throw new IOException();
-        }
+        if(spaceInUse != newPage.getSpaceInUse()) throw new IOException("Mismatch between expected and actual space in use for Page.");
+        if(numOfEntries != newPage.size()) throw new IOException("Mismatch between expected and actual numOfEntries and Page.size().");
         return newPage;
     }
     

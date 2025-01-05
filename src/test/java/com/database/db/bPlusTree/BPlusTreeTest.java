@@ -3,8 +3,6 @@ package com.database.db.bPlusTree;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.database.db.bPlusTree.TreeUtils.*;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.Comparator;
@@ -13,92 +11,76 @@ import java.util.Random;
 
 public class BPlusTreeTest {
 
-    private BPlusTree tree;
-    private Comparator<Pair<?, ?>> comparator;
+    private BPlusTree<Integer,Integer> tree;
+    private Comparator<Pair<?,?>> comparator;
 
     @BeforeEach
+    @SuppressWarnings("unchecked")
     public void setUp() {
         // Initialize the tree with an order of 5 for testing.
         comparator = (pair1, pair2) -> {
             Object key1 = pair1.getKey();
             Object key2 = pair2.getKey();
-
-            // Ensure both keys are of the same type (String or Integer)
-            if (key1.getClass() != key2.getClass()) {
-                throw new IllegalArgumentException("Keys must be of the same type (String or Integer).");
+            // Compare based on key types
+            if (key1 instanceof Comparable) {
+                return ((Comparable<Object>) key1).compareTo(key2);
             }
-
-            if (key1 instanceof String && key2 instanceof String) {
-                return ((String) key1).compareTo((String) key2);
-            } else if (key1 instanceof Integer && key2 instanceof Integer) {
-                return Integer.compare((Integer) key1, (Integer) key2);
-            } else if (key1 instanceof byte[] && key2 instanceof byte[]) {
-                byte[] bkey1 = (byte[]) key1;
-                byte[] bkey2 = (byte[]) key2;
-                for (int i = 0; i < Math.min(bkey1.length, bkey2.length); i++) {
-                    int cmp = bkey1[i] - bkey2[i];
-                    if (cmp != 0)
-                        return cmp;
-                }
-                return Integer.compare(bkey1.length, bkey2.length);
-            } else {
-                throw new IllegalArgumentException("Unsupported key type. Only String and Integer are allowed.");
-            }
+            throw new IllegalArgumentException("Keys must implement Comparable.");
         };
-        tree = new BPlusTree(5);
+        tree = new Tree<>(5);
     }
 
     @Test
     public void testInsertionAndSearch() {
         // Insert elements
-        tree.insert(new Pair<byte[],Integer>(new byte[] {10}, 1));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {20}, 2));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {5}, 3));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {15}, 4));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {25}, 5));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {30}, 6));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {11}, 7));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {22}, 8));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {6}, 9));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {16}, 10));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {26}, 11));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {31}, 12));
+        tree.insert(10, 1);
+        tree.insert(20, 2);
+        tree.insert(5, 3);
+        tree.insert(15, 4);
+        tree.insert(25, 5);
+        tree.insert(30, 6);
+        tree.insert(11, 7);
+        tree.insert(22, 8);
+        tree.insert(6, 9);
+        tree.insert(16, 10);
+        tree.insert(26, 11);
+        tree.insert(31, 12);
 
         // Assert that the keys are inserted correctly by searching for each key
-        assertTrue(tree.search(new byte[] {10}));
-        assertTrue(tree.search(new byte[] {20}));
-        assertTrue(tree.search(new byte[] {5}));
-        assertTrue(tree.search(new byte[] {15}));
-        assertTrue(tree.search(new byte[] {25}));
-        assertTrue(tree.search(new byte[] {30}));
-        assertTrue(tree.search(new byte[] {11}));
-        assertTrue(tree.search(new byte[] {22}));
-        assertTrue(tree.search(new byte[] {6}));
-        assertTrue(tree.search(new byte[] {16}));
-        assertTrue(tree.search(new byte[] {26}));
-        assertTrue(tree.search(new byte[] {31}));
+        assertTrue(tree.isKey(10));
+        assertTrue(tree.isKey(20));
+        assertTrue(tree.isKey(5));
+        assertTrue(tree.isKey(15));
+        assertTrue(tree.isKey(25));
+        assertTrue(tree.isKey(30));
+        assertTrue(tree.isKey(11));
+        assertTrue(tree.isKey(22));
+        assertTrue(tree.isKey(6));
+        assertTrue(tree.isKey(16));
+        assertTrue(tree.isKey(26));
+        assertTrue(tree.isKey(31));
     }
 
     @Test
     public void testRangeQuery() {
         // Insert elements
-        tree.insert(new Pair<byte[],Integer>(new byte[] {10}, 1));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {20}, 2));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {5}, 3));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {15}, 4));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {25}, 5));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {30}, 6));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {11}, 7));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {22}, 8));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {6}, 9));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {16}, 10));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {26}, 11));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {31}, 12));
+        tree.insert(10, 1);
+        tree.insert(20, 2);
+        tree.insert(5, 3);
+        tree.insert(15, 4);
+        tree.insert(25, 5);
+        tree.insert(30, 6);
+        tree.insert(11, 7);
+        tree.insert(22, 8);
+        tree.insert(6, 9);
+        tree.insert(16, 10);
+        tree.insert(26, 11);
+        tree.insert(31, 12);
 
         // Perform a range query and check if the range is correct
-        byte[] lower = new byte[] {10};
-        byte[] upper = new byte[] {25};
-        List<Pair<?,?>> result = tree.rangeQuery(lower, upper);
+        int lower = 10;
+        int upper = 25;
+        List<Pair<Integer,Integer>> result = tree.rangeSearch(lower, upper);
         Pair<?,Integer> pairLow = new Pair<>(lower, 0);
         Pair<?,Integer> pairUp = new Pair<>(upper, 0);
 
@@ -107,7 +89,7 @@ public class BPlusTreeTest {
         assertEquals(7, result.size());  // There should be 9 keys in the range [10, 25]
 
         // Check if all keys in result are within the range [10, 25]
-        for (Pair<?,?> key : result) {
+        for (Pair<Integer,Integer> key : result) {
             assertTrue(comparator.compare(key, pairLow) >= 0 && comparator.compare(key, pairUp) <= 0);
         }
     }
@@ -115,38 +97,36 @@ public class BPlusTreeTest {
     @Test
     public void testRemove() {
         // Insert elements
-        tree.insert(new Pair<byte[],Integer>(new byte[] {10}, 1));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {20}, 2));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {5}, 3));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {15}, 4));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {25}, 5));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {30}, 6));
+        tree.insert(10, 1);
+        tree.insert(20, 2);
+        tree.insert(5, 3);
+        tree.insert(15, 4);
+        tree.insert(25, 5);
+        tree.insert(30, 6);
 
         // Remove an element
-        byte[] keyToRemove = {15};
+        int keyToRemove = 15;
         tree.remove(keyToRemove);
 
         // Assert that the key is no longer in the tree
-        assertFalse(tree.search(keyToRemove));
+        assertFalse(tree.isKey(keyToRemove));
 
         // Also check that other elements are still present
-        assertTrue(tree.search(new byte[] {10}));
-        assertTrue(tree.search(new byte[] {20}));
-        assertTrue(tree.search(new byte[] {5}));
-        assertTrue(tree.search(new byte[] {25}));
-        assertTrue(tree.search(new byte[] {30}));
+        assertTrue(tree.isKey(10));
+        assertTrue(tree.isKey(20));
+        assertTrue(tree.isKey(5));
+        assertTrue(tree.isKey(25));
+        assertTrue(tree.isKey(30));
     }
 
     @Test
-    void testRandomIndert400times(){
+    void testRandomInsert400times(){
         Random random = new Random();
         int i = 0;
         while (i < 400) {
-            int num = random.nextInt(127);
-            int num1 = random.nextInt(127);
-            byte[] data = { (byte) num, (byte) num1 };
-            if (!tree.search(data)) {
-                tree.insert(new Pair<byte[],Integer>(data, i));
+            int num = random.nextInt();
+            if (!tree.isKey(num)) {
+                tree.insert(num, i);
                 i++;
             }
         }
@@ -154,66 +134,66 @@ public class BPlusTreeTest {
 
     @Test
     void testRemoveWithMerge() {
-        Pair<byte[],Integer> key1 = new Pair<>(new byte[] {1}, 1);
-        Pair<byte[],Integer> key2 = new Pair<>(new byte[] {2}, 2);
-        Pair<byte[],Integer> key3 = new Pair<>(new byte[] {3}, 3);
-        Pair<byte[],Integer> key4 = new Pair<>(new byte[] {4}, 4);
+        int key1 = 1;
+        int key2 = 2;
+        int key3 = 3;
+        int key4 = 4;
         
-        tree.insert(key1);
-        tree.insert(key2);
-        tree.insert(key3);
-        tree.insert(key4);
+        tree.insert(key1, 1);
+        tree.insert(key2, 2);
+        tree.insert(key3, 3);
+        tree.insert(key4, 4);
         
         // Remove key1, which should trigger a merge
-        tree.remove(key1.getKey());
+        tree.remove(key1);
         
         // Verify the structure after merge
-        assertFalse(tree.search(key1.getKey()));
-        assertTrue(tree.search(key2.getKey()));
-        assertTrue(tree.search(key3.getKey()));
-        assertTrue(tree.search(key4.getKey()));
+        assertFalse(tree.isKey(key1));
+        assertTrue(tree.isKey(key2));
+        assertTrue(tree.isKey(key3));
+        assertTrue(tree.isKey(key4));
     }
 
     @Test
     public void testEmptyTree() {
         // Test an empty tree (no insertions yet)
-        assertFalse(tree.search(new byte[] {10}));
+        assertFalse(tree.isKey(10));
     }
 
     @Test
     public void testInsertAndPrintTree() {
         // Insert elements
-        tree.insert(new Pair<byte[],Integer>(new byte[] {10}, 1));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {20}, 2));
-        tree.insert(new Pair<byte[],Integer>(new byte[] {30}, 3));
+        tree.insert(10, 1);
+        tree.insert(20, 2);
+        tree.insert(30, 3);
 
         // Optionally, print tree structure
         tree.printTree();  // This will print the tree structure for debugging purposes
 
         // You may also assert the tree structure based on expected behavior
-        assertTrue(tree.search(new byte[] {10}));
-        assertTrue(tree.search(new byte[] {20}));
-        assertTrue(tree.search(new byte[] {30}));
+        assertTrue(tree.isKey(10));
+        assertTrue(tree.isKey(20));
+        assertTrue(tree.isKey(30));
     }
 
     @Test
     void testSearchNotFound() {
-        Pair<byte[],Integer> key1 = new Pair<>(new byte[] {1}, 1);
-        Pair<byte[],Integer> key2 = new Pair<>(new byte[] {2}, 2);
+        int key1 = 1;
+        int key2 = 2;
         
-        tree.insert(key1);
-        tree.insert(key2);
+        tree.insert(key1, 1);
+        tree.insert(key2, 2);
         
         // Searching for a key that doesn't exist
-        byte[] keyNotFound = new byte[] {3};
-        assertFalse(tree.search(keyNotFound));
+        int keyNotFound = 3;
+        assertFalse(tree.isKey(keyNotFound));
     }
 
     @Test
     void testOrderValidation() {
         // Test that an exception is thrown if the order is less than 3
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            new BPlusTree(2);
+            new Tree<>(2);
         });
         assertEquals("BPlus Tree Order must be at least 3.", exception.getMessage());
     }

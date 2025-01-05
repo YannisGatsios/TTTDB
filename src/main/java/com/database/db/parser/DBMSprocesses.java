@@ -1,53 +1,54 @@
 package com.database.db.parser;
 
+import java.io.File;
 import java.io.IOException;
-
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
 import com.database.db.Entry;
 import com.database.db.Table;
+import com.database.db.Schema;
+import com.database.db.bPlusTree.Tree;
 import com.database.db.bPlusTree.BPlusTree;
-import com.database.db.bPlusTree.TreeUtils.Pair;
 import com.database.db.page.Page;
 
-public class DBMSprocesses {
-
+public class DBMSprocesses<K extends Comparable<K>> {
     public DBMSprocesses(){
-
     }
-    
-    public void select(){
-
+    //==SELECTING==
+    public List<Entry<K>> select(){
+        return null;//TODO
     }
-
-    //==INSERION==
-    public BPlusTree insertionProcess(Table table, Entry entry, BPlusTree tree) throws IOException{
-        Page Page = new Page(tree.getLastPageID(), table);
+    //==INSERTION==
+    public BPlusTree<K,Integer> insertionProcess(Table table, Entry<K> entry, BPlusTree<K,Integer> tree) throws IOException{
+        Page<K> Page = new Page<>(tree.getLastPageID(), table);
         byte[] pageBuffer = Page.readPage(table.getTablePath(), Page.getPagePos(), Page.sizeInBytes());
         if(pageBuffer != null){
             Page = Page.bufferToPage(pageBuffer, table);
         }
-
         if(Page.size() < table.getMaxEntriesPerPage()){
             return this.insertionSteps(table, tree, entry, Page);
         }
         tree.addOnePageID();
-        Page = new Page(tree.getLastPageID(), table);
+        Page = new Page<>(tree.getLastPageID(), table);
         return this.insertionSteps(table, tree, entry, Page);
     }
-    private BPlusTree insertionSteps(Table table, BPlusTree tree, Entry entry, Page Page) throws IOException{
+    
+    private BPlusTree<K,Integer> insertionSteps(Table table, BPlusTree<K,Integer> tree, Entry<K> entry, Page<K> Page) throws IOException{
         Page.add(entry);
-        Pair<?,Integer> pair = new Pair<>(entry.getID(), Page.getPageID());
-        tree.insert(pair);
+        tree.insert(entry.getID(), (Integer) (Integer)Page.getPageID());
         Page.writePage(table.getTablePath(), Page.pageToBuffer(Page), Page.getPagePos());
         return tree;
     }
 
     //==DELETION==
-    public BPlusTree delete(Table table, BPlusTree tree, Object key) throws IllegalArgumentException,IOException{
-        Pair<?,?> pair = tree.findPair(key);
-        if(pair == null) throw new IllegalArgumentException("The key you are tring to delete is not found.(From DeletionProcess)");
+    public BPlusTree<K,Integer> deletionProcess(Table table, BPlusTree<K,Integer> tree, K key) throws IllegalArgumentException,IOException{
+        Integer value = tree.search(key);
+        if(value == null) throw new IllegalArgumentException("The key you are trying to delete is not found.(From DeletionProcess)");
 
-        if((int)pair.getValue() == tree.getLastPageID()){
-            Page Page = new Page((int)pair.getValue(), table);
+        if(value == tree.getLastPageID()){
+            Page<K> Page = new Page<>(value, table);
             byte[] pageBuffer = Page.readPage(table.getTablePath(), Page.getPagePos(), Page.sizeInBytes());
             Page = Page.bufferToPage(pageBuffer, table);
             int index =  Page.getIndex(key);
@@ -61,9 +62,9 @@ public class DBMSprocesses {
             return tree;
         }
         //Removing the last entry from the last Page recorded.
-        Page Page = new Page(tree.getLastPageID(), table);
+        Page<K> Page = new Page<>(tree.getLastPageID(), table);
         Page = Page.bufferToPage(Page.readPage(table.getTablePath(), Page.getPagePos(), Page.sizeInBytes()), table);
-        Entry lastEntry = Page.get(Page.size() - 1);//Keeping the removed entry for later.
+        Entry<K> lastEntry = Page.get(Page.size() - 1);//Keeping the removed entry for later.
         Page.remove(Page.getIndex(lastEntry.getID()));
         tree.remove(lastEntry.getID());
         Page.writePage(table.getTablePath(), Page.pageToBuffer(Page), Page.getPagePos());
@@ -73,24 +74,66 @@ public class DBMSprocesses {
         }
 
         //Removing the Entry user asked for and replacing it the one deleted one above.
-        Page Page2 = new Page((int)pair.getValue(), table);
+        Page<K> Page2 = new Page<>(value, table);
         byte[] pageBuffer = Page2.readPage(table.getTablePath(), Page2.getPagePos(), Page2.sizeInBytes());
         Page2 = Page2.bufferToPage(pageBuffer, table);
         int ind =  Page2.getIndex(key);
         if( ind == -1){
-            tree.findPair(key);
+            tree.search(key);
         }
         int index =  Page2.getIndex(key);
         Page2.remove(index);
         tree.remove(key);
         Page2.add(lastEntry);
-        Pair<?,?> newPair = new Pair<>(lastEntry.getID(), pair.getValue());
-        tree.insert(newPair);
+        tree.insert(lastEntry.getID(), value);
         Page2.writePage(table.getTablePath(), Page2.pageToBuffer(Page2), Page2.getPagePos());
         return tree;
     }
+    //==UPDATING==
+    public Tree<K,Integer> update(){
+        return null;//TODO
+    }
 
-    public void update(){
-
+    //==CREATING==
+    public void createDatabase(){
+    }
+    public void createTable(String databaseName, String tableName, Schema schema){
+        try {
+            File tableFile = new File("storage/"+databaseName+"."+tableName+".table");
+            if (tableFile.createNewFile()) {
+                System.out.println("Table File created : " + tableFile.getName());
+            } else {
+                System.out.println("Table File already exists.");
+            }
+            File indexFile = new File("storage/index/"+databaseName+"."+tableName+".index");
+            if (indexFile.createNewFile()) {
+                System.out.println("Index File created : " + indexFile.getName());
+            } else {
+                System.out.println("Index File already exists.");
+            }
+        } catch (IOException e) {
+            System.out.println("An error occurred.");
+            e.printStackTrace();
+        }
+    }
+    public void createIndex(){
+    }
+    //==DROPPING==
+    public void dropDatabase(){
+    }
+    public void dropTable(String databaseName, String tableName){
+        Path tablePath = Paths.get("storage/"+databaseName+"."+tableName+".table");
+        Path indexPath = Paths.get("storage/index/"+databaseName+"."+tableName+".index");
+        try {
+            Files.delete(tablePath);
+            System.out.println("Table File deleted successfully.");
+            Files.delete(indexPath);
+            System.out.println("Index File deleted successfully.");
+        } catch (IOException e) {
+            System.out.println("An error occurred while deleting a Table or Index file.");
+            e.printStackTrace();
+        }
+    }
+    public void dropIndex(){
     }
 }

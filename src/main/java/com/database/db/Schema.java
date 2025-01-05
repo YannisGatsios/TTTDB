@@ -6,7 +6,7 @@ public class Schema {
     private int[] columnSizes;
     private String[] columnTypes;
     private boolean[] nullable;
-    private boolean[] isSecodaryKey;
+    private boolean[] isSecondaryKey;
     private boolean[] isPrimaryKey;
     private final int numOfColumns;
 
@@ -17,7 +17,7 @@ public class Schema {
         this.columnSizes = this.setColumnSizes(schema);
         this.columnTypes = this.setColumnTypes(schema);
         this.nullable = this.setNullable(schema);
-        this.isSecodaryKey = this.setSecodaryKey(schema);
+        this.isSecondaryKey = this.setSecondaryKey(schema);
         this.isPrimaryKey = this.setPrimaryKey(schema);
         this.numOfColumns = nullable.length;
     }
@@ -62,14 +62,14 @@ public class Schema {
         return this.nullable;
     }
 
-    private boolean[] setSecodaryKey(String[] tableConfig){
+    private boolean[] setSecondaryKey(String[] tableConfig){
         boolean result[] = new boolean[tableConfig.length];
         for (int i = 0;i<tableConfig.length;i++){
             result[i] = Boolean.parseBoolean(tableConfig[i].split(":")[4].trim());
         }
         return result;
-    }public boolean[] getSecodaryKey(){
-        return this.isSecodaryKey;
+    }public boolean[] getSecondaryKey(){
+        return this.isSecondaryKey;
     }
 
     private boolean[] setPrimaryKey(String[] tableConfig){
@@ -95,7 +95,7 @@ public class Schema {
     }
 
     public void printSchema(){
-        String[] valueNames = {"Name :", "Buffer Size :", "Data Type :", "Nullable :", "Secodary Key :", "Primary Key :"};
+        String[] valueNames = {"Name :", "Buffer Size :", "Data Type :", "Nullable :", "Secondary Key :", "Primary Key :"};
         String[] result = new String[this.numOfColumns+1];
         result[0] = "| ";
         for (int i = 0; i < valueNames.length; i++) {
@@ -106,7 +106,7 @@ public class Schema {
             +this.columnSizes[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-String.valueOf(this.columnSizes[i]).length())+"| "
             +this.columnTypes[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-columnTypes[i].length())+"| "
             +this.nullable[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-String.valueOf(this.nullable[i]).length())+"| "
-            +this.isSecodaryKey[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-String.valueOf(this.isSecodaryKey[i]).length())+"| "
+            +this.isSecondaryKey[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-String.valueOf(this.isSecondaryKey[i]).length())+"| "
             +this.isPrimaryKey[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-String.valueOf(this.isPrimaryKey[i]).length())+"| ";
         }
         String border = "+"+String.valueOf("-").repeat(result[0].length()-3)+"+";
