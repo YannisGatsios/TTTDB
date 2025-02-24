@@ -1,15 +1,17 @@
-package com.database.db.bPlusTree;
+package com.database.db.index;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-public class Tree<K extends Comparable<K>,V> extends BPlusTree<K,V>{
+import com.database.db.table.Table;
+
+public abstract class BPlusTree<K extends Comparable<K>,V> implements BTree<K,V>  {
 
     private Node<K,V> root;
     private final int order;
-    private int lastPageID;
+    private int numberOfPages;
     private final Comparator<Pair<K, V>> keyComparator = (pair1, pair2) -> {
         K key1 = pair1.getKey();
         K key2 = pair2.getKey();
@@ -20,13 +22,13 @@ public class Tree<K extends Comparable<K>,V> extends BPlusTree<K,V>{
         throw new IllegalArgumentException("Keys must implement Comparable.");
     };
 
-    public Tree(int order){
+    public BPlusTree(int order){
         if(order < 3){
             throw new IllegalArgumentException("BPlus Tree Order must be at least 3.");
         }
         this.root = null;
         this.order = order;
-        this.lastPageID = 0;
+        this.numberOfPages = 0;
     }
 
     //========! INSERTION !==========
@@ -282,16 +284,19 @@ public class Tree<K extends Comparable<K>,V> extends BPlusTree<K,V>{
     }
 
     //=======! PRINTING !======
-    public void printTree(){
+    @Override
+    public String toString(){
+        String result = "";
         List<List<String>> tree = new ArrayList<List<String>>();
         tree.add(0 ,new ArrayList<>(List.of(this.printNode(this.root))));
         tree = this.printTree(this.root, 1, tree);
         for (int i = 0; i < tree.size(); i++) {
-            System.out.println("!=========! Level " + i + " !=========!\n" + tree.get(i));
+            result += "!=========! Level " + i + " !=========!\n" + tree.get(i)+"\n";
         }
         for (int i = 0; i < tree.size(); i++) {
-            System.out.println("!=========! Level " + i + " !=========!\nNum Of Nodes : " + tree.get(i).size());
+            result += "!=========! Level " + i + " !=========!\nNum Of Nodes : " + tree.get(i).size()+"\n";
         }
+        return result;
     }
     private List<List<String>> printTree(Node<K,V> node, int level, List<List<String>> tree){
         if(!node.isLeaf){
@@ -305,8 +310,7 @@ public class Tree<K extends Comparable<K>,V> extends BPlusTree<K,V>{
             }
         }
         return tree;
-    }
-    private String printNode(Node<K,V> node){
+    }private String printNode(Node<K,V> node){
         String keys = "|";
         for(int i = 0; i < node.keys.size();i++){
             keys += "  "+ this.byteArrayToString(node.keys.get(i).getKey())+" : "+node.keys.get(i).getValue()+"  |";
@@ -315,8 +319,7 @@ public class Tree<K extends Comparable<K>,V> extends BPlusTree<K,V>{
         return "\n"+border+"\n"+
                 keys+"\n"+
                 border+"\n";
-    }
-    private String byteArrayToString(Object byteArray) {
+    }private String byteArrayToString(Object byteArray) {
         if(byteArray instanceof byte[]){
             StringBuilder sb = new StringBuilder();
             for (byte b : (byte[])byteArray) {
@@ -333,14 +336,16 @@ public class Tree<K extends Comparable<K>,V> extends BPlusTree<K,V>{
     public Node<K,V> getRoot(){
         return this.root;
     }
-    public void setLastPageID(int lastPageID){
-        this.lastPageID = lastPageID;
-    }public int getLastPageID(){
-        return this.lastPageID;
-    }public void addOnePageID(){
-        this.lastPageID = this.lastPageID + 1;
-    }public void removeOnePageID(){
-        this.lastPageID = this.lastPageID - 1;
+    public void setNumberOfPages(int lastPageID){
+        this.numberOfPages = lastPageID;
+    }public int getNumberOfPages(){
+        return this.numberOfPages;
+    }public void addOnePage(){
+        this.numberOfPages = this.numberOfPages + 1;
+    }public void removeOnePage(){
+        this.numberOfPages = this.numberOfPages - 1;
     }
 
+    public abstract byte[] treeToBuffer(int maxSizeOfKey);
+    public abstract BPlusTree<K, V> bufferToTree(byte[] treeBuffer, Table table);
 }

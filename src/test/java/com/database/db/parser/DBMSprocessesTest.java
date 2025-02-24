@@ -21,8 +21,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 
 import com.database.db.FileIO;
-import com.database.db.bPlusTree.BPlusTree;
-import com.database.db.bPlusTree.Tree;
+import com.database.db.index.PrimaryKey;
 import com.database.db.table.Entry;
 import com.database.db.table.Schema;
 import com.database.db.table.Table;
@@ -33,7 +32,7 @@ public class DBMSprocessesTest {
     private static FileIO fileIO = new FileIO();
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
-    private static String generateRandomString(int length) {
+    private String generateRandomString(int length) {
         StringBuilder sb = new StringBuilder(length);
         for (int i = 0; i < length; i++) {
             int randomIndex = SECURE_RANDOM.nextInt(CHARACTERS.length());
@@ -43,8 +42,7 @@ public class DBMSprocessesTest {
     }
 
     private Table table;
-    private BPlusTree<String,Integer> tree;
-    private DBMSprocesses<String> DBMS;
+    private DBMSprocesses DBMS;
     private Random random;
     private static String[] keysList;
     private static String databaseName;
@@ -56,11 +54,10 @@ public class DBMSprocessesTest {
         tableName = "test_table";
         Schema schema = new Schema("username:15:String:false:false:true;num:4:Integer:false:true:false;message:5:String:true:true:false;data:10:Byte:false:false:false".split(";"));
         
-        DBMS = new DBMSprocesses<>();
+        DBMS = new DBMSprocesses();
         DBMS.createTable(databaseName, tableName, schema); //Creating table
 
         table = new Table(databaseName, tableName, schema);//Table INIT
-        tree = new Tree<>(table.getPageMaxNumOfEntries());//Tree INIT
         random = new Random();
         keysList = new String[400];
     }
@@ -74,11 +71,11 @@ public class DBMSprocessesTest {
         entryData.add("HELLO");
         byte[] data = new byte[10];
         entryData.add(data);
-        Entry<String> entry = new Entry<>(entryData, table.getMaxIDSize());
-        entry.setID(table.getIDindex());
+        Entry<String> entry = new Entry<>(entryData, table.getPrimaryKeyMaxSize());
+        entry.setID(table.getPrimaryKeyColumnIndex());
         try {
-            tree = DBMS.insertionProcess(table, entry, tree);
-            fileIO.writeTree(table.getIndexPath(), tree.treeToBuffer(tree, table.getMaxIDSize()));
+            DBMS.insertionProcess(table, entry);
+            fileIO.writeTree(table.getIndexPath(), table.getPrimaryKeyIndex().treeToBuffer( table.getPrimaryKeyMaxSize()));
         } catch (IllegalArgumentException e) {
             fail(e);
         } catch (IOException e) {
@@ -88,10 +85,10 @@ public class DBMSprocessesTest {
     @Test
     @Order(2)
     void testDeleteLastEntry(){
-        tree = tree.bufferToTree(fileIO.readTree(table.getIndexPath()), table);
+        table.getPrimaryKeyIndex().bufferToTree(fileIO.readTree(table.getIndexPath()), table);
         try {
-            tree = DBMS.deletionProcess(table, tree, "firstEntry");
-            fileIO.writeTree(table.getIndexPath(), tree.treeToBuffer(tree, table.getMaxIDSize()));
+            DBMS.deletionProcess(table, "firstEntry");
+            fileIO.writeTree(table.getIndexPath(), table.getPrimaryKeyIndex().treeToBuffer(table.getPrimaryKeyMaxSize()));
         } catch (IllegalArgumentException | IOException e) {
             fail(e);
         }
@@ -99,20 +96,22 @@ public class DBMSprocessesTest {
 
     @Test
     @Order(3)
-    void testRandomEntryInsertion() {
-        tree = tree.bufferToTree(fileIO.readTree(table.getIndexPath()), table);
+    @SuppressWarnings("unchecked")
+    public <K extends Comparable<K>> void testRandomEntryInsertion() {
+        table.getPrimaryKeyIndex()
+        .bufferToTree(fileIO.readTree(table.getIndexPath()), table);
         int ind = 0;
         while (ind < 400) {
-            int sizeOfID = random.nextInt(table.getMaxIDSize()-1)+1;
-            String userName = generateRandomString(sizeOfID);
-            if(!tree.isKey(userName)){
+            int sizeOfID = random.nextInt(table.getPrimaryKeyMaxSize()-1)+1;
+            String userName = this.generateRandomString(sizeOfID);
+            PrimaryKey<K> tree = table.getPrimaryKeyIndex();
+            if(!tree.isKey((K)userName)){
                 keysList[ind] = userName;
                 ArrayList<Object> entryData = new ArrayList<>();
                 entryData.add(userName);
 
                 int intNum = random.nextInt();
                 entryData.add(intNum);
-
                 int sizeOfString = random.nextInt(table.getSchema().getColumnSizes()[2]);
                 String randStr = generateRandomString(sizeOfString);
                 entryData.add(randStr);
@@ -123,10 +122,10 @@ public class DBMSprocessesTest {
                     data[y] = (byte) random.nextInt(127);
                 }
                 entryData.add(data);
-                Entry<String> entry = new Entry<>(entryData, table.getMaxIDSize());
-                entry.setID(table.getIDindex());
+                Entry<String> entry = new Entry<>(entryData, table.getPrimaryKeyMaxSize());
+                entry.setID(table.getPrimaryKeyColumnIndex());
                 try {
-                    tree = DBMS.insertionProcess(table, entry, tree);
+                    DBMS.insertionProcess(table, entry);
                 } catch (IOException e) {
                     fail(e);
                 }
@@ -134,7 +133,7 @@ public class DBMSprocessesTest {
             }
         }
         fileIO.writeTree(table.getIndexPath(),
-                tree.treeToBuffer(tree, table.getMaxIDSize()));
+        table.getPrimaryKeyIndex().treeToBuffer(table.getPrimaryKeyMaxSize()));
         try (BufferedWriter writer = new BufferedWriter(new FileWriter("DBMSprocessesTest.txt"))) {
             for (String key : keysList) {
                 writer.write(key + "\n");
@@ -159,7 +158,7 @@ public class DBMSprocessesTest {
         java.io.File file = new java.io.File("DBMSprocessesTest.txt");
         if (!file.delete()) System.err.println("Failed to delete DBMSprocessesTest.txt");
 
-        BPlusTree<String,Integer> tree2 = new Tree<>(table.getPageMaxNumOfEntries());
+        PrimaryKey<String> tree2 = new PrimaryKey<>(table.getPageMaxNumOfEntries());
         tree2 = tree2.bufferToTree(fileIO.readTree(table.getIndexPath()), table);
 
         //Checking if all previously inserted keys are included in the new tree
@@ -175,14 +174,14 @@ public class DBMSprocessesTest {
             int randInd = random.nextInt(400);
             if(tree2.isKey(keysList[randInd])){
                 try {
-                    tree2 = DBMS.deletionProcess(table, tree2, keysList[randInd]);
+                    tree2 = DBMS.deletionProcess(table, keysList[randInd]);
                 } catch (IllegalArgumentException | IOException e) {
                     fail(e);
                 }
                 ind++;
             }
         }
-        fileIO.writeTree(table.getIndexPath(), tree2.treeToBuffer(tree2, table.getMaxIDSize()));
+        fileIO.writeTree(table.getIndexPath(), tree2.treeToBuffer(table.getPrimaryKeyMaxSize()));
     }
 
     //@Test
@@ -191,7 +190,7 @@ public class DBMSprocessesTest {
         DBMS.dropTable(databaseName, tableName);
         DBMS.createTable(databaseName, tableName, null);
         
-        tree = tree.bufferToTree(fileIO.readTree(table.getIndexPath()), table);
+        table.getPrimaryKeyIndex().bufferToTree(fileIO.readTree(table.getIndexPath()), table);
         int ind = 0;
         while(ind < 1000000){
             ArrayList<Object> entryData = new ArrayList<>();
@@ -200,10 +199,10 @@ public class DBMSprocessesTest {
             entryData.add(ind);
             entryData.add("TEST");
             entryData.add(new byte[] {(byte)ind});
-            Entry<String> entry = new Entry<>(entryData, table.getMaxIDSize());
-            entry.setID(table.getIDindex());
+            Entry<String> entry = new Entry<>(entryData, table.getPrimaryKeyMaxSize());
+            entry.setID(table.getPrimaryKeyColumnIndex());
             try {
-                tree = DBMS.insertionProcess(table, entry, tree);
+                DBMS.insertionProcess(table, entry);
             } catch (IOException e) {
                 fail(e);
             }
@@ -213,6 +212,6 @@ public class DBMSprocessesTest {
 
     @AfterAll
     static void end(){
-        new DBMSprocesses<>().dropTable(databaseName, tableName);
+        new DBMSprocesses().dropTable(databaseName, tableName);
     }
 }

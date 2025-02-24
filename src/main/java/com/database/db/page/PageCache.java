@@ -5,19 +5,18 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.database.db.FileIO;
-import com.database.db.bPlusTree.BPlusTree;
 import com.database.db.table.Table;
 
 public class PageCache<K extends Comparable<K>> {
     private final FileIO fileIO = new FileIO();
 
     private final int maxSize;
-    private BPlusTree<K,?> tree;
+    private Table table;
     private final Map<Integer,Page<K>> cache;
 
-    public PageCache(int maxSize, BPlusTree<K,?> tree){
-        this.maxSize = maxSize;
-        this.tree = tree;
+    public PageCache(Table table){
+        this.maxSize = table.MAX_NUM_OF_PAGES_IN_CACHE;
+        this.table = table;
         this.cache = new LinkedHashMap<>(maxSize, 0.75f, true) {
 
             @Override
@@ -26,23 +25,21 @@ public class PageCache<K extends Comparable<K>> {
             }
         };
     }
-
-    public void writeCache(Table table) throws IOException{
+    public void writeCache() throws IOException{
         for (Map.Entry<Integer,Page<K>> entry : this.cache.entrySet()) {
             Page<K> page = entry.getValue();
             fileIO.writePage(table.getTablePath(), page.pageToBuffer(page), page.getPagePos());
             this.cache.remove(page.getPageID());
         }
-        fileIO.writeTree(table.getIndexPath(), this.tree.treeToBuffer(this.tree, table.getMaxIDSize()));
+        fileIO.writeTree(table.getIndexPath(), this.table.getPrimaryKeyIndex().treeToBuffer(this.table.getPrimaryKeyMaxSize()));
     }
-
     public void loadPage(int pageID, Table table) throws IOException {
         if(this.cache.size() != this.maxSize){
             Page<K> newPage = new Page<>(pageID, table);
             newPage = newPage.bufferToPage(fileIO.readPage(table.getTablePath(), newPage.getPagePos(), newPage.sizeInBytes()), table);
             this.cache.put(pageID, newPage);
         }else{
-            this.writeCache(table);
+            this.writeCache();
             Page<K> newPage = new Page<>(pageID, table);
             newPage = newPage.bufferToPage(fileIO.readPage(table.getTablePath(), newPage.getPagePos(), newPage.sizeInBytes()), table);
             this.cache.put(pageID, newPage);

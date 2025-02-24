@@ -1,4 +1,4 @@
-package com.database.db.bPlusTree;
+package com.database.db.index;
 
 import java.util.List;
 
@@ -51,8 +51,11 @@ public interface BTree<K extends Comparable<K>, V> {
      */
     boolean isKey(K key);
 
+    @Override
     /**
-     * Prints the structure of the B+ tree, providing a visual representation for debugging.
+     * Returns the BTree us a string for printing.
+     * 
+     * @return Btree  us a String
      */
-    void printTree();
+    public String toString();
 }

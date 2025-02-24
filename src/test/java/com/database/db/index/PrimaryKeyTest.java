@@ -1,4 +1,4 @@
-package com.database.db.bPlusTree;
+package com.database.db.index;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -9,9 +9,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 
-public class BPlusTreeTest {
+public class PrimaryKeyTest {
 
-    private BPlusTree<Integer,Integer> tree;
+    private PrimaryKey<Integer> tree;
     private Comparator<Pair<?,?>> comparator;
 
     @BeforeEach
@@ -27,7 +27,7 @@ public class BPlusTreeTest {
             }
             throw new IllegalArgumentException("Keys must implement Comparable.");
         };
-        tree = new Tree<>(5);
+        tree = new PrimaryKey<>(5);
     }
 
     @Test
@@ -169,7 +169,7 @@ public class BPlusTreeTest {
         tree.insert(30, 3);
 
         // Optionally, print tree structure
-        tree.printTree();  // This will print the tree structure for debugging purposes
+        tree.toString();  // This will print the tree structure for debugging purposes
 
         // You may also assert the tree structure based on expected behavior
         assertTrue(tree.isKey(10));
@@ -194,7 +194,7 @@ public class BPlusTreeTest {
     void testOrderValidation() {
         // Test that an exception is thrown if the order is less than 3
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            new Tree<>(2);
+            new PrimaryKey<>(2);
         });
         assertEquals("BPlus Tree Order must be at least 3.", exception.getMessage());
     }

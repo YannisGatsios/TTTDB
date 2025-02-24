@@ -59,12 +59,12 @@ public class Page<K> extends PageManager<K> {
         return this.entries.get(index);
     }
 
-    public int getIndex(Object key) {
+    public int getIndex(K key) {
         if (key == null) throw new IllegalArgumentException("Key cannot be null");
         int ind = 0;
         for (Entry<K> entry : this.entries) {
-            Object entryId = entry.getID();
-            if (key.equals(entryId)) {
+            K entryKey = entry.getID();
+            if (key.equals(entryKey)) {
                 return ind;
             }
             ind++;
@@ -73,7 +73,8 @@ public class Page<K> extends PageManager<K> {
     }
 
     // ===========PRINTING===============
-    public String pageStats() {
+    @Override
+    public String toString() {
         return "\nPage Stats :" +
                 "\n\tPage ID :                 " + this.pageID +
                 "\n\tNumber Of Entries :        " + this.numOfEntries +

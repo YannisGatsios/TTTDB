@@ -1,4 +1,4 @@
-package com.database.db.bPlusTree;
+package com.database.db.index;
 
 import java.util.ArrayList;
 import java.util.List;

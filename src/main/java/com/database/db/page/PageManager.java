@@ -101,8 +101,8 @@ public class PageManager<K> {
                         throw new IllegalArgumentException("Unexpected type: " + type);
                 }
             }
-            Entry<K> newEntry = new Entry<>(entry, table.getMaxIDSize());
-            newEntry.setID(table.getIDindex());
+            Entry<K> newEntry = new Entry<>(entry, table.getPrimaryKeyMaxSize());
+            newEntry.setID(table.getPrimaryKeyColumnIndex());
             newPage.add(newEntry);
         }
         if(spaceInUse != newPage.getSpaceInUse()) throw new IOException("Mismatch between expected and actual space in use for Page.");

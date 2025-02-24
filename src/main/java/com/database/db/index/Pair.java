@@ -1,4 +1,4 @@
-package com.database.db.bPlusTree;
+package com.database.db.index;
 
 public class Pair<K, V> {
     private K key;

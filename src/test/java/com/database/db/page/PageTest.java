@@ -37,8 +37,8 @@ class PageTest {
         byte[] buffer1 = new byte[10];
         buffer1[9] = (byte) 0xff;
         entryData1.add(buffer1);
-        entry1 = new Entry<>(entryData1, table.getMaxIDSize());
-        entry1.setID(table.getIDindex());
+        entry1 = new Entry<>(entryData1, table.getPrimaryKeyMaxSize());
+        entry1.setID(table.getPrimaryKeyColumnIndex());
 
         // Entry 2
         ArrayList<Object> entryData2 = new ArrayList<>();
@@ -48,8 +48,8 @@ class PageTest {
         byte[] buffer2 = new byte[10];
         buffer2[9] = (byte) 0xff;
         entryData2.add(buffer2);
-        entry2 = new Entry<>(entryData2, table.getMaxIDSize());
-        entry2.setID(table.getIDindex());
+        entry2 = new Entry<>(entryData2, table.getPrimaryKeyMaxSize());
+        entry2.setID(table.getPrimaryKeyColumnIndex());
 
         // Entry 3
         ArrayList<Object> entryData3 = new ArrayList<>();
@@ -59,8 +59,8 @@ class PageTest {
         byte[] buffer3 = new byte[10];
         buffer3[9] = (byte) 0xff;
         entryData3.add(buffer3);
-        entry3 = new Entry<>(entryData3, table.getMaxIDSize());
-        entry3.setID(table.getIDindex());
+        entry3 = new Entry<>(entryData3, table.getPrimaryKeyMaxSize());
+        entry3.setID(table.getPrimaryKeyColumnIndex());
 
         page = new Page<>(0, table);
     }
@@ -112,7 +112,7 @@ class PageTest {
         page.add(entry1);
         page.add(entry2);
 
-        String stats = page.pageStats();
+        String stats = page.toString();
         assertTrue(stats.contains("Page ID :                 0"));
         assertTrue(stats.contains("Number Of Entries :        2"));
         assertTrue(stats.contains("Space in Use :            [ " + page.getSpaceInUse() + "/" + page.sizeOfEntries() + " ]"));

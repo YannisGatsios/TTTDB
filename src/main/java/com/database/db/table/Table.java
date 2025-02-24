@@ -2,46 +2,62 @@ package com.database.db.table;
 
 import java.util.ArrayList;
 
+import com.database.db.FileIO;
+import com.database.db.index.PrimaryKey;
 import com.database.db.page.PageCache;
 
 public class Table {
     private String Database;
     private String tableName;
     private Schema tableSchema;
-    private PageCache<?> cache;
+    private PageCache<?> cache;//Tables Cache.
+    private PrimaryKey<?> primaryKeyIndex;
 
     private short numOfColumns;
-    private int sizeOfEntry;
-    private int IDindex;
-    private static int BLOCK_SIZE = 4096;
-    private static int SIZE_OF_HEADER = 2 * (Integer.BYTES) + Short.BYTES;
-    private static int MAX_NUM_OF_PAGES_IN_CACHE = 10;
-
     private short maxEntriesPerPage;
+    private int sizeOfEntry;
+    private int primaryKeyColumnIndex;
+    private static int SIZE_OF_HEADER = 2 * (Integer.BYTES) + Short.BYTES;
+    private final int BLOCK_SIZE = 4096;
+    public final int MAX_NUM_OF_PAGES_IN_CACHE = 10;
 
     public Table(String databaseName, String tableName,Schema schema){
         this.Database = databaseName;
         this.tableName = tableName;
         this.tableSchema = schema;
-        this.cache = this.setCache(this.getIDtype());
+        this.cache = this.setCache(this.getPrimaryKeyType());
         
-        this.numOfColumns = (short) this.tableSchema.getColumnSizes().length;
+        this.numOfColumns = (short) schema.getColumnSizes().length;
         this.sizeOfEntry = this.setSizeOfEntry();
+        this.primaryKeyColumnIndex = this.tableSchema.getPrimaryKeyIndex();
         this.maxEntriesPerPage = this.setPageMaxNumOfEntries();
-        this.IDindex = this.tableSchema.getPrimaryKeyIndex();
+        this.primaryKeyIndex = this.setTableIndex(this.getPrimaryKeyType());
     }
-
-    private PageCache<?> setCache(String IDtype) {
-        switch (IDtype) {
+    private PageCache<?> setCache(String KeyType) {
+        switch (KeyType) {
             case "Integer":
-                return new PageCache<Integer>(MAX_NUM_OF_PAGES_IN_CACHE);
+                return new PageCache<Integer>(this);
             case "String":
-                return new PageCache<String>(MAX_NUM_OF_PAGES_IN_CACHE);
+                return new PageCache<String>(this);
             default:
                 throw new IllegalArgumentException("Invalid primary key type. (From setting PageCache in Table.)");
         }
+    }private PrimaryKey<?> setTableIndex(String KeyType){
+        FileIO fileIO = new FileIO();
+        PrimaryKey<?> tree;
+        switch (KeyType) {
+            case "Integer":
+                tree = new PrimaryKey<Integer>(this.maxEntriesPerPage)
+                .bufferToTree(fileIO.readTree(this.getIndexPath()), this);
+                return tree;
+            case "String":
+                tree = new PrimaryKey<String>(this.maxEntriesPerPage)
+                .bufferToTree(fileIO.readTree(this.getIndexPath()), this);
+                return tree;
+            default:
+                throw new IllegalArgumentException("Invalid primary key type. (From reading primary key Table Index on Table.)");
+        }
     }
-
     private int setSizeOfEntry(){
         int sum = 0;
         String type[] = this.tableSchema.getColumnTypes();
@@ -89,7 +105,6 @@ public class Table {
         // All checks passed, return true.
         return true;
     }
-
     // Helper method to check if the type of the element matches the expected type.
     private boolean isValidType(Object value, String expectedType) {
         switch (expectedType) {
@@ -103,7 +118,6 @@ public class Table {
                 return false; // Invalid type in schema.
         }
     }
-
     // Helper method to check if the size of the element is within the expected
     // size.
     private boolean isValidSize(Object value, int expectedSize) {
@@ -126,6 +140,12 @@ public class Table {
     public Schema getSchema(){
         return this.tableSchema;
     }
+    @SuppressWarnings("unchecked")
+    public <K extends Comparable<K>> PrimaryKey<K> getPrimaryKeyIndex(){
+        return (PrimaryKey<K>) this.primaryKeyIndex;
+    }public <K extends Comparable<K>> void setPrimaryKeyIndex(PrimaryKey<K> tree){
+        this.primaryKeyIndex = tree;
+    }
     public PageCache<?> cache(){
         return this.cache;
     }
@@ -139,22 +159,19 @@ public class Table {
     public int getNumOfColumns(){
         return this.numOfColumns;
     }
-
     public int getSizeOfEntry(){
         return this.sizeOfEntry;
     }
-
-    public int getMaxIDSize(){
+    public int getPrimaryKeyMaxSize(){
         return this.tableSchema.getColumnSizes()[0];
     }
-    public int getIDindex(){
-        return this.IDindex;
+    public int getPrimaryKeyColumnIndex(){
+        return this.primaryKeyColumnIndex;
     }
-    public String getIDtype(){
-        return this.getSchema().getColumnTypes()[this.getIDindex()];
+    public String getPrimaryKeyType(){
+        return this.getSchema().getColumnTypes()[this.getPrimaryKeyColumnIndex()];
     }
 
-    
     public short setPageMaxNumOfEntries(){
         if(!((BLOCK_SIZE-SIZE_OF_HEADER)/this.sizeOfEntry >= 3)){
             return this.setMaxEntriesPerPage(2);
