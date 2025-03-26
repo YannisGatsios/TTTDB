@@ -96,8 +96,7 @@ public class DBMSprocessesTest {
 
     @Test
     @Order(3)
-    @SuppressWarnings("unchecked")
-    public <K extends Comparable<K>> void testRandomEntryInsertion() {
+    <K extends Comparable<K>> void testRandomEntryInsertion() {
         table.getPrimaryKeyIndex()
         .bufferToTree(fileIO.readTree(table.getIndexPath()), table);
         int ind = 0;
@@ -168,13 +167,14 @@ public class DBMSprocessesTest {
                 fail();
             }
         }
+        table.setPrimaryKeyIndex(tree2);
         //Randomly deleting 100 entries from table.
         int ind = 0;
         while (ind < 100) {
             int randInd = random.nextInt(400);
             if(tree2.isKey(keysList[randInd])){
                 try {
-                    tree2 = DBMS.deletionProcess(table, keysList[randInd]);
+                    DBMS.deletionProcess(table, keysList[randInd]);
                 } catch (IllegalArgumentException | IOException e) {
                     fail(e);
                 }

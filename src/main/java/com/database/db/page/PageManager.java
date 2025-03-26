@@ -109,5 +109,4 @@ public class PageManager<K> {
         if(numOfEntries != newPage.size()) throw new IOException("Mismatch between expected and actual numOfEntries and Page.size().");
         return newPage;
     }
-    
 }

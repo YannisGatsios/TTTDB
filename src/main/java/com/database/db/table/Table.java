@@ -4,6 +4,7 @@ import java.util.ArrayList;
 
 import com.database.db.FileIO;
 import com.database.db.index.PrimaryKey;
+import com.database.db.index.SecondaryKey;
 import com.database.db.page.PageCache;
 
 public class Table {
@@ -12,6 +13,7 @@ public class Table {
     private Schema tableSchema;
     private PageCache<?> cache;//Tables Cache.
     private PrimaryKey<?> primaryKeyIndex;
+    private ArrayList<SecondaryKey<?,?>> secondaryKeyIndexes;
 
     private short numOfColumns;
     private short maxEntriesPerPage;
@@ -143,8 +145,8 @@ public class Table {
     @SuppressWarnings("unchecked")
     public <K extends Comparable<K>> PrimaryKey<K> getPrimaryKeyIndex(){
         return (PrimaryKey<K>) this.primaryKeyIndex;
-    }public <K extends Comparable<K>> void setPrimaryKeyIndex(PrimaryKey<K> tree){
-        this.primaryKeyIndex = tree;
+    }public <K extends Comparable<K>> void setPrimaryKeyIndex(PrimaryKey<K> primaryKey){
+        this.primaryKeyIndex = primaryKey;
     }
     public PageCache<?> cache(){
         return this.cache;

@@ -20,7 +20,8 @@ public class DBMSprocesses {
     public DBMSprocesses(){
     }
     //==SELECTING==
-    public <K extends Comparable<K>> List<Entry<K>> select(){
+    public <K extends Comparable<K>> List<Entry<K>> selectionProcess(Table table, String column, String operator, Object value){
+        
         return null;//TODO
     }
     //==INSERTION==
@@ -47,54 +48,42 @@ public class DBMSprocesses {
     }
 
     //==DELETION==
-    public <K extends Comparable<K>> PrimaryKey<K> deletionProcess(Table table, K key) throws IllegalArgumentException,IOException{
+    public <K extends Comparable<K>> void deletionProcess(Table table, K key) throws IllegalArgumentException,IOException{
         PrimaryKey<K> tree = table.getPrimaryKeyIndex();
         Integer value = tree.search(key);
         if(value == null) throw new IllegalArgumentException("The key you are trying to delete is not found.(From DeletionProcess)");
-
         if(value == tree.getNumberOfPages()){
-            this.deleteSteps(value, table, key);
-            return tree;
+            this.deleteSteps(value, table, key, null);
+            return;
         }
         //Getting the last entry from the last page.
         Page<K> Page = new Page<>(tree.getNumberOfPages(), table);
         Page = Page.bufferToPage(fileIO.readPage(table.getTablePath(), Page.getPagePos(), Page.sizeInBytes()), table);
         Entry<K> lastEntry = Page.get(Page.size() - 1);
         //Removing the last entry from the last Page recorded.
-        this.deleteSteps(tree.getNumberOfPages(), table, lastEntry.getID());
+        this.deleteSteps(tree.getNumberOfPages(), table, lastEntry.getID(), null);
+
         //Removing the Entry user asked for and replacing it the one deleted one above.
-        Page = new Page<>(value, table);
-        byte[] pageBuffer = fileIO.readPage(table.getTablePath(), Page.getPagePos(), Page.sizeInBytes());
-        if(pageBuffer == null || pageBuffer.length == 0){
-            System.out.println("empty page");
-        }
-        Page = Page.bufferToPage(pageBuffer, table);
-        int ind =  Page.getIndex(key);
-        if( ind == -1){
-            tree.search(key);
-        }
-        int index =  Page.getIndex(key);
-        if (index == -1) throw new IllegalArgumentException("The key you are trying to find dose not exist in this Page.\nKey : "+key+"\nPageID : "+Page.getPageID());
-        Page.remove(index);
-        tree.remove(key);
-        Page.add(lastEntry);
-        tree.insert(lastEntry.getID(), value);
-        fileIO.writePage(table.getTablePath(), Page.pageToBuffer(Page), Page.getPagePos());
-        return tree;
+        this.deleteSteps(value, table, key, lastEntry);
     }
-    private <K extends Comparable<K>> void deleteSteps(int value, Table table, K key) throws IOException{
+    private <K extends Comparable<K>> void deleteSteps(int value, Table table, K key, Entry<K> lastEntry) throws IOException{
         PrimaryKey<K> tree = table.getPrimaryKeyIndex();
         Page<K> Page = new Page<>(value, table);
         byte[] pageBuffer = fileIO.readPage(table.getTablePath(), Page.getPagePos(), Page.sizeInBytes());
         Page = Page.bufferToPage(pageBuffer, table);
         int index = Page.getIndex(key);
-        if (index == -1) throw new IllegalArgumentException("The key you are trying to find dose not exist in this Page.\nKey : "+key+"\nPageID : "+Page.getPageID()+"\nValue : "+value);
+        if (index == -1) throw new IllegalArgumentException("The key you are trying to find dose not exist in this Page.\nKey : "+key+"\nPageID : "+Page.getPageID()+"\nValue : "+value+"\nNum Of Pages : "+tree.getNumberOfPages());
         Page.remove(index);
         tree.remove(key);
-        fileIO.writePage(table.getTablePath(), Page.pageToBuffer(Page), Page.getPagePos());
+        if(lastEntry != null){
+            Page.add(lastEntry);
+            tree.insert(lastEntry.getID(), value);
+        }
         if (Page.size() == 0) {
             fileIO.deleteLastPage(table.getTablePath(), Page.sizeInBytes());
             tree.removeOnePage();
+        }else{
+            fileIO.writePage(table.getTablePath(), Page.pageToBuffer(Page), Page.getPagePos());
         }
     }
 

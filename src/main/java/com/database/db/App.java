@@ -86,13 +86,13 @@ public class App {
             //System.out.println("Key is "+key+" : "+tree2.search((K)key));
         }
         System.out.println("True Are : "+trues+"\nFalse Are : "+falser);
-
+        table.setPrimaryKeyIndex(tree2);
         ind = 0;
         while (ind < 100) {
             int randInd = random.nextInt(399);
             if(tree2.isKey((K)keysList[randInd])){
                 System.out.println(ind+" : Random Index : "+keysList[randInd]+" : "+tree2.search((K)keysList[randInd]));
-                tree2 = (PrimaryKey<K>) DBMS.deletionProcess(table, keysList[randInd]);
+                DBMS.deletionProcess(table, keysList[randInd]);
                 ind++;
             }
         }

@@ -117,15 +117,15 @@ public abstract class BPlusTree<K extends Comparable<K>,V> implements BTree<K,V>
                 if (predNode.keys.size() >= (order + 1) / 2) {
                     Pair<K,V> pred = getPredecessor(predNode);
                     node.keys.set(idx, pred);
-                    remove(predNode, pred);
+                    this.remove(predNode, pred);
                 } else if (node.children.get(idx + 1).keys.size() >= (order + 1) / 2) {
                     Node<K,V> succNode = node.children.get(idx + 1);
                     Pair<K,V> succ = getSuccessor(succNode);
                     node.keys.set(idx, succ);
-                    remove(succNode, succ);
+                    this.remove(succNode, succ);
                 } else {
-                    merge(node, idx);
-                    remove(node.children.get(idx), key);
+                    this.merge(node, idx);
+                    this.remove(node.children.get(idx), key);
                 }
             }
         } else {
@@ -133,18 +133,18 @@ public abstract class BPlusTree<K extends Comparable<K>,V> implements BTree<K,V>
             idx = -(idx + 1);
             if (node.children.get(idx).keys.size() < (order + 1) / 2) {
                 if (idx > 0 && node.children.get(idx - 1).keys.size() >= (order + 1) / 2) {
-                    borrowFromPrev(node, idx);
+                    this.borrowFromPrev(node, idx);
                 } else if (idx < node.children.size() - 1 && node.children.get(idx + 1).keys.size() >= (order + 1) / 2) {
-                    borrowFromNext(node, idx);
+                    this.borrowFromNext(node, idx);
                 } else {
                     if (idx < node.children.size() - 1) {
-                        merge(node, idx);
+                        this.merge(node, idx);
                     } else {
-                        merge(node, idx - 1);
+                        this.merge(node, idx - 1);
                     }
                 }
             }
-            remove(node.children.get(idx), key);
+            this.remove(node.children.get(idx), key);
         }
     }
     
