@@ -1,27 +1,28 @@
 package com.database.db.index;
 
 public class Pair<K, V> {
-    private K key;
-    private V value;
+    K key;
+    V value;
 
     public Pair(K key, V value) {
         this.key = key;
         this.value = value;
     }
 
-    public K getKey() {
-        return key;
-    }
-
-    public V getValue() {
-        return value;
-    }
-
-    public void setKey(K key) {
-        this.key = key;
-    }
-
-    public void setValue(V value) {
-        this.value = value;
+    @Override
+    public String toString() {
+        String keyString;
+        if(key instanceof byte[]){
+            StringBuilder sb = new StringBuilder();
+            for (byte b : (byte[])key) {
+                if (sb.length() > 0) {
+                    sb.append(" ");
+                }
+                sb.append(b & 0xFF);
+            }
+            keyString = sb.toString();
+        }
+        keyString = key.toString();
+        return "[" + keyString + ", " + value + "]";
     }
 }

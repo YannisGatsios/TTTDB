@@ -12,13 +12,13 @@ public class SecondaryKey<K extends Comparable<K>,V> extends BPlusTree<K,V> {
     }
 
     public byte[] treeToBuffer(int maxSizeOfPrimaryKey){
-        if(this.getRoot() == null || this.getRoot().keys.size() == 0) return new byte[0];
+        if(this.getRoot() == null || this.getRoot().pairs.size() == 0) return new byte[0];
         int bufferSize = 0;
         Node<K,V> node = this.getLeftMostLeaf(this);
         while (node != null) {
-            for (int i = 0; i < node.keys.size(); i++) {
-                bufferSize += this.getObjectSize(node.keys.get(i).getKey()) + Short.BYTES; // Actual key size
-                bufferSize += this.getObjectSize(node.keys.get(i).getValue()) + Short.BYTES; // Getting the Values size.
+            for (int i = 0; i < node.pairs.size(); i++) {
+                bufferSize += this.getObjectSize(node.pairs.get(i).key) + Short.BYTES; // Actual key size
+                bufferSize += this.getObjectSize(node.pairs.get(i).value) + Short.BYTES; // Getting the Values size.
             }
             node = node.next;
         }
@@ -26,9 +26,9 @@ public class SecondaryKey<K extends Comparable<K>,V> extends BPlusTree<K,V> {
         ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
         node = this.getLeftMostLeaf(this);
         while (node != null) {
-            for(int i = 0; i < node.keys.size(); i++){
-                K key = node.keys.get(i).getKey();
-                V value = node.keys.get(i).getValue();
+            for(int i = 0; i < node.pairs.size(); i++){
+                K key = node.pairs.get(i).key;
+                V value = node.pairs.get(i).value;
                 if (value instanceof Integer){
                     buffer.putInt((Integer)value);
                 }else if(value instanceof String){

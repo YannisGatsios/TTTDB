@@ -19,8 +19,8 @@ public class PrimaryKeyTest {
     public void setUp() {
         // Initialize the tree with an order of 5 for testing.
         comparator = (pair1, pair2) -> {
-            Object key1 = pair1.getKey();
-            Object key2 = pair2.getKey();
+            Object key1 = pair1.key;
+            Object key2 = pair2.key;
             // Compare based on key types
             if (key1 instanceof Comparable) {
                 return ((Comparable<Object>) key1).compareTo(key2);

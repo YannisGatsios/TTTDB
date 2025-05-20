@@ -12,12 +12,12 @@ public class PrimaryKey<K extends Comparable<K>> extends BPlusTree<K,Integer> {
     }
 
     public byte[] treeToBuffer(int maxSizeOfPrimaryKey){
-        if(this.getRoot() == null || this.getRoot().keys.size() == 0) return new byte[0];
+        if(this.getRoot() == null || this.getRoot().pairs.size() == 0) return new byte[0];
         int bufferSize = Integer.BYTES; // This takes into account the integer in the beginning of the file where the number of blocks that are saved is stored.
-        Node<K,Integer> node = this.getLeftMostLeaf(this);
+        Node<K,Integer> node = this.getLeftMostLeaf(this.getRoot());
         while (node != null) {
-            for (int i = 0; i < node.keys.size(); i++) {
-                bufferSize += this.getObjectSize(node.keys.get(i).getKey()) + Short.BYTES; // Actual key size
+            for (int i = 0; i < node.pairs.size(); i++) {
+                bufferSize += this.getObjectSize(node.pairs.get(i).key) + Short.BYTES; // Actual key size
                 bufferSize += Integer.BYTES; // Value size is always an Integer and has the corresponding block value.
             }
             node = node.next;
@@ -26,11 +26,11 @@ public class PrimaryKey<K extends Comparable<K>> extends BPlusTree<K,Integer> {
         ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
         buffer.putInt(this.getNumberOfPages());//Adding the number of Pages of the table in the start of the file.
         //Adding the key value Pairs starting from the left most node.
-        node = this.getLeftMostLeaf(this);
+        node = this.getLeftMostLeaf(this.getRoot());
         while (node != null) {
-            for(int i = 0; i < node.keys.size(); i++){
-                K key = node.keys.get(i).getKey();
-                int value = node.keys.get(i).getValue();
+            for(int i = 0; i < node.pairs.size(); i++){
+                K key = node.pairs.get(i).key;
+                int value = node.pairs.get(i).value;
                 byte[] keyBuffer = this.objectToByteArray(key);
                 buffer.putShort((short) keyBuffer.length);
                 buffer.put(keyBuffer);
@@ -43,12 +43,10 @@ public class PrimaryKey<K extends Comparable<K>> extends BPlusTree<K,Integer> {
         return buffer.array();
     }
 
-    private Node<K,Integer> getLeftMostLeaf(BPlusTree<K,Integer> tree){
-        Node<K,Integer> current = tree.getRoot();
-        while(!current.isLeaf){
-            current = current.children.get(0);
-        }
-        return current;
+    //This method is used to get the left most leaf node of a B+Tree recursively.
+    private Node<K,Integer> getLeftMostLeaf(Node<K,Integer> rootNode){
+        if(rootNode.isLeaf){return rootNode;}
+        return this.getLeftMostLeaf(rootNode.children.get(0));
     }
     //Account size must only be 1 or 0
     private int getObjectSize(Object key){

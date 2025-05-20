@@ -4,7 +4,7 @@ import java.util.ArrayList;
 
 import com.database.db.FileIO;
 import com.database.db.index.PrimaryKey;
-import com.database.db.index.SecondaryKey;
+//import com.database.db.index.SecondaryKey;
 import com.database.db.page.PageCache;
 
 public class Table {
@@ -13,7 +13,7 @@ public class Table {
     private Schema tableSchema;
     private PageCache<?> cache;//Tables Cache.
     private PrimaryKey<?> primaryKeyIndex;
-    private ArrayList<SecondaryKey<?,?>> secondaryKeyIndexes;
+    //private ArrayList<SecondaryKey<?,?>> secondaryKeyIndexes;
 
     private short numOfColumns;
     private short maxEntriesPerPage;
