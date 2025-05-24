@@ -16,11 +16,7 @@ public abstract class BPlusTree<K extends Comparable<K>,V> implements BTree<K,V>
     private final Comparator<Pair<K, V>> keyComparator = (pair1, pair2) -> {
         K key1 = pair1.key;
         K key2 = pair2.key;
-        // Compare based on key types
-        if (key1 instanceof Comparable) {
-            return ((Comparable<K>) key1).compareTo(key2);
-        }
-        throw new IllegalArgumentException("Keys must implement Comparable.");
+        return key1.compareTo(key2);
     };
 
     public BPlusTree(int order){
@@ -42,7 +38,7 @@ public abstract class BPlusTree<K extends Comparable<K>,V> implements BTree<K,V>
             this.numOfEntries++;//increment the number of entries in the tree.
 
         }else{
-            if(this.root.pairs.size() == this.order){
+            if(this.root.pairs.size() == this.order-1){
                 Node<K,V> newRoot = new Node<>(false);
                 newRoot.children.add(this.root);
                 this.splitChild(newRoot, 0, this.root);
@@ -88,7 +84,7 @@ public abstract class BPlusTree<K extends Comparable<K>,V> implements BTree<K,V>
                 i--;
             }
             i++;
-            if (node.children.get(i).pairs.size() == this.order){
+            if (node.children.get(i).pairs.size() == this.order-1){
                 this.splitChild(node, i, node.children.get(i));
                 if(keyComparator.compare(key, node.pairs.get(i)) > 0){
                     i++;
@@ -123,7 +119,7 @@ public abstract class BPlusTree<K extends Comparable<K>,V> implements BTree<K,V>
                     Pair<K,V> predecessor = getPredecessor(predecessorNode);
                     node.pairs.set(idx, predecessor);
                     this.remove(predecessorNode, predecessor);
-                } else if (node.children.get(idx + 1).pairs.size() >= (order + 1) / 2) {
+                } else if (idx+1 < node.children.size() && node.children.get(idx + 1).pairs.size() >= (order + 1) / 2) {
                     Node<K,V> successorNode = node.children.get(idx + 1);
                     Pair<K,V> successor = getSuccessor(successorNode);
                     node.pairs.set(idx, successor);
@@ -145,6 +141,7 @@ public abstract class BPlusTree<K extends Comparable<K>,V> implements BTree<K,V>
                         this.merge(node, idx);
                     } else {
                         this.merge(node, idx - 1);
+                        idx = idx - 1;
                     }
                 }
             }
@@ -246,9 +243,12 @@ public abstract class BPlusTree<K extends Comparable<K>,V> implements BTree<K,V>
         List<Pair<K,V>> result = new ArrayList<>();
         Pair<K,V> tempLow = new Pair<>(lower, null);
         Pair<K,V> tempUp = new Pair<>(upper, null);
-        Node<K,V> current = this.findNode(lower);
+        Node<K, V> current = this.findNode(lower);
 
         int idx = Collections.binarySearch(current.pairs, tempLow, keyComparator);
+        if (idx < 0) {
+            idx = -(idx + 1);
+        }
         result.addAll(current.pairs.subList(idx, current.pairs.size()));
         current = current.next;
         
@@ -263,6 +263,25 @@ public abstract class BPlusTree<K extends Comparable<K>,V> implements BTree<K,V>
             }
         }
         return result;
+    }
+
+    // ===============UPDATE=============
+    public void update(K key, V newValue) {
+        if (key == null) {
+            System.out.println("Update failed: Key is null.");
+            return;
+        }
+        if (newValue == null) {
+            System.out.println("Update failed: Value is null.");
+            return;
+        }
+        if (!this.isKey(key)) {
+            System.out.println("From Update key NOT FOUND on tree, Key : " + key.toString());
+            return;
+        }
+        this.remove(key);
+        this.insert(key, newValue);
+        System.out.println("updated : [" + key.toString() + " : " + newValue.toString() + " --- " + this.search(key));
     }
 
     //=======! PRINTING !======
@@ -308,5 +327,5 @@ public abstract class BPlusTree<K extends Comparable<K>,V> implements BTree<K,V>
     }
 
     public abstract byte[] treeToBuffer(int maxSizeOfKey);
-    public abstract BPlusTree<K, V> bufferToTree(byte[] treeBuffer, Table table);
+    public abstract BPlusTree<K, V> bufferToTree(byte[] treeBuffer, Table<K> table);
 }

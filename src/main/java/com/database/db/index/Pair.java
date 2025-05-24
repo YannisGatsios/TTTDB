@@ -1,8 +1,8 @@
 package com.database.db.index;
 
 public class Pair<K, V> {
-    K key;
-    V value;
+    public final K key;
+    public V value;
 
     public Pair(K key, V value) {
         this.key = key;
@@ -21,8 +21,9 @@ public class Pair<K, V> {
                 sb.append(b & 0xFF);
             }
             keyString = sb.toString();
+        }else{
+            keyString = key.toString();
         }
-        keyString = key.toString();
         return "[" + keyString + ", " + value + "]";
     }
 }

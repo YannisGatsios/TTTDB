@@ -1,18 +1,20 @@
 package com.database.db.table;
 
 import java.util.ArrayList;
+import java.util.concurrent.ExecutionException;
 
 import com.database.db.FileIO;
+import com.database.db.FileIOThread;
 import com.database.db.index.PrimaryKey;
 //import com.database.db.index.SecondaryKey;
 import com.database.db.page.PageCache;
 
-public class Table {
+public class Table<K extends Comparable<K>> {
     private String Database;
     private String tableName;
     private Schema tableSchema;
     private PageCache<?> cache;//Tables Cache.
-    private PrimaryKey<?> primaryKeyIndex;
+    private PrimaryKey<K> primaryKeyIndex;
     //private ArrayList<SecondaryKey<?,?>> secondaryKeyIndexes;
 
     private short numOfColumns;
@@ -22,8 +24,9 @@ public class Table {
     private static int SIZE_OF_HEADER = 2 * (Integer.BYTES) + Short.BYTES;
     private final int BLOCK_SIZE = 4096;
     public final int MAX_NUM_OF_PAGES_IN_CACHE = 10;
+    private FileIOThread fileIOThread;
 
-    public Table(String databaseName, String tableName,Schema schema){
+    public Table(String databaseName, String tableName,Schema schema, FileIOThread fileIOThread) throws ExecutionException, InterruptedException {
         this.Database = databaseName;
         this.tableName = tableName;
         this.tableSchema = schema;
@@ -33,7 +36,8 @@ public class Table {
         this.sizeOfEntry = this.setSizeOfEntry();
         this.primaryKeyColumnIndex = this.tableSchema.getPrimaryKeyIndex();
         this.maxEntriesPerPage = this.setPageMaxNumOfEntries();
-        this.primaryKeyIndex = this.setTableIndex(this.getPrimaryKeyType());
+        this.primaryKeyIndex = this.setTableIndex(this.getPrimaryKeyType(),fileIOThread);
+        this.fileIOThread = fileIOThread;
     }
     private PageCache<?> setCache(String KeyType) {
         switch (KeyType) {
@@ -44,18 +48,17 @@ public class Table {
             default:
                 throw new IllegalArgumentException("Invalid primary key type. (From setting PageCache in Table.)");
         }
-    }private PrimaryKey<?> setTableIndex(String KeyType){
-        FileIO fileIO = new FileIO();
-        PrimaryKey<?> tree;
+    }
+    @SuppressWarnings("unchecked")
+    private PrimaryKey<K> setTableIndex(String KeyType, FileIOThread  fileIOThread) throws ExecutionException , InterruptedException{
+        FileIO fileIO = new FileIO(fileIOThread);
         switch (KeyType) {
             case "Integer":
-                tree = new PrimaryKey<Integer>(this.maxEntriesPerPage)
+                return (PrimaryKey<K>) new PrimaryKey<Integer>(this.maxEntriesPerPage)
                 .bufferToTree(fileIO.readTree(this.getIndexPath()), this);
-                return tree;
             case "String":
-                tree = new PrimaryKey<String>(this.maxEntriesPerPage)
+                return (PrimaryKey<K>) new PrimaryKey<String>(this.maxEntriesPerPage)
                 .bufferToTree(fileIO.readTree(this.getIndexPath()), this);
-                return tree;
             default:
                 throw new IllegalArgumentException("Invalid primary key type. (From reading primary key Table Index on Table.)");
         }
@@ -142,10 +145,10 @@ public class Table {
     public Schema getSchema(){
         return this.tableSchema;
     }
-    @SuppressWarnings("unchecked")
-    public <K extends Comparable<K>> PrimaryKey<K> getPrimaryKeyIndex(){
+    
+    public PrimaryKey<K> getPrimaryKeyIndex(){
         return (PrimaryKey<K>) this.primaryKeyIndex;
-    }public <K extends Comparable<K>> void setPrimaryKeyIndex(PrimaryKey<K> primaryKey){
+    }public void setPrimaryKeyIndex(PrimaryKey<K> primaryKey){
         this.primaryKeyIndex = primaryKey;
     }
     public PageCache<?> cache(){
@@ -172,6 +175,9 @@ public class Table {
     }
     public String getPrimaryKeyType(){
         return this.getSchema().getColumnTypes()[this.getPrimaryKeyColumnIndex()];
+    }
+    public FileIOThread getFileIOThread() {
+        return this.fileIOThread;
     }
 
     public short setPageMaxNumOfEntries(){

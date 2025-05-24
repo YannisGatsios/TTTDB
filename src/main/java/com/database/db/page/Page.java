@@ -7,21 +7,21 @@ import java.util.stream.Collectors;
 import com.database.db.table.Entry;
 import com.database.db.table.Table;
 
-public class Page<K> extends PageManager<K> {
+public class Page<K extends Comparable<K>> extends PageManager<K> {
 
     private int pageID;
     private short numOfEntries;
     private int spaceInUse;
-    private List<Entry<K>> entries;
+    private ArrayList<Entry<K>> entries;
     private short maxNumOfEntries;
     private int maxSizeOfEntry;
 
-    private static int BLOCK_SIZE = 4096;
+    private int BLOCK_SIZE = 4096;
 
     public Page() {
     }
 
-    public Page(int PageID, Table table) {
+    public Page(int PageID, Table<K> table) {
         this.pageID = PageID;
         this.numOfEntries = 0;
         this.spaceInUse = 0;
@@ -44,10 +44,11 @@ public class Page<K> extends PageManager<K> {
     public void remove(int index) {
         if (index > this.entries.size() - 1 || index < 0) {
             throw new IllegalArgumentException(
-                    "Invalid Number OF Entry to remove from Page out of bounds you gave : " + index);
+                "Invalid Number OF Entry to remove from Page out of bounds you gave : " + index);
         }
+        System.out.println(this.entries.get(index).getID()+"--- remove from Page "+this.pageID);
         this.spaceInUse -= this.getEntrySize(index);
-        this.entries.remove(this.get(index));
+        this.entries.remove(index);
         this.numOfEntries--;
     }
 
@@ -62,8 +63,8 @@ public class Page<K> extends PageManager<K> {
     public int getIndex(K key) {
         if (key == null) throw new IllegalArgumentException("Key cannot be null");
         int ind = 0;
-        for (Entry<K> entry : this.entries) {
-            K entryKey = entry.getID();
+        while (ind < this.entries.size()) {
+            K entryKey = this.entries.get(ind).getID();
             if (key.equals(entryKey)) {
                 return ind;
             }
@@ -115,16 +116,16 @@ public class Page<K> extends PageManager<K> {
     }
 
     public int sizeInBytes() {
-        return (this.sizeOfEntries() + this.sizeOfHeader())
-                + (BLOCK_SIZE - ((this.sizeOfEntries() + this.sizeOfHeader()) % BLOCK_SIZE));
+        return (sizeOfEntries() + sizeOfHeader())
+                + (BLOCK_SIZE - ((sizeOfEntries() + sizeOfHeader()) % BLOCK_SIZE));
     }
 
     public int sizeOfHeader() {
-        return 2 * (Integer.BYTES) + Short.BYTES;
+        return (2 * (Integer.BYTES)) + Short.BYTES;
     }
 
     public int sizeOfEntries() {
-        return (this.maxSizeOfEntry * this.maxNumOfEntries);
+        return (maxSizeOfEntry * maxNumOfEntries);
     }
 
     public int getPagePos() {

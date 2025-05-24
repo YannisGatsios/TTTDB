@@ -11,6 +11,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.AfterAll;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 
 import com.database.db.FileIO;
+import com.database.db.FileIOThread;
 import com.database.db.index.PrimaryKey;
 import com.database.db.table.Entry;
 import com.database.db.table.Schema;
@@ -29,7 +31,8 @@ import com.database.db.table.Table;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class DBMSprocessesTest {
 
-    private static FileIO fileIO = new FileIO();
+    private FileIOThread fileIOThread = new FileIOThread();
+    private static FileIO fileIO;
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private String generateRandomString(int length) {
@@ -49,22 +52,24 @@ public class DBMSprocessesTest {
     private static String tableName;
 
     @BeforeEach
-    void setup(){
+    void setup() throws ExecutionException, InterruptedException{
+        fileIOThread.start();
+        fileIO = new FileIO(fileIOThread);
         databaseName = "test_database";
         tableName = "test_table";
         Schema schema = new Schema("username:15:String:false:false:true;num:4:Integer:false:true:false;message:5:String:true:true:false;data:10:Byte:false:false:false".split(";"));
         
-        DBMS = new DBMSprocesses();
+        DBMS = new DBMSprocesses(fileIOThread);
         DBMS.createTable(databaseName, tableName, schema); //Creating table
 
-        table = new Table(databaseName, tableName, schema);//Table INIT
+        table = new Table(databaseName, tableName, schema, fileIOThread);//Table INIT
         random = new Random();
         keysList = new String[400];
     }
 
     @Test
     @Order(1)
-    void testOneInsert(){
+    void testOneInsert() throws ExecutionException, InterruptedException{
         ArrayList<Object> entryData = new ArrayList<>();
         entryData.add("firstEntry");
         entryData.add(100);
@@ -74,7 +79,7 @@ public class DBMSprocessesTest {
         Entry<String> entry = new Entry<>(entryData, table.getPrimaryKeyMaxSize());
         entry.setID(table.getPrimaryKeyColumnIndex());
         try {
-            DBMS.insertionProcess(table, entry);
+            DBMS.insertEntry(table, entry);
             fileIO.writeTree(table.getIndexPath(), table.getPrimaryKeyIndex().treeToBuffer( table.getPrimaryKeyMaxSize()));
         } catch (IllegalArgumentException e) {
             fail(e);
@@ -84,10 +89,10 @@ public class DBMSprocessesTest {
     }
     @Test
     @Order(2)
-    void testDeleteLastEntry(){
+    void testDeleteLastEntry() throws ExecutionException, InterruptedException{
         table.getPrimaryKeyIndex().bufferToTree(fileIO.readTree(table.getIndexPath()), table);
         try {
-            DBMS.deletionProcess(table, "firstEntry");
+            DBMS.deleteEntry(table, "firstEntry");
             fileIO.writeTree(table.getIndexPath(), table.getPrimaryKeyIndex().treeToBuffer(table.getPrimaryKeyMaxSize()));
         } catch (IllegalArgumentException | IOException e) {
             fail(e);
@@ -96,7 +101,7 @@ public class DBMSprocessesTest {
 
     @Test
     @Order(3)
-    <K extends Comparable<K>> void testRandomEntryInsertion() {
+    <K extends Comparable<K>> void testRandomEntryInsertion() throws ExecutionException, InterruptedException {
         table.getPrimaryKeyIndex()
         .bufferToTree(fileIO.readTree(table.getIndexPath()), table);
         int ind = 0;
@@ -124,7 +129,7 @@ public class DBMSprocessesTest {
                 Entry<String> entry = new Entry<>(entryData, table.getPrimaryKeyMaxSize());
                 entry.setID(table.getPrimaryKeyColumnIndex());
                 try {
-                    DBMS.insertionProcess(table, entry);
+                    DBMS.insertEntry(table, entry);
                 } catch (IOException e) {
                     fail(e);
                 }
@@ -145,7 +150,7 @@ public class DBMSprocessesTest {
     //You must run testRandomEntryInsertion first.
     @Test
     @Order(4)
-    void testRandomDeletion() {
+    void testRandomDeletion() throws ExecutionException, InterruptedException {
         //Reading file with previously inserted key To check in reading from index file is working properly.
         try (BufferedReader reader = new BufferedReader(new FileReader("DBMSprocessesTest.txt"))) {
             List<String> keys = reader.lines().collect(Collectors.toList());
@@ -174,7 +179,7 @@ public class DBMSprocessesTest {
             int randInd = random.nextInt(400);
             if(tree2.isKey(keysList[randInd])){
                 try {
-                    DBMS.deletionProcess(table, keysList[randInd]);
+                    DBMS.deleteEntry(table, keysList[randInd]);
                 } catch (IllegalArgumentException | IOException e) {
                     fail(e);
                 }
@@ -186,7 +191,7 @@ public class DBMSprocessesTest {
 
     //@Test
     //@Order(5)
-    void testOrderedEntryInsertion() {
+    void testOrderedEntryInsertion() throws ExecutionException, InterruptedException{
         DBMS.dropTable(databaseName, tableName);
         DBMS.createTable(databaseName, tableName, null);
         
@@ -202,7 +207,7 @@ public class DBMSprocessesTest {
             Entry<String> entry = new Entry<>(entryData, table.getPrimaryKeyMaxSize());
             entry.setID(table.getPrimaryKeyColumnIndex());
             try {
-                DBMS.insertionProcess(table, entry);
+                DBMS.insertEntry(table, entry);
             } catch (IOException e) {
                 fail(e);
             }
@@ -211,7 +216,7 @@ public class DBMSprocessesTest {
     }
 
     @AfterAll
-    static void end(){
-        new DBMSprocesses().dropTable(databaseName, tableName);
+    void end(){
+        new DBMSprocesses(fileIOThread).dropTable(databaseName, tableName);
     }
 }

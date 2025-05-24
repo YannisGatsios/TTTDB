@@ -9,7 +9,7 @@ import java.util.Arrays;
 import com.database.db.table.Entry;
 import com.database.db.table.Table;
 
-public class PageManager<K> {
+public class PageManager<K extends Comparable<K>> {
     public byte[] pageToBuffer(Page<K> page) throws IOException {
         ByteBuffer buffer = ByteBuffer.allocate(page.sizeOfEntries());
         ByteBuffer headBuffer = ByteBuffer.allocate(page.sizeOfHeader());
@@ -54,7 +54,7 @@ public class PageManager<K> {
         return combinedArray.array();
     }
 
-    public Page<K> bufferToPage(byte[] bufferData, Table table) throws IOException{
+    public Page<K> bufferToPage(byte[] bufferData, Table<K> table) throws IOException{
         if (bufferData == null || bufferData.length == 0) throw new IllegalArgumentException("Buffer data cannot be null or empty.");
         if (bufferData.length%4096 != 0) throw new IllegalArgumentException("Buffer data must be a modulo of a Blocks Size(4096 BYTES) you gave : "+bufferData.length);
         if (table == null || table.getSchema() == null) throw new IllegalArgumentException("Table or table schema cannot be null.");
@@ -105,7 +105,9 @@ public class PageManager<K> {
             newEntry.setID(table.getPrimaryKeyColumnIndex());
             newPage.add(newEntry);
         }
-        if(spaceInUse != newPage.getSpaceInUse()) throw new IOException("Mismatch between expected and actual space in use for Page.");
+        if(spaceInUse != newPage.getSpaceInUse()){
+            throw new IOException("Mismatch between expected and actual space in use for Page. newBlock:"+newPage.getSpaceInUse()+" oldBlock:"+ spaceInUse+" BlockID:"+newPage.getPageID());
+        }
         if(numOfEntries != newPage.size()) throw new IOException("Mismatch between expected and actual numOfEntries and Page.size().");
         return newPage;
     }

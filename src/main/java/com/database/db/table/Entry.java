@@ -2,7 +2,7 @@ package com.database.db.table;
 
 import java.util.ArrayList;
 
-public class Entry<K> {
+public class Entry<K extends Comparable<K>> {
     
     private K ID;
     private ArrayList<Object> entryData;
@@ -64,7 +64,7 @@ public class Entry<K> {
     private int getEntrySizeInBytes() {
         int sum = 0;
         for (int element : this.sizeOfElementsOfEntry) {
-            sum += sum + element;
+            sum += element;
         }
         return sum;
     }

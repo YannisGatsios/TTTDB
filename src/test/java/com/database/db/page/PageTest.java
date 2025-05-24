@@ -4,18 +4,21 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.database.db.FileIO;
+import com.database.db.FileIOThread;
 import com.database.db.table.Entry;
 import com.database.db.table.Schema;
 import com.database.db.table.Table;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class PageTest {
 
-    private static FileIO fileIO = new FileIO();
+    private FileIOThread fileIOThread = new FileIOThread();
+    private static FileIO fileIO;
     private Table table;
     private Page<String> page;
     private Entry<String> entry1;
@@ -23,11 +26,13 @@ class PageTest {
     private Entry<String> entry3;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws ExecutionException, InterruptedException{
+        fileIOThread.start();
+        fileIO = new FileIO(fileIOThread);
         String databaseName = "system";
         String tableName = "users";
         Schema schema = new Schema("username:10:String:false:false:true;num:4:Integer:false:true:false;message:5:String:true:true:false;data:10:Byte:false:false:false".split(";"));
-        table = new Table(databaseName, tableName, schema);
+        table = new Table(databaseName, tableName, schema, fileIOThread);
 
         // Entry 1
         ArrayList<Object> entryData1 = new ArrayList<>();
@@ -119,7 +124,7 @@ class PageTest {
     }
 
     @Test
-    void testWriteAndReadPage() throws IOException {
+    void testWriteAndReadPage() throws IOException, ExecutionException, InterruptedException {
         page.add(entry1);
         page.add(entry2);
         page.add(entry3);
