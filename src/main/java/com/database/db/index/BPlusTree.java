@@ -287,17 +287,17 @@ public abstract class BPlusTree<K extends Comparable<K>,V> implements BTree<K,V>
     //=======! PRINTING !======
     @Override
     public String toString(){
-        String result = "";
+        StringBuilder result = new StringBuilder();
         List<List<String>> tree = new ArrayList<List<String>>();
         tree.add(0 ,new ArrayList<>(List.of(this.root.toString())));
         tree = this.printTree(this.root, 1, tree);
         for (int i = 0; i < tree.size(); i++) {
-            result += "!=========! Level " + i + " !=========!\n" + tree.get(i)+"\n";
+            result.append("!=========! Level ").append(i).append(" !=========!\n").append(tree.get(i)).append("\n");
         }
         for (int i = 0; i < tree.size(); i++) {
-            result += "!=========! Level " + i + " !=========!\nNum Of Nodes : " + tree.get(i).size()+"\n";
+            result.append("!=========! Level ").append(i).append(" !=========!\nNum Of Nodes : ").append(tree.get(i).size()).append("\n");
         }
-        return result;
+        return result.toString();
     }
     private List<List<String>> printTree(Node<K,V> node, int level, List<List<String>> tree){
         if(!node.isLeaf){
