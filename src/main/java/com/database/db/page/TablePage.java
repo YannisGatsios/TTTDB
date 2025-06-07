@@ -9,19 +9,24 @@ import java.util.Arrays;
 import com.database.db.table.Entry;
 import com.database.db.table.Table;
 
-public class PageManager<K extends Comparable<K>> {
-    public byte[] pageToBuffer(Page<K> page) throws IOException {
-        ByteBuffer buffer = ByteBuffer.allocate(page.sizeOfEntries());
-        ByteBuffer headBuffer = ByteBuffer.allocate(page.sizeOfHeader());
+public class TablePage<K extends Comparable<K>> extends Page<K>{
+
+    public TablePage(int PageID, Table<K> table){
+        super(PageID, table);
+    }
+
+    public byte[] toBuffer() throws IOException {
+        ByteBuffer buffer = ByteBuffer.allocate(this.sizeOfEntries());
+        ByteBuffer headBuffer = ByteBuffer.allocate(this.sizeOfHeader());
 
         // Add primitive fields
-        headBuffer.putInt(page.getPageID()); // Serialize pageID as 4 bytes (int)
-        headBuffer.putShort(page.size()); // Serialize numOfEntries as 2 bytes (short)
-        headBuffer.putInt(page.getSpaceInUse()); // Serialize spaceInUse as 4 bytes (int)
+        headBuffer.putInt(this.getPageID()); // Serialize pageID as 4 bytes (int)
+        headBuffer.putShort(this.size()); // Serialize numOfEntries as 2 bytes (short)
+        headBuffer.putInt(this.getSpaceInUse()); // Serialize spaceInUse as 4 bytes (int)
         headBuffer.flip();
 
         // Add entries
-        for (Entry<K> entryObj : page.getAll()) {
+        for (Entry<K> entryObj : this.getAll()) {
             ArrayList<Object> entry = entryObj.getEntry();
             for (Object element : entry) {
                 switch (element.getClass().getSimpleName()) {
@@ -45,7 +50,7 @@ public class PageManager<K extends Comparable<K>> {
         }
         buffer.flip();
 
-        ByteBuffer combinedArray = ByteBuffer.allocate(page.sizeInBytes());
+        ByteBuffer combinedArray = ByteBuffer.allocate(this.sizeInBytes());
         // Get the remaining bytes from buffer1 and buffer2 into the combinedArray
         combinedArray.put(headBuffer.array());
         combinedArray.put(buffer.array());
@@ -54,17 +59,17 @@ public class PageManager<K extends Comparable<K>> {
         return combinedArray.array();
     }
 
-    public Page<K> bufferToPage(byte[] bufferData, Table<K> table) throws IOException{
+    public void bufferToPage(byte[] bufferData, Table<K> table) throws IOException{
         if (bufferData == null || bufferData.length == 0) throw new IllegalArgumentException("Buffer data cannot be null or empty.");
         if (bufferData.length%4096 != 0) throw new IllegalArgumentException("Buffer data must be a modulo of a Blocks Size(4096 BYTES) you gave : "+bufferData.length);
         if (table == null || table.getSchema() == null) throw new IllegalArgumentException("Table or table schema cannot be null.");
 
         //Reading The page ID.
         int pageID = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, 0, 4)).getInt();
+        this.setPageID(pageID);
         bufferData = Arrays.copyOfRange(bufferData, 4, bufferData.length);
 
         //Initializing New Empty Page.
-        Page<K> newPage = new Page<>(pageID, table);
 
         //Reading The Number Of Entries.
         short numOfEntries = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, 0, 2)).getShort();
@@ -94,7 +99,8 @@ public class PageManager<K extends Comparable<K>> {
                     case "Byte":
                         int byteSize = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, startIndex, startIndex + 2)).getShort();
                         startIndex += 2;
-                        entry.add((byte[]) Arrays.copyOfRange(bufferData, startIndex, startIndex + byteSize));
+                        byte[] data = Arrays.copyOfRange(bufferData, startIndex, startIndex + byteSize);
+                        entry.add(data);
                         startIndex += byteSize;
                         break;
                     default:
@@ -103,12 +109,11 @@ public class PageManager<K extends Comparable<K>> {
             }
             Entry<K> newEntry = new Entry<>(entry, table.getPrimaryKeyMaxSize());
             newEntry.setID(table.getPrimaryKeyColumnIndex());
-            newPage.add(newEntry);
+            this.add(newEntry);
         }
-        if(spaceInUse != newPage.getSpaceInUse()){
-            throw new IOException("Mismatch between expected and actual space in use for Page. newBlock:"+newPage.getSpaceInUse()+" oldBlock:"+ spaceInUse+" BlockID:"+newPage.getPageID());
+        if(spaceInUse != this.getSpaceInUse()){
+            throw new IOException("Mismatch between expected and actual space in use for Page. newBlock:"+this.getSpaceInUse()+" oldBlock:"+ spaceInUse+" BlockID:"+this.getPageID());
         }
-        if(numOfEntries != newPage.size()) throw new IOException("Mismatch between expected and actual numOfEntries and Page.size().");
-        return newPage;
+        if(numOfEntries != this.size()) throw new IOException("Mismatch between expected and actual numOfEntries and Page.size().");
     }
 }

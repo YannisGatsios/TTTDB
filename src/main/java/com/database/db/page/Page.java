@@ -1,5 +1,6 @@
 package com.database.db.page;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -7,7 +8,7 @@ import java.util.stream.Collectors;
 import com.database.db.table.Entry;
 import com.database.db.table.Table;
 
-public class Page<K extends Comparable<K>> extends PageManager<K> {
+public abstract class Page<K extends Comparable<K>> {
 
     private int pageID;
     private short numOfEntries;
@@ -95,12 +96,18 @@ public class Page<K extends Comparable<K>> extends PageManager<K> {
         return result;
     }
 
+    public abstract byte[] toBuffer() throws IOException;
+    public abstract void bufferToPage(byte[] bufferData, Table<K> table) throws IOException;
+
     private int getEntrySize(int numOfEntry) {
         return this.entries.get(numOfEntry).size();
     }
 
     public int getPageID() {
         return this.pageID;
+    }
+    public void setPageID(int newPageID) {
+        this.pageID = newPageID;
     }
 
     public short size() {

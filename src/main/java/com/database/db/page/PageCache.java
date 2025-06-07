@@ -12,51 +12,51 @@ public class PageCache<K extends Comparable<K>> {
     private final FileIO fileIO;
 
     private final int maxSize;
-    private Table table;
-    private final Map<Integer,Page<K>> cache;
+    private Table<K> table;
+    private final Map<Integer,TablePage<K>> cache;
 
-    public PageCache(Table table){
+    public PageCache(Table<K> table){
         fileIO = new FileIO(table.getFileIOThread());
         this.maxSize = table.MAX_NUM_OF_PAGES_IN_CACHE;
         this.table = table;
         this.cache = new LinkedHashMap<>(maxSize, 0.75f, true) {
 
             @Override
-            protected boolean removeEldestEntry(Map.Entry<Integer, Page<K>> eldest) {
+            protected boolean removeEldestEntry(Map.Entry<Integer, TablePage<K>> eldest) {
                 return size() > PageCache.this.maxSize;
             }
         };
     }
     public void writeCache() throws IOException{
-        for (Map.Entry<Integer,Page<K>> entry : this.cache.entrySet()) {
-            Page<K> page = entry.getValue();
-            fileIO.writePage(table.getTablePath(), page.pageToBuffer(page), page.getPagePos());
+        for (Map.Entry<Integer,TablePage<K>> entry : this.cache.entrySet()) {
+            TablePage<K> page = entry.getValue();
+            fileIO.writePage(table.getTablePath(), page.toBuffer(), page.getPagePos());
             this.cache.remove(page.getPageID());
         }
         fileIO.writeTree(table.getIndexPath(), this.table.getPrimaryKeyIndex().treeToBuffer(this.table.getPrimaryKeyMaxSize()));
     }
-    public void loadPage(int pageID, Table table) throws IOException,InterruptedException, ExecutionException  {
+    public void loadPage(int pageID, Table<K> table) throws IOException,InterruptedException, ExecutionException  {
         if(this.cache.size() != this.maxSize){
-            Page<K> newPage = new Page<>(pageID, table);
-            newPage = newPage.bufferToPage(fileIO.readPage(table.getTablePath(), newPage.getPagePos(), newPage.sizeInBytes()), table);
+            TablePage<K> newPage = new TablePage<>(pageID, table);
+            newPage.bufferToPage(fileIO.readPage(table.getTablePath(), newPage.getPagePos(), newPage.sizeInBytes()), table);
             this.cache.put(pageID, newPage);
         }else{
             this.writeCache();
-            Page<K> newPage = new Page<>(pageID, table);
-            newPage = newPage.bufferToPage(fileIO.readPage(table.getTablePath(), newPage.getPagePos(), newPage.sizeInBytes()), table);
+            TablePage<K> newPage = new TablePage<>(pageID, table);
+            newPage.bufferToPage(fileIO.readPage(table.getTablePath(), newPage.getPagePos(), newPage.sizeInBytes()), table);
             this.cache.put(pageID, newPage);
         }
     }
 
-    public synchronized Page<K> get(int pageID){
+    public synchronized TablePage<K> get(int pageID){
         return cache.get(pageID);
     }
 
-    public synchronized void put(int pageID, Page<K> page){
+    public synchronized void put(int pageID, TablePage<K> page){
         this.cache.put(pageID, page);
     }
 
-    public synchronized Page<K> remove(int pageID){
+    public synchronized TablePage<K> remove(int pageID){
         return this.cache.remove(pageID);
     }
 

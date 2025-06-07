@@ -75,7 +75,7 @@ public class PrimaryKey<K extends Comparable<K>> extends BPlusTree<K,Integer> {
         }
     }
     //If the Index file is empty it returns a new empty B+Tree
-    public PrimaryKey<K> bufferToTree(byte[] treeBuffer, Table table) {
+    public PrimaryKey<K> bufferToTree(byte[] treeBuffer, Table<K> table) {
         if (treeBuffer.length == 0) return new PrimaryKey<K>(table.getPageMaxNumOfEntries()); // Return empty tree if file is empty
         ByteBuffer buffer = ByteBuffer.wrap(treeBuffer); // Wrap byte array for efficient parsing
         PrimaryKey<K> newTree = new PrimaryKey<>(table.getPageMaxNumOfEntries());

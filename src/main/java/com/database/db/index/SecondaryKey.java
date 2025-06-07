@@ -73,7 +73,7 @@ public class SecondaryKey<K extends Comparable<K>,V> extends BPlusTree<K,V> {
                 throw new IllegalArgumentException("Invalid Type Of ID (primary key).");
         }
     }
-    public SecondaryKey<K,V> bufferToTree(byte[] treeBuffer, Table table){
+    public SecondaryKey<K,V> bufferToTree(byte[] treeBuffer, Table<K> table){
         return null;
     }
 }

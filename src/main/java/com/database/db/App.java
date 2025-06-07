@@ -25,17 +25,20 @@ public class App {
     }
     public static void main(String[] args) throws IOException,InterruptedException, ExecutionException{
         FileIOThread fileIOThread = new FileIOThread();
-        fileIOThread.start();
+        fileIOThread.start();//Starting File IO Operations Thread
         FileIO fileIO = new FileIO(fileIOThread);
-        //Table INIT.
+        //DataBase INIT.
         String databaseName = "system";
         String tableName = "users";
         Schema schema = new Schema("username:10:String:false:false:true;num:4:Integer:false:true:false;message:5:String:true:true:false;data:10:Byte:false:false:false".split(";"));
-        schema.printSchema();
-        Table<String> table = new Table<>(databaseName, tableName, schema, fileIOThread);
+        System.out.println(schema.toString());
+        Database database = new Database(databaseName);
+        database.setFileIOThread(fileIOThread);
+        database.addTable(tableName, schema);
+
+        Table<String> table = (Table<String>) database.getTable(tableName);
         System.out.println("======== Tree updated. Writing to file.");
         //Tree INIT.
-        PrimaryKey<String> tree = table.getPrimaryKeyIndex();
         DBMSprocesses DBMS = new DBMSprocesses(fileIOThread);
 
         Random random = new Random(); 
@@ -44,7 +47,7 @@ public class App {
         while (ind < 400) {
             int sizeOfID = random.nextInt(table.getPrimaryKeyMaxSize()-1)+1;
             String userName = generateRandomString(sizeOfID);
-            if(!tree.isKey(userName)){
+            if(!table.getPrimaryKeyIndex().isKey(userName)){
                 keysList.add(userName);
                 ArrayList<Object> entryData = new ArrayList<>();
                 entryData.add(userName);
@@ -68,9 +71,9 @@ public class App {
                 ind++;
             }
         }
-        byte[] treeBuffer = tree.treeToBuffer(table.getPrimaryKeyMaxSize());
+        byte[] treeBuffer = table.getPrimaryKeyIndex().treeToBuffer(table.getPrimaryKeyMaxSize());
         fileIO.writeTree(table.getIndexPath(), treeBuffer);
-        System.out.println(tree.toString());
+        System.out.println(table.getPrimaryKeyIndex().toString());
         
         PrimaryKey<String> tree2 = new PrimaryKey<>(table.getPageMaxNumOfEntries());
         byte[] newTree = fileIO.readTree(table.getIndexPath());

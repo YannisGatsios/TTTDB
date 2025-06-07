@@ -19,8 +19,8 @@ class PageTest {
 
     private FileIOThread fileIOThread = new FileIOThread();
     private static FileIO fileIO;
-    private Table table;
-    private Page<String> page;
+    private Table<String> table;
+    private TablePage<String> page;
     private Entry<String> entry1;
     private Entry<String> entry2;
     private Entry<String> entry3;
@@ -67,7 +67,7 @@ class PageTest {
         entry3 = new Entry<>(entryData3, table.getPrimaryKeyMaxSize());
         entry3.setID(table.getPrimaryKeyColumnIndex());
 
-        page = new Page<>(0, table);
+        page = new TablePage<>(0, table);
     }
 
     @Test
@@ -129,13 +129,13 @@ class PageTest {
         page.add(entry2);
         page.add(entry3);
 
-        byte[] data = page.pageToBuffer(page);
+        byte[] data = page.toBuffer();
         String path = "storage/" + table.getDatabaseName() + "." + table.getTableName() + ".table";
         fileIO.writePage(path, data, page.getPageID() * page.sizeInBytes());
 
-        Page<String> newPage = new Page<>(0, table);
+        TablePage<String> newPage = new TablePage<>(0, table);
         byte[] bufferPage = fileIO.readPage(path, page.getPageID() * page.sizeInBytes(), page.sizeInBytes());
-        newPage = newPage.bufferToPage(bufferPage, table);
+        newPage.bufferToPage(bufferPage, table);
 
         assertEquals(page.size(), newPage.size());
         assertEquals(page.getSpaceInUse(), newPage.getSpaceInUse());

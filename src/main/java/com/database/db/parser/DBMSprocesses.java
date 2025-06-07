@@ -11,7 +11,7 @@ import com.database.db.FileIO;
 import com.database.db.FileIOThread;
 import com.database.db.index.BPlusTree;
 import com.database.db.index.PrimaryKey;
-import com.database.db.page.Page;
+import com.database.db.page.TablePage;
 import com.database.db.table.Entry;
 import com.database.db.table.Schema;
 import com.database.db.table.Table;
@@ -26,7 +26,7 @@ public class DBMSprocesses {
         PrimaryKey<K> tree = table.getPrimaryKeyIndex();
         Integer BlockID = tree.search(key);
         if (BlockID != null){
-            Page<K> page = new Page<>(BlockID, table);
+            TablePage<K> page = new TablePage<>(BlockID, table);
             page.bufferToPage(fileIO.readPage(table.getTablePath(), page.getPagePos(), page.sizeInBytes()), table);
             return page.get(page.getIndex(key));
         }
@@ -35,70 +35,71 @@ public class DBMSprocesses {
     //==INSERTION==
     public <K extends Comparable<K>> void insertEntry(Table<K> table, Entry<K> entry) throws IOException, ExecutionException, InterruptedException {
         PrimaryKey<K> tree = table.getPrimaryKeyIndex();
-        Page<K> Page = new Page<>(tree.getNumberOfPages(), table);
+        TablePage<K> Page = new TablePage<>(tree.getNumberOfPages(), table);
         byte[] pageBuffer = fileIO.readPage(table.getTablePath(), Page.getPagePos(), Page.sizeInBytes());
         if(pageBuffer != null){
-            Page = Page.bufferToPage(pageBuffer, table);
+            Page.bufferToPage(pageBuffer, table);
         }
         if(Page.size() < table.getPageMaxNumOfEntries()){
             this.insertionProcess(table, entry, Page);
             return;
         }
         tree.addOnePage();
-        Page = new Page<>(tree.getNumberOfPages(), table);
+        Page = new TablePage<>(tree.getNumberOfPages(), table);
         this.insertionProcess(table, entry, Page);
     }
-    private <K extends Comparable<K>> void insertionProcess(Table<K> table, Entry<K> entry, Page<K> Page) throws IOException{
+    private <K extends Comparable<K>> void insertionProcess(Table<K> table, Entry<K> entry, TablePage<K> Page) throws IOException{
         PrimaryKey<K> tree = table.getPrimaryKeyIndex();
         Page.add(entry);
         tree.insert(entry.getID(), (Integer) Page.getPageID());
-        fileIO.writePage(table.getTablePath(), Page.pageToBuffer(Page), Page.getPagePos());
+        fileIO.writePage(table.getTablePath(), Page.toBuffer(), Page.getPagePos());
     }
 
     //==DELETION==
     public <K extends Comparable<K>> void deleteEntry(Table<K> table, K key) throws IllegalArgumentException,IOException, ExecutionException , InterruptedException {
         PrimaryKey<K> tree = table.getPrimaryKeyIndex();
         System.out.println(tree.getNumberOfPages());
-        Page<K> page = this.deletionProcess(table, key);
+        TablePage<K> page = this.deletionProcess(table, key);
+        if (page == null) return;
         if (page.getPageID() == tree.getNumberOfPages() && page.size() != 0){
-            fileIO.writePage(table.getTablePath(), page.pageToBuffer(page), page.getPagePos());
+            fileIO.writePage(table.getTablePath(), page.toBuffer(), page.getPagePos());
             return;
         }else if (page.getPageID() == tree.getNumberOfPages() && page.size() == 0){
             fileIO.deleteLastPage(table.getTablePath(), page.sizeInBytes());
             tree.removeOnePage();
             return;
         }
-        Page<K> lastPage = new Page<>(tree.getNumberOfPages(), table);
-        lastPage = lastPage.bufferToPage(fileIO.readPage(table.getTablePath(), lastPage.getPagePos(), lastPage.sizeInBytes()), table);
-        Entry<K> lasEntry = lastPage.get(lastPage.size()-1);
+        TablePage<K> lastPage = new TablePage<>(tree.getNumberOfPages(), table);
+        lastPage.bufferToPage(fileIO.readPage(table.getTablePath(), lastPage.getPagePos(), lastPage.sizeInBytes()), table);
+        Entry<K> lastEntry = lastPage.get(lastPage.size()-1);
         lastPage.remove(lastPage.size()-1);
-        page.add(lasEntry);
+        page.add(lastEntry);
 
-        System.out.println(lasEntry.getID()+"--- added to Page : "+page.getPageID());
-        tree.update(lasEntry.getID(), page.getPageID());
-        fileIO.writePage(table.getTablePath(), page.pageToBuffer(page), page.getPagePos());
+        System.out.println(lastEntry.getID()+"--- added to Page : "+page.getPageID());
+        tree.update(lastEntry.getID(), page.getPageID());
+        fileIO.writePage(table.getTablePath(), page.toBuffer(), page.getPagePos());
         if(lastPage.size() == 0){
             tree.removeOnePage();
             fileIO.deleteLastPage(table.getTablePath(), lastPage.sizeInBytes());
             return;
         }
-        fileIO.writePage(table.getTablePath(), lastPage.pageToBuffer(lastPage), lastPage.getPagePos());
+        fileIO.writePage(table.getTablePath(), lastPage.toBuffer(), lastPage.getPagePos());
     }
-    private <K extends Comparable<K>> Page<K> deletionProcess(Table<K> table, K key) throws IOException, ExecutionException, InterruptedException {
+    private <K extends Comparable<K>> TablePage<K> deletionProcess(Table<K> table, K key) throws IOException, ExecutionException, InterruptedException {
         PrimaryKey<K> tree = table.getPrimaryKeyIndex();
         Integer BlockID = tree.search(key);
         if (BlockID != null){
-            Page<K> page = new Page<>(BlockID, table);
-            page = page.bufferToPage(fileIO.readPage(table.getTablePath(), page.getPagePos(), page.sizeInBytes()), table);
+            TablePage<K> page = new TablePage<>(BlockID, table);
+            page.bufferToPage(fileIO.readPage(table.getTablePath(), page.getPagePos(), page.sizeInBytes()), table);
             if(page.getIndex(key) == -1){
-                Page<K> page1 = new Page<>(1, table);
-                page1 = page1.bufferToPage(fileIO.readPage(table.getTablePath(), page1.getPagePos(), page1.sizeInBytes()), table);
+                TablePage<K> page1 = new TablePage<>(1, table);
+                page1.bufferToPage(fileIO.readPage(table.getTablePath(), page1.getPagePos(), page1.sizeInBytes()), table);
                 int int1 = page1.getIndex(key);
-                Page<K> page2 = new Page<>(2, table);
-                page2 = page2.bufferToPage(fileIO.readPage(table.getTablePath(), page2.getPagePos(), page2.sizeInBytes()), table);
+                TablePage<K> page2 = new TablePage<>(2, table);
+                page2.bufferToPage(fileIO.readPage(table.getTablePath(), page2.getPagePos(), page2.sizeInBytes()), table);
                 int int2 = page2.getIndex(key);
-                Page<K> page3 = new Page<>(0, table);
-                page3 = page3.bufferToPage(fileIO.readPage(table.getTablePath(), page3.getPagePos(), page3.sizeInBytes()), table);
+                TablePage<K> page3 = new TablePage<>(0, table);
+                page3.bufferToPage(fileIO.readPage(table.getTablePath(), page3.getPagePos(), page3.sizeInBytes()), table);
                 int int3 = page3.getIndex(key);
                 System.out.println("hello int1 : "+int3 +" int2 : "+int1+" int3 : "+int2+" Value is = "+tree.search(key));
             }

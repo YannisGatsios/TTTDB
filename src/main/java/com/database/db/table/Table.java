@@ -13,7 +13,7 @@ public class Table<K extends Comparable<K>> {
     private String Database;
     private String tableName;
     private Schema tableSchema;
-    private PageCache<?> cache;//Tables Cache.
+    private PageCache<K> cache;//Tables Cache.
     private PrimaryKey<K> primaryKeyIndex;
     //private ArrayList<SecondaryKey<?,?>> secondaryKeyIndexes;
 
@@ -30,7 +30,7 @@ public class Table<K extends Comparable<K>> {
         this.Database = databaseName;
         this.tableName = tableName;
         this.tableSchema = schema;
-        this.cache = this.setCache(this.getPrimaryKeyType());
+        this.cache = new PageCache<>(this);
         
         this.numOfColumns = (short) schema.getColumnSizes().length;
         this.sizeOfEntry = this.setSizeOfEntry();
@@ -39,29 +39,9 @@ public class Table<K extends Comparable<K>> {
         this.primaryKeyIndex = this.setTableIndex(this.getPrimaryKeyType(),fileIOThread);
         this.fileIOThread = fileIOThread;
     }
-    private PageCache<?> setCache(String KeyType) {
-        switch (KeyType) {
-            case "Integer":
-                return new PageCache<Integer>(this);
-            case "String":
-                return new PageCache<String>(this);
-            default:
-                throw new IllegalArgumentException("Invalid primary key type. (From setting PageCache in Table.)");
-        }
-    }
-    @SuppressWarnings("unchecked")
     private PrimaryKey<K> setTableIndex(String KeyType, FileIOThread  fileIOThread) throws ExecutionException , InterruptedException{
         FileIO fileIO = new FileIO(fileIOThread);
-        switch (KeyType) {
-            case "Integer":
-                return (PrimaryKey<K>) new PrimaryKey<Integer>(this.maxEntriesPerPage)
-                .bufferToTree(fileIO.readTree(this.getIndexPath()), this);
-            case "String":
-                return (PrimaryKey<K>) new PrimaryKey<String>(this.maxEntriesPerPage)
-                .bufferToTree(fileIO.readTree(this.getIndexPath()), this);
-            default:
-                throw new IllegalArgumentException("Invalid primary key type. (From reading primary key Table Index on Table.)");
-        }
+        return new PrimaryKey<K>(this.maxEntriesPerPage).bufferToTree(fileIO.readTree(this.getIndexPath()), this);
     }
     private int setSizeOfEntry(){
         int sum = 0;

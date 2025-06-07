@@ -94,26 +94,28 @@ public class Schema {
         return ind;
     }
 
-    public void printSchema(){
+    @Override
+    public String toString(){
         String[] valueNames = {"Name :", "Buffer Size :", "Data Type :", "Nullable :", "Secondary Key :", "Primary Key :"};
-        String[] result = new String[this.numOfColumns+1];
-        result[0] = "| ";
+        String[] columns = new String[this.numOfColumns+1];
+        columns[0] = "| ";
         for (int i = 0; i < valueNames.length; i++) {
-            result[0] += valueNames[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-valueNames[i].length())+"| ";
+            columns[0] += valueNames[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-valueNames[i].length())+"| ";
         }
         for(int i = 0; i < this.numOfColumns; i++){
-            result[i+1] = "| "+this.columnNames[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-columnNames[i].length())+"| "
+            columns[i+1] = "| "+this.columnNames[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-columnNames[i].length())+"| "
             +this.columnSizes[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-String.valueOf(this.columnSizes[i]).length())+"| "
             +this.columnTypes[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-columnTypes[i].length())+"| "
             +this.nullable[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-String.valueOf(this.nullable[i]).length())+"| "
             +this.isSecondaryKey[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-String.valueOf(this.isSecondaryKey[i]).length())+"| "
             +this.isPrimaryKey[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-String.valueOf(this.isPrimaryKey[i]).length())+"| ";
         }
-        String border = "+"+String.valueOf("-").repeat(result[0].length()-3)+"+";
-        System.out.println(String.valueOf(" ").repeat(border.length()/2- 20)+"!===========! TABLE_SCHEMA !===========!\n"+border);
-        for (String string : result) {
-            System.out.println(string);
-            System.out.println(border);
+        String border = "+"+String.valueOf("-").repeat(columns[0].length()-3)+"+";
+        String result = String.valueOf(" ").repeat(border.length()/2- 20)+"!===========! TABLE_SCHEMA !===========!\n"+border+"\n"; 
+        for (String string : columns) {
+            result = result+string+"\n"+
+            border+"\n";
         }
+        return result;
     }
 }
