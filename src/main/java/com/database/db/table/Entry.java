@@ -10,6 +10,8 @@ public class Entry<K extends Comparable<K>> {
     private int[] indexOfElementsOfEntry;
     private int sizeInBytes;
 
+    public Entry(){}
+
     //Constructor
     public Entry(ArrayList<Object> newEntry, int sizeOfID){
         this.entryData = newEntry;
@@ -71,6 +73,8 @@ public class Entry<K extends Comparable<K>> {
     @SuppressWarnings("unchecked")
     public void setID(int index){
         this.ID = (K)this.entryData.get(index);
+    }public void setID(K ID){
+        this.ID = ID;
     }public K getID(){
         return this.ID;
     }
@@ -79,19 +83,11 @@ public class Entry<K extends Comparable<K>> {
         return this.sizeInBytes;
     }
 
-    public ArrayList<Object> getEntry(){
-        return this.entryData;
-    }
+    public ArrayList<Object> getEntry(){return this.entryData;}
 
-    public int[] getElementSizes(){
-        return this.sizeOfElementsOfEntry;
-    }
+    public int[] getElementSizes(){return this.sizeOfElementsOfEntry;}
 
-    public int[] getElementIndexes(){
-        return this.indexOfElementsOfEntry;
-    }
+    public int[] getElementIndexes(){return this.indexOfElementsOfEntry;}
 
-    public int getNumOfElements(){
-        return this.indexOfElementsOfEntry[this.indexOfElementsOfEntry.length - 1];
-    }
+    public int getNumOfElements(){return this.indexOfElementsOfEntry[this.indexOfElementsOfEntry.length - 1];}
 }

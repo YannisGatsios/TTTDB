@@ -26,7 +26,7 @@ public class DBMSprocesses {
         Integer BlockID = table.getPrimaryKey().search(key).value;
         if (BlockID != null){
             TablePage<K> page = new TablePage<>(BlockID, table);
-            return page.get(page.getIndex(key));
+            return page.get(key);
         }
         return null;
     }
@@ -50,7 +50,6 @@ public class DBMSprocesses {
     }
     //==DELETION==
     public <K extends Comparable<K>> void deleteEntry(Table<K> table, K key) throws IllegalArgumentException,IOException, ExecutionException , InterruptedException {
-        
         TablePage<K> page = this.deletionProcess(table, key);
         if (page == null) return;
         if (page.getPageID() == table.getPages()-1 && page.size() != 0){
@@ -62,8 +61,8 @@ public class DBMSprocesses {
             return;
         }
         TablePage<K> lastPage = new TablePage<>(table.getPages()-1, table);
-        Entry<K> lastEntry = lastPage.get(lastPage.size()-1);
-        lastPage.remove(lastPage.size()-1);
+        Entry<K> lastEntry = lastPage.getLast();
+        lastPage.removeLast();
         page.add(lastEntry);
 
         table.getPrimaryKey().update(lastEntry.getID(), page.getPageID());
@@ -80,7 +79,7 @@ public class DBMSprocesses {
         Integer BlockID = tree.search(key).value;
         if (BlockID != null){
             TablePage<K> page = new TablePage<>(BlockID, table);
-            page.remove(page.getIndex(key));
+            page.remove(key);
             tree.remove(key, BlockID);
             return page;
         }

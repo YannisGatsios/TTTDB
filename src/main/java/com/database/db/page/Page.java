@@ -2,6 +2,7 @@ package com.database.db.page;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.stream.Collectors;
 
 import com.database.db.table.Entry;
@@ -30,20 +31,35 @@ public abstract class Page<K extends Comparable<K>> {
     // ==========ADDING_ENTRIES==========
     public void add(Entry<K> newEntry) throws IllegalArgumentException {
         if (this.numOfEntries == this.maxNumOfEntries) throw new IllegalArgumentException("this Page is full, current Max Size : " + this.maxNumOfEntries);
+        int index = this.getIndex(newEntry.getID());
+        if(index<0) index = -index-1;
         this.numOfEntries++;
-        this.entries.add(newEntry);
+        this.entries.add(index, newEntry);
         this.spaceInUse += newEntry.size();
     }
 
     // ===========REMOVING_ENTRIES===============
+    public void remove(K key){
+        int index = this.getIndex(key);
+        if(index<0) throw new IllegalArgumentException("Entry with key :"+key+" can not be found.");
+        this.remove(index);
+    }
     public void remove(int index) {
         if (index > this.entries.size() - 1 || index < 0) throw new IllegalArgumentException("Invalid Number OF Entry to remove out of bounds you gave : " + index);
-        this.spaceInUse -= this.getEntrySize(index);
+        this.spaceInUse -= this.get(index).size();
         this.entries.remove(index);
         this.numOfEntries--;
     }
+    public void removeLast(){
+        this.remove(this.numOfEntries-1);
+    }
 
     // ===========SEARCHING_ENTRIES===============
+    public Entry<K> get(K key){
+        int index = this.getIndex(key);
+        if(index<0) throw new IllegalArgumentException("Entry with key :"+key+" can not be found.");
+        return this.get(index);
+    }
     public Entry<K> get(int index) {
         if (index < 0) {
             throw new IllegalArgumentException("Can not get Entry from Page out of bounds Index for value : " + index);
@@ -51,17 +67,15 @@ public abstract class Page<K extends Comparable<K>> {
         return this.entries.get(index);
     }
 
-    public int getIndex(K key) {
+    public Entry<K> getLast(){
+        return this.get(this.numOfEntries-1);
+    }
+
+    private int getIndex(K key) {
         if (key == null) throw new IllegalArgumentException("Key cannot be null");
-        int ind = 0;
-        while (ind < this.entries.size()) {
-            K entryKey = this.entries.get(ind).getID();
-            if (key.equals(entryKey)) {
-                return ind;
-            }
-            ind++;
-        }
-        return -1;
+        Entry<K> tmp = new Entry<K>();
+        tmp.setID(key);
+        return Collections.binarySearch(this.entries, tmp, (e1, e2) -> e1.getID().compareTo(e2.getID()));
     }
 
     // ===========PRINTING===============
@@ -89,43 +103,16 @@ public abstract class Page<K extends Comparable<K>> {
     public abstract byte[] toBuffer() throws IOException;
     public abstract void bufferToPage(byte[] bufferData, Table<K> table) throws IOException;
 
-    private int getEntrySize(int numOfEntry) {
-        return this.entries.get(numOfEntry).size();
-    }
+    public int getPageID() {return this.pageID;}
+    public void setPageID(int newPageID) {this.pageID = newPageID;}
 
-    public int getPageID() {
-        return this.pageID;
-    }
-    public void setPageID(int newPageID) {
-        this.pageID = newPageID;
-    }
+    public short size() {return this.numOfEntries;}
+    public int getSpaceInUse() {return this.spaceInUse;}
+    public ArrayList<Entry<K>> getAll() {return this.entries;}
 
-    public short size() {
-        return this.numOfEntries;
-    }
-
-    public int getSpaceInUse() {
-        return this.spaceInUse;
-    }
-
-    public ArrayList<Entry<K>> getAll() {
-        return this.entries;
-    }
-
-    public int sizeInBytes() {
-        return (sizeOfEntries() + sizeOfHeader())
-                + (BLOCK_SIZE - ((sizeOfEntries() + sizeOfHeader()) % BLOCK_SIZE));
-    }
-
-    public int sizeOfHeader() {
-        return (2 * (Integer.BYTES)) + Short.BYTES;
-    }
-
-    public int sizeOfEntries() {
-        return (maxSizeOfEntry * maxNumOfEntries);
-    }
-
-    public int getPagePos() {
-        return this.pageID * this.sizeInBytes();
-    }
+    public int sizeInBytes() {return (sizeOfEntries() + sizeOfHeader())+ (BLOCK_SIZE - ((sizeOfEntries() + sizeOfHeader()) % BLOCK_SIZE));}
+    public int sizeOfHeader() {return (2 * (Integer.BYTES)) + Short.BYTES;}
+    public int sizeOfEntries() {return (maxSizeOfEntry * maxNumOfEntries);}
+    
+    public int getPagePos() {return this.pageID * this.sizeInBytes();}
 }
