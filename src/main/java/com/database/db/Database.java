@@ -1,5 +1,6 @@
 package com.database.db;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -17,7 +18,7 @@ public class Database {
         this.tables = new HashMap<>();
     }
 
-    public void addTable(String tableName, Schema schema) throws ExecutionException, InterruptedException{//TODO handle exceptions
+    public void addTable(String tableName, Schema schema) throws ExecutionException, InterruptedException, IOException {//TODO handle exceptions
         String type = schema.getColumnTypes()[schema.getPrimaryKeyIndex()];
         Table<?> table;
         switch (type) {

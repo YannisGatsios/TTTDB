@@ -26,7 +26,6 @@ public class App {
     public static void main(String[] args) throws IOException,InterruptedException, ExecutionException{
         FileIOThread fileIOThread = new FileIOThread();
         fileIOThread.start();//Starting File IO Operations Thread
-        FileIO fileIO = new FileIO(fileIOThread);
         //DataBase INIT.
         String databaseName = "system";
         String tableName = "users";
@@ -47,7 +46,7 @@ public class App {
         while (ind < 400) {
             int sizeOfID = random.nextInt(table.getPrimaryKeyMaxSize()-1)+1;
             String userName = generateRandomString(sizeOfID);
-            if(!table.getPrimaryKeyIndex().isKey(userName)){
+            if(!table.getPrimaryKey().isKey(userName)){
                 keysList.add(userName);
                 ArrayList<Object> entryData = new ArrayList<>();
                 entryData.add(userName);
@@ -71,14 +70,11 @@ public class App {
                 ind++;
             }
         }
-        byte[] treeBuffer = table.getPrimaryKeyIndex().treeToBuffer(table.getPrimaryKeyMaxSize());
-        fileIO.writeTree(table.getIndexPath(), treeBuffer);
-        System.out.println(table.getPrimaryKeyIndex().toString());
+        System.out.println(table.getPrimaryKey().toString());
         
         PrimaryKey<String> tree2 = new PrimaryKey<>(table.getPageMaxNumOfEntries());
-        byte[] newTree = fileIO.readTree(table.getIndexPath());
         System.out.println(table.getPrimaryKeyType()+new String().getClass().getName());
-        tree2 = tree2.bufferToTree(newTree, table);
+        tree2.initialize(table);
         //tree2.printTree();
         int trues = 0;
         int falser = 0;
@@ -91,19 +87,20 @@ public class App {
             //System.out.println("Key is "+key+" : "+tree2.search((K)key));
         }
         System.out.println("True Are : "+trues+"\nFalse Are : "+falser+"\n===========[Starting Random 100 Deletions.]===========");
-        table.setPrimaryKeyIndex(tree2);
+        table.setPrimaryKey(tree2);
         ind = 0;
         while (ind < 100) {
             int randInd = random.nextInt(400-ind);
-            if(table.getPrimaryKeyIndex().isKey(keysList.get(randInd))){
+            if(table.getPrimaryKey().isKey(keysList.get(randInd))){
                 System.out.println("("+keysList.get(randInd)+" : "+tree2.search(keysList.get(randInd))+")");
                 DBMS.deleteEntry(table, keysList.get(randInd));
-                System.out.println(ind+" : Random Index : "+keysList.get(randInd)+" : "+tree2.search(keysList.get(randInd))+" Deleted.=====\n");
+                System.out.println("("+ind+") : Random Index : "+keysList.get(randInd)+" : "+tree2.search(keysList.get(randInd))+
+                "\n========Deletion Finished=========\n");
                 keysList.remove(randInd);
                 ind++;
             }
         }
-        fileIO.writeTree(table.getIndexPath(), tree2.treeToBuffer(table.getPrimaryKeyMaxSize()));
+        //fileIO.writeTree(table.getIndexPath(), tree2.treeToBuffer(table.getPrimaryKeyMaxSize()));
         fileIOThread.shutdown();
     }
 }

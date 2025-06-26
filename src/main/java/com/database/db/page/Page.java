@@ -2,7 +2,6 @@ package com.database.db.page;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.stream.Collectors;
 
 import com.database.db.table.Entry;
@@ -19,9 +18,6 @@ public abstract class Page<K extends Comparable<K>> {
 
     private int BLOCK_SIZE = 4096;
 
-    public Page() {
-    }
-
     public Page(int PageID, Table<K> table) {
         this.pageID = PageID;
         this.numOfEntries = 0;
@@ -33,9 +29,7 @@ public abstract class Page<K extends Comparable<K>> {
 
     // ==========ADDING_ENTRIES==========
     public void add(Entry<K> newEntry) throws IllegalArgumentException {
-        if (this.numOfEntries == this.maxNumOfEntries) {
-            throw new IllegalArgumentException("this Page is full, current Max Size : " + this.maxNumOfEntries);
-        }
+        if (this.numOfEntries == this.maxNumOfEntries) throw new IllegalArgumentException("this Page is full, current Max Size : " + this.maxNumOfEntries);
         this.numOfEntries++;
         this.entries.add(newEntry);
         this.spaceInUse += newEntry.size();
@@ -43,11 +37,7 @@ public abstract class Page<K extends Comparable<K>> {
 
     // ===========REMOVING_ENTRIES===============
     public void remove(int index) {
-        if (index > this.entries.size() - 1 || index < 0) {
-            throw new IllegalArgumentException(
-                "Invalid Number OF Entry to remove from Page out of bounds you gave : " + index);
-        }
-        System.out.println(this.entries.get(index).getID()+"--- remove from Page "+this.pageID);
+        if (index > this.entries.size() - 1 || index < 0) throw new IllegalArgumentException("Invalid Number OF Entry to remove out of bounds you gave : " + index);
         this.spaceInUse -= this.getEntrySize(index);
         this.entries.remove(index);
         this.numOfEntries--;
@@ -118,7 +108,7 @@ public abstract class Page<K extends Comparable<K>> {
         return this.spaceInUse;
     }
 
-    public List<Entry<K>> getAll() {
+    public ArrayList<Entry<K>> getAll() {
         return this.entries;
     }
 

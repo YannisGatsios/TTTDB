@@ -3,59 +3,59 @@ package com.database.db.index;
 import java.util.List;
 
 /**
- * Interface for a B+ tree data structure.
+ * Interface defining core operations for a B+ Tree structure.
  *
- * @param <K> the type of keys, which must be comparable
- * @param <V> the type of values associated with the keys
+ * @param <K> Key type (must implement Comparable)
+ * @param <V> Value type associated with keys
  */
 public interface BTree<K extends Comparable<K>, V> {
 
     /**
-     * Inserts a key-value pair into the B+ tree.
+     * Inserts a key-value pair into the tree.
      *
-     * @param key   the key to insert
-     * @param value the value associated with the key
+     * @param key Key to insert
+     * @param value Associated value
      */
     void insert(K key, V value);
 
     /**
-     * Removes a key and its associated value from the B+ tree.
+     * Removes a specific key-value pair from the tree.
      *
-     * @param key the key to remove
-     * @return true if the key was successfully removed, false otherwise
+     * @param key Key to remove
+     * @param value Specific value to remove (for duplicate keys if is duplicate)
      */
-    void remove(K key);
+    void remove(K key, V value);
 
     /**
-     * Searches for the value associated with a specific key in the B+ tree.
+     * Searches for a key and returns its key-value pair.
      *
-     * @param key the key to search for
-     * @return the value associated with the key, or null if the key is not found
+     * @param key Key to search for
+     * @return Pair containing key and value, or null if not found
      */
-    V search(K key);
+    Pair<K, V> search(K key);
 
     /**
-     * Retrieves all key-value pairs within a specified range in the B+ tree.
+     * Performs a range search between two keys (inclusive).
      *
-     * @param fromKey the start of the range (inclusive)
-     * @param toKey   the end of the range (inclusive)
-     * @return a list of key-value pairs in the specified range as Pair<K, V>
+     * @param fromKey Lower bound (inclusive, null for unbounded)
+     * @param toKey Upper bound (inclusive, null for unbounded)
+     * @return List of key-value pairs within the specified range
      */
     List<Pair<K, V>> rangeSearch(K fromKey, K toKey);
 
     /**
-     * Checks if a specific key exists in the B+ tree.
+     * Checks if a key exists in the tree.
      *
-     * @param key the key to check for
-     * @return true if the key exists, false otherwise
+     * @param key Key to verify
+     * @return true if key exists, false otherwise
      */
     boolean isKey(K key);
 
-    @Override
     /**
-     * Returns the BTree us a string for printing.
-     * 
-     * @return Btree  us a String
+     * Generates a human-readable tree representation.
+     *
+     * @return String visualization of tree structure and leaf chain
      */
-    public String toString();
+    @Override
+    String toString();
 }

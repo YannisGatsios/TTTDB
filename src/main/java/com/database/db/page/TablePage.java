@@ -5,14 +5,23 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.concurrent.ExecutionException;
 
+import com.database.db.FileIO;
+import com.database.db.FileIOThread;
 import com.database.db.table.Entry;
 import com.database.db.table.Table;
 
 public class TablePage<K extends Comparable<K>> extends Page<K>{
 
-    public TablePage(int PageID, Table<K> table){
+    public TablePage(int PageID, Table<K> table) throws InterruptedException, ExecutionException, IOException {
         super(PageID, table);
+        String tablePath = table.getTablePath();
+        FileIOThread fileIOThread = table.getFileIOThread();
+        FileIO FileIO = new FileIO(fileIOThread);
+        byte[] pageBuffer = FileIO.readPage(tablePath, this.getPagePos(), this.sizeInBytes());
+        if (pageBuffer == null || pageBuffer.length == 0) return; //Checking if Page we read is empty.
+        this.bufferToPage(pageBuffer, table);
     }
 
     public byte[] toBuffer() throws IOException {
@@ -115,5 +124,10 @@ public class TablePage<K extends Comparable<K>> extends Page<K>{
             throw new IOException("Mismatch between expected and actual space in use for Page. newBlock:"+this.getSpaceInUse()+" oldBlock:"+ spaceInUse+" BlockID:"+this.getPageID());
         }
         if(numOfEntries != this.size()) throw new IOException("Mismatch between expected and actual numOfEntries and Page.size().");
+    }
+
+    public void write(Table<K> table) throws IOException {
+        FileIO fileIO = new FileIO(table.getFileIOThread());
+        fileIO.writePage(table.getTablePath(), this.toBuffer(), this.getPagePos());
     }
 }

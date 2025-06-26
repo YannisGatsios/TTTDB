@@ -23,88 +23,65 @@ public class DBMSprocesses {
     }
     //==SELECTING==
     public <K extends Comparable<K>> Entry<K> selectEntry(Table<K> table, K key) throws IOException, ExecutionException, InterruptedException {
-        PrimaryKey<K> tree = table.getPrimaryKeyIndex();
-        Integer BlockID = tree.search(key);
+        Integer BlockID = table.getPrimaryKey().search(key).value;
         if (BlockID != null){
             TablePage<K> page = new TablePage<>(BlockID, table);
-            page.bufferToPage(fileIO.readPage(table.getTablePath(), page.getPagePos(), page.sizeInBytes()), table);
             return page.get(page.getIndex(key));
         }
         return null;
     }
     //==INSERTION==
     public <K extends Comparable<K>> void insertEntry(Table<K> table, Entry<K> entry) throws IOException, ExecutionException, InterruptedException {
-        PrimaryKey<K> tree = table.getPrimaryKeyIndex();
-        TablePage<K> Page = new TablePage<>(tree.getNumberOfPages(), table);
-        byte[] pageBuffer = fileIO.readPage(table.getTablePath(), Page.getPagePos(), Page.sizeInBytes());
-        if(pageBuffer != null){
-            Page.bufferToPage(pageBuffer, table);
-        }
-        if(Page.size() < table.getPageMaxNumOfEntries()){
-            this.insertionProcess(table, entry, Page);
+        if(table.getPages()==0)table.addOnePage();
+        TablePage<K> page = new TablePage<>(table.getPages()-1, table);
+        if(page.size() < table.getPageMaxNumOfEntries()){
+            this.insertionProcess(table, entry, page);
             return;
         }
-        tree.addOnePage();
-        Page = new TablePage<>(tree.getNumberOfPages(), table);
-        this.insertionProcess(table, entry, Page);
+        table.addOnePage();
+        page = new TablePage<>(table.getPages()-1, table);
+        this.insertionProcess(table, entry, page);
     }
-    private <K extends Comparable<K>> void insertionProcess(Table<K> table, Entry<K> entry, TablePage<K> Page) throws IOException{
-        PrimaryKey<K> tree = table.getPrimaryKeyIndex();
-        Page.add(entry);
-        tree.insert(entry.getID(), (Integer) Page.getPageID());
-        fileIO.writePage(table.getTablePath(), Page.toBuffer(), Page.getPagePos());
+    private <K extends Comparable<K>> void insertionProcess(Table<K> table, Entry<K> entry, TablePage<K> page) throws IOException{
+        PrimaryKey<K> tree = table.getPrimaryKey();
+        page.add(entry);
+        tree.insert(entry.getID(), (Integer) page.getPageID());
+        page.write(table);
     }
-
     //==DELETION==
     public <K extends Comparable<K>> void deleteEntry(Table<K> table, K key) throws IllegalArgumentException,IOException, ExecutionException , InterruptedException {
-        PrimaryKey<K> tree = table.getPrimaryKeyIndex();
-        System.out.println(tree.getNumberOfPages());
+        
         TablePage<K> page = this.deletionProcess(table, key);
         if (page == null) return;
-        if (page.getPageID() == tree.getNumberOfPages() && page.size() != 0){
-            fileIO.writePage(table.getTablePath(), page.toBuffer(), page.getPagePos());
+        if (page.getPageID() == table.getPages()-1 && page.size() != 0){
+            page.write(table);
             return;
-        }else if (page.getPageID() == tree.getNumberOfPages() && page.size() == 0){
+        }else if (page.getPageID() == table.getPages()-1 && page.size() == 0){
             fileIO.deleteLastPage(table.getTablePath(), page.sizeInBytes());
-            tree.removeOnePage();
+            table.removeOnePage();
             return;
         }
-        TablePage<K> lastPage = new TablePage<>(tree.getNumberOfPages(), table);
-        lastPage.bufferToPage(fileIO.readPage(table.getTablePath(), lastPage.getPagePos(), lastPage.sizeInBytes()), table);
+        TablePage<K> lastPage = new TablePage<>(table.getPages()-1, table);
         Entry<K> lastEntry = lastPage.get(lastPage.size()-1);
         lastPage.remove(lastPage.size()-1);
         page.add(lastEntry);
 
-        System.out.println(lastEntry.getID()+"--- added to Page : "+page.getPageID());
-        tree.update(lastEntry.getID(), page.getPageID());
-        fileIO.writePage(table.getTablePath(), page.toBuffer(), page.getPagePos());
+        table.getPrimaryKey().update(lastEntry.getID(), page.getPageID());
+        page.write(table);
         if(lastPage.size() == 0){
-            tree.removeOnePage();
             fileIO.deleteLastPage(table.getTablePath(), lastPage.sizeInBytes());
+            table.removeOnePage();
             return;
         }
-        fileIO.writePage(table.getTablePath(), lastPage.toBuffer(), lastPage.getPagePos());
+        lastPage.write(table);
     }
     private <K extends Comparable<K>> TablePage<K> deletionProcess(Table<K> table, K key) throws IOException, ExecutionException, InterruptedException {
-        PrimaryKey<K> tree = table.getPrimaryKeyIndex();
-        Integer BlockID = tree.search(key);
+        PrimaryKey<K> tree = table.getPrimaryKey();
+        Integer BlockID = tree.search(key).value;
         if (BlockID != null){
             TablePage<K> page = new TablePage<>(BlockID, table);
-            page.bufferToPage(fileIO.readPage(table.getTablePath(), page.getPagePos(), page.sizeInBytes()), table);
-            if(page.getIndex(key) == -1){
-                TablePage<K> page1 = new TablePage<>(1, table);
-                page1.bufferToPage(fileIO.readPage(table.getTablePath(), page1.getPagePos(), page1.sizeInBytes()), table);
-                int int1 = page1.getIndex(key);
-                TablePage<K> page2 = new TablePage<>(2, table);
-                page2.bufferToPage(fileIO.readPage(table.getTablePath(), page2.getPagePos(), page2.sizeInBytes()), table);
-                int int2 = page2.getIndex(key);
-                TablePage<K> page3 = new TablePage<>(0, table);
-                page3.bufferToPage(fileIO.readPage(table.getTablePath(), page3.getPagePos(), page3.sizeInBytes()), table);
-                int int3 = page3.getIndex(key);
-                System.out.println("hello int1 : "+int3 +" int2 : "+int1+" int3 : "+int2+" Value is = "+tree.search(key));
-            }
             page.remove(page.getIndex(key));
-            tree.remove(key);
+            tree.remove(key, BlockID);
             return page;
         }
         return null;

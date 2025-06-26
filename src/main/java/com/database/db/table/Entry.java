@@ -68,7 +68,6 @@ public class Entry<K extends Comparable<K>> {
         }
         return sum;
     }
-
     @SuppressWarnings("unchecked")
     public void setID(int index){
         this.ID = (K)this.entryData.get(index);

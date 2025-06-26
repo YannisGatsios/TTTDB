@@ -26,7 +26,7 @@ class PageTest {
     private Entry<String> entry3;
 
     @BeforeEach
-    void setUp() throws ExecutionException, InterruptedException{
+    void setUp() throws ExecutionException, InterruptedException, IOException {
         fileIOThread.start();
         fileIO = new FileIO(fileIOThread);
         String databaseName = "system";

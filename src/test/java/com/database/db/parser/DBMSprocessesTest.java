@@ -52,7 +52,7 @@ public class DBMSprocessesTest {
     private static String tableName;
 
     @BeforeEach
-    void setup() throws ExecutionException, InterruptedException{
+    void setup() throws ExecutionException, InterruptedException, IOException {
         fileIOThread.start();
         fileIO = new FileIO(fileIOThread);
         databaseName = "test_database";
@@ -69,7 +69,7 @@ public class DBMSprocessesTest {
 
     @Test
     @Order(1)
-    void testOneInsert() throws ExecutionException, InterruptedException{
+    void testOneInsert() throws ExecutionException, InterruptedException, IOException {
         ArrayList<Object> entryData = new ArrayList<>();
         entryData.add("firstEntry");
         entryData.add(100);
@@ -80,7 +80,6 @@ public class DBMSprocessesTest {
         entry.setID(table.getPrimaryKeyColumnIndex());
         try {
             DBMS.insertEntry(table, entry);
-            fileIO.writeTree(table.getIndexPath(), table.getPrimaryKeyIndex().treeToBuffer( table.getPrimaryKeyMaxSize()));
         } catch (IllegalArgumentException e) {
             fail(e);
         } catch (IOException e) {
@@ -89,11 +88,9 @@ public class DBMSprocessesTest {
     }
     @Test
     @Order(2)
-    void testDeleteLastEntry() throws ExecutionException, InterruptedException{
-        table.getPrimaryKeyIndex().bufferToTree(fileIO.readTree(table.getIndexPath()), table);
+    void testDeleteLastEntry() throws ExecutionException, InterruptedException, IOException {
         try {
             DBMS.deleteEntry(table, "firstEntry");
-            fileIO.writeTree(table.getIndexPath(), table.getPrimaryKeyIndex().treeToBuffer(table.getPrimaryKeyMaxSize()));
         } catch (IllegalArgumentException | IOException e) {
             fail(e);
         }
@@ -101,14 +98,12 @@ public class DBMSprocessesTest {
 
     @Test
     @Order(3)
-    <K extends Comparable<K>> void testRandomEntryInsertion() throws ExecutionException, InterruptedException {
-        table.getPrimaryKeyIndex()
-        .bufferToTree(fileIO.readTree(table.getIndexPath()), table);
+    <K extends Comparable<K>> void testRandomEntryInsertion() throws ExecutionException, InterruptedException, IOException {
         int ind = 0;
         while (ind < 400) {
             int sizeOfID = random.nextInt(table.getPrimaryKeyMaxSize()-1)+1;
             String userName = this.generateRandomString(sizeOfID);
-            PrimaryKey<K> tree = table.getPrimaryKeyIndex();
+            PrimaryKey<K> tree = table.getPrimaryKey();
             if(!tree.isKey((K)userName)){
                 keysList[ind] = userName;
                 ArrayList<Object> entryData = new ArrayList<>();
@@ -136,8 +131,6 @@ public class DBMSprocessesTest {
                 ind++;
             }
         }
-        fileIO.writeTree(table.getIndexPath(),
-        table.getPrimaryKeyIndex().treeToBuffer(table.getPrimaryKeyMaxSize()));
         try (BufferedWriter writer = new BufferedWriter(new FileWriter("DBMSprocessesTest.txt"))) {
             for (String key : keysList) {
                 writer.write(key + "\n");
@@ -150,7 +143,7 @@ public class DBMSprocessesTest {
     //You must run testRandomEntryInsertion first.
     @Test
     @Order(4)
-    void testRandomDeletion() throws ExecutionException, InterruptedException {
+    void testRandomDeletion() throws ExecutionException, InterruptedException, IOException {
         //Reading file with previously inserted key To check in reading from index file is working properly.
         try (BufferedReader reader = new BufferedReader(new FileReader("DBMSprocessesTest.txt"))) {
             List<String> keys = reader.lines().collect(Collectors.toList());
@@ -163,7 +156,7 @@ public class DBMSprocessesTest {
         if (!file.delete()) System.err.println("Failed to delete DBMSprocessesTest.txt");
 
         PrimaryKey<String> tree2 = new PrimaryKey<>(table.getPageMaxNumOfEntries());
-        tree2 = tree2.bufferToTree(fileIO.readTree(table.getIndexPath()), table);
+        tree2.initialize(table);
 
         //Checking if all previously inserted keys are included in the new tree
         for (int i = 0; i < 400; i++) {
@@ -172,7 +165,7 @@ public class DBMSprocessesTest {
                 fail();
             }
         }
-        table.setPrimaryKeyIndex(tree2);
+        table.setPrimaryKey(tree2);
         //Randomly deleting 100 entries from table.
         int ind = 0;
         while (ind < 100) {
@@ -186,16 +179,14 @@ public class DBMSprocessesTest {
                 ind++;
             }
         }
-        fileIO.writeTree(table.getIndexPath(), tree2.treeToBuffer(table.getPrimaryKeyMaxSize()));
     }
 
     //@Test
     //@Order(5)
-    void testOrderedEntryInsertion() throws ExecutionException, InterruptedException{
+    void testOrderedEntryInsertion() throws ExecutionException, InterruptedException, IOException {
         DBMS.dropTable(databaseName, tableName);
         DBMS.createTable(databaseName, tableName, null);
-        
-        table.getPrimaryKeyIndex().bufferToTree(fileIO.readTree(table.getIndexPath()), table);
+
         int ind = 0;
         while(ind < 1000000){
             ArrayList<Object> entryData = new ArrayList<>();

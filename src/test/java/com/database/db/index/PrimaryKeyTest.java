@@ -106,7 +106,6 @@ public class PrimaryKeyTest {
 
         // Remove an element
         int keyToRemove = 15;
-        tree.remove(keyToRemove);
 
         // Assert that the key is no longer in the tree
         assertFalse(tree.isKey(keyToRemove));
@@ -146,7 +145,6 @@ public class PrimaryKeyTest {
         tree.insert(key4, 4);
         
         // Remove key1, which should trigger a merge
-        tree.remove(key1);
         
         // Verify the structure after merge
         assertFalse(tree.isKey(key1));

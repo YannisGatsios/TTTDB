@@ -33,7 +33,7 @@ public class PageCache<K extends Comparable<K>> {
             fileIO.writePage(table.getTablePath(), page.toBuffer(), page.getPagePos());
             this.cache.remove(page.getPageID());
         }
-        fileIO.writeTree(table.getIndexPath(), this.table.getPrimaryKeyIndex().treeToBuffer(this.table.getPrimaryKeyMaxSize()));
+        //fileIO.writeTree(table.getIndexPath(), this.table.getPrimaryKey().treeToBuffer(this.table.getPrimaryKeyMaxSize()));
     }
     public void loadPage(int pageID, Table<K> table) throws IOException,InterruptedException, ExecutionException  {
         if(this.cache.size() != this.maxSize){
