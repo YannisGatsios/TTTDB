@@ -8,7 +8,7 @@ import java.util.List;
  * @param <K> Key type (must implement Comparable)
  * @param <V> Value type associated with keys
  */
-public interface BTree<K extends Comparable<K>, V> {
+public interface BTree<K extends Comparable<? super K>, V> {
 
     /**
      * Inserts a key-value pair into the tree.

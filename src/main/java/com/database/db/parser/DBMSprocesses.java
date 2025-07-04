@@ -34,7 +34,7 @@ public class DBMSprocesses {
     public <K extends Comparable<K>> void insertEntry(Table<K> table, Entry<K> entry) throws IOException, ExecutionException, InterruptedException {
         if(table.getPages()==0)table.addOnePage();
         TablePage<K> page = new TablePage<>(table.getPages()-1, table);
-        if(page.size() < table.getPageMaxNumOfEntries()){
+        if(page.size() < table.getEntriesPerPage()){
             this.insertionProcess(table, entry, page);
             return;
         }

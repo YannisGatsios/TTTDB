@@ -2,6 +2,7 @@ package com.database.db;
 
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
+
 import java.io.IOException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
@@ -54,11 +55,11 @@ public class App {
                 int intNum =101;// random.nextInt();
                 entryData.add(intNum);
 
-                int sizeOfString = random.nextInt(table.getSchema().getColumnSizes()[2]);
+                int sizeOfString = random.nextInt(table.getSchema().getSizes()[2]);
                 String randStr = generateRandomString(sizeOfString);
                 entryData.add(randStr);
 
-                int sizeOfData = random.nextInt(table.getSchema().getColumnSizes()[3]);
+                int sizeOfData = random.nextInt(table.getSchema().getSizes()[3]);
                 byte[] data = new byte[sizeOfData];
                 for(int y = 0; y < sizeOfData; y++){
                     data[y] = (byte) random.nextInt(127);
@@ -72,7 +73,7 @@ public class App {
         }
         System.out.println(table.getPrimaryKey().toString());
         
-        PrimaryKey<String> tree2 = new PrimaryKey<>(table.getPageMaxNumOfEntries());
+        PrimaryKey<String> tree2 = new PrimaryKey<>(table.getEntriesPerPage());
         System.out.println(table.getPrimaryKeyType()+new String().getClass().getName());
         tree2.initialize(table);
         //tree2.printTree();

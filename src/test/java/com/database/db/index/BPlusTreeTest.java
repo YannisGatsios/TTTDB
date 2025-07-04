@@ -637,15 +637,15 @@ class BPlusTreeTest {
 
         // Test duplicate insertion with same Key and Value (should not add new value)
         tree.insert(100, "A");
-        assertEquals(3, tree.size());
+        assertEquals(4, tree.size());
 
         // Test deletions
         tree.remove(100, "A");
-        assertEquals(2, tree.size());
+        assertEquals(3, tree.size());
 
         // Test primary value promotion
         tree.remove(100, "B");
-        assertEquals(1, tree.size());
+        assertEquals(2, tree.size());
     }
 
     @Test

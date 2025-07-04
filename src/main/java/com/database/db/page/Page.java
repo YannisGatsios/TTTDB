@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 import com.database.db.table.Entry;
 import com.database.db.table.Table;
 
-public abstract class Page<K extends Comparable<K>> {
+public abstract class Page<K extends Comparable<? super K>> {
 
     private int pageID;
     private short numOfEntries;
@@ -24,7 +24,7 @@ public abstract class Page<K extends Comparable<K>> {
         this.numOfEntries = 0;
         this.spaceInUse = 0;
         this.entries = new ArrayList<>();
-        this.maxNumOfEntries = table.getPageMaxNumOfEntries();
+        this.maxNumOfEntries = table.getEntriesPerPage();
         this.maxSizeOfEntry = table.getSizeOfEntry();
     }
 
@@ -61,8 +61,8 @@ public abstract class Page<K extends Comparable<K>> {
         return this.get(index);
     }
     public Entry<K> get(int index) {
-        if (index < 0) {
-            throw new IllegalArgumentException("Can not get Entry from Page out of bounds Index for value : " + index);
+        if (index < 0 || this.entries.size() == 0) {
+            throw new IndexOutOfBoundsException("invalid index You gave :" + index+" Size :"+this.entries.size());
         }
         return this.entries.get(index);
     }
@@ -101,7 +101,7 @@ public abstract class Page<K extends Comparable<K>> {
     }
 
     public abstract byte[] toBuffer() throws IOException;
-    public abstract void bufferToPage(byte[] bufferData, Table<K> table) throws IOException;
+    public abstract void bufferToPage(byte[] bufferData) throws IOException;
 
     public int getPageID() {return this.pageID;}
     public void setPageID(int newPageID) {this.pageID = newPageID;}
@@ -113,6 +113,6 @@ public abstract class Page<K extends Comparable<K>> {
     public int sizeInBytes() {return (sizeOfEntries() + sizeOfHeader())+ (BLOCK_SIZE - ((sizeOfEntries() + sizeOfHeader()) % BLOCK_SIZE));}
     public int sizeOfHeader() {return (2 * (Integer.BYTES)) + Short.BYTES;}
     public int sizeOfEntries() {return (maxSizeOfEntry * maxNumOfEntries);}
-    
+
     public int getPagePos() {return this.pageID * this.sizeInBytes();}
 }

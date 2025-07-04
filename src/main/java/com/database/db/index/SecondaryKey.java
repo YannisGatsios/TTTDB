@@ -1,79 +1,77 @@
 package com.database.db.index;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 
 import com.database.db.table.Table;
+import com.database.db.table.Type;
+import com.database.db.table.Type.DeserializationResult;
 
 public class SecondaryKey<K extends Comparable<K>,V> extends BPlusTree<K,V> {
+    private int columnIndex;
     
-    public SecondaryKey(int order){
-        super(order);
+    public SecondaryKey(Table<K> table, int columnIndex){
+        super(table.getEntriesPerPage());
+        this.setUnique(false);
+        this.columnIndex = columnIndex;
     }
 
-    public byte[] treeToBuffer(int maxSizeOfPrimaryKey){
-        if(this.getRoot() == null || this.getRoot().pairs.size() == 0) return new byte[0];
-        int bufferSize = 0;
-        Node<K,V> node = this.getLeftMostLeaf(this);
-        while (node != null) {
-            for (int i = 0; i < node.pairs.size(); i++) {
-                bufferSize += this.getObjectSize(node.pairs.get(i).key) + Short.BYTES; // Actual key size
-                bufferSize += this.getObjectSize(node.pairs.get(i).value) + Short.BYTES; // Getting the Values size.
-            }
-            node = node.next;
-        }
-        bufferSize += Short.BYTES; //This accounts for the EOF flag that is a Short = 0
-        ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
-        node = this.getLeftMostLeaf(this);
-        while (node != null) {
-            for(int i = 0; i < node.pairs.size(); i++){
-                K key = node.pairs.get(i).key;
-                V value = node.pairs.get(i).value;
-                if (value instanceof Integer){
-                    buffer.putInt((Integer)value);
-                }else if(value instanceof String){
-                    byte[] keyBuffer = this.objectToByteArray(key);
-                    buffer.putShort((short) keyBuffer.length);
-                    buffer.put(keyBuffer);
-                }else{
-                    throw new IllegalArgumentException("Invalid Value Type for Secondary Key (primary key).");
+    public void initialize(Table<K> table){
+    }
+
+    public byte[] treeToBuffer(Table<K> table){
+        if (this.getRoot() == null || this.getRoot().pairs.size() == 0) return new byte[0];
+        try (ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+                DataOutputStream dataStream = new DataOutputStream(byteStream)) {
+            Node<K, V> node = this.getFirst();
+            Type keyType = table.getSchema().getTypes()[this.columnIndex];
+            Type valueType = table.getSchema().getTypes()[table.getPrimaryKeyColumnIndex()];
+            while (node != null) {
+                for (Pair<K, V> pair : node.pairs) {
+                    // Serialize key
+                    byte[] keyBytes = keyType.toBytes(pair.key);
+                    dataStream.write(keyBytes);
+                    // Serialize value
+                    byte[] valueBytes = valueType.toBytes(pair.value);
+                    if (!(pair.value instanceof Integer)) dataStream.writeShort(valueBytes.length);
+                    dataStream.write(valueBytes);
+                    // Serialize duplicates if any
+                    if (pair.getDuplicates() != null) {
+                        for (V duplicate : pair.getDuplicates()) {
+                            dataStream.write(keyBytes);
+                            valueBytes = valueType.toBytes(duplicate);
+                            dataStream.write(valueBytes);
+                        }
+                    }
                 }
-                buffer.putInt((int)value);
+                node = node.next;
             }
-            node = node.next;
-        }
-        buffer.putShort((short)0);//This will indicate that the file is over.
-        buffer.flip();
-        return buffer.array();
-    }
-    private Node<K,V> getLeftMostLeaf(BPlusTree<K,V> tree){
-        Node<K,V> current = tree.getRoot();
-        while(!current.isLeaf){
-            current = current.children.get(0);
-        }
-        return current;
-    }private int getObjectSize(Object key){
-        if(key instanceof String){
-            return ((String) key).length();
-        } else if(key instanceof byte[]){
-            return ((byte[]) key).length;
-        }
-        throw new IllegalArgumentException("Invalid key type(Can not read key size)");
-    }private byte[] objectToByteArray(Object key) {
-        switch (key.getClass().getSimpleName()) {
-            case "Integer":
-                ByteBuffer buffer = ByteBuffer.allocate(4); // Allocate 4 bytes
-                buffer.putInt((int) key);
-                return buffer.array();
-            case "String":
-                return ((String) key).getBytes(StandardCharsets.UTF_8);
-            case "byte[]":
-                return (byte[]) key;
-            default:
-                throw new IllegalArgumentException("Invalid Type Of ID (primary key).");
+            // Write EOF marker
+            dataStream.writeShort(0);
+            return byteStream.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException("Buffer conversion failed", e);
         }
     }
-    public SecondaryKey<K,V> bufferToTree(byte[] treeBuffer, Table<K> table){
+    public SecondaryKey<K,V> bufferToTree(byte[] bufferData, Table<K> table){
+        if (bufferData == null || bufferData.length == 0) throw new IllegalArgumentException("Buffer data cannot be null or empty.");
+        int startIndex = 0;
+        for (int i = 0; i < table.getPrimaryKey().size(); i++) {
+            Type keyType = table.getSchema().getTypes()[this.columnIndex];
+            DeserializationResult keyResult = keyType.fromBytes(bufferData, startIndex);
+            K key = (K)keyResult.valueObject();
+            startIndex = keyResult.nextIndex();
+
+            Type valueType = table.getSchema().getTypes()[table.getPrimaryKeyColumnIndex()];
+            DeserializationResult valueResult = valueType.fromBytes(bufferData, startIndex); 
+            V value = (V) valueResult.valueObject();
+            startIndex = valueResult.nextIndex();
+            this.insert(key, value);
+        }
         return null;
     }
+
+
+    public int getColumnIndex(){return this.columnIndex;}
 }

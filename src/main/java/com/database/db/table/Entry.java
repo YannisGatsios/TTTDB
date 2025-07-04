@@ -2,7 +2,7 @@ package com.database.db.table;
 
 import java.util.ArrayList;
 
-public class Entry<K extends Comparable<K>> {
+public class Entry<K extends Comparable<? super K>> {
     
     private K ID;
     private ArrayList<Object> entryData;

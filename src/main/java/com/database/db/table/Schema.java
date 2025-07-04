@@ -4,7 +4,7 @@ public class Schema {
 
     private String[] columnNames;
     private int[] columnSizes;
-    private String[] columnTypes;
+    private Type[] columnTypes;
     private boolean[] nullable;
     private boolean[] isSecondaryKey;
     private boolean[] isPrimaryKey;
@@ -13,42 +13,43 @@ public class Schema {
     private static int MAX_SIZE_OF_COLUMN_NAME = 20;
 
     public Schema(String[] schema){
-        this.columnNames = this.setColumnNames(schema);
-        this.columnSizes = this.setColumnSizes(schema);
-        this.columnTypes = this.setColumnTypes(schema);
+        this.columnNames = this.setNames(schema);
+        this.columnTypes = this.setTypes(schema);
+        this.columnSizes = this.setSizes(schema);
         this.nullable = this.setNullable(schema);
         this.isSecondaryKey = this.setSecondaryKey(schema);
         this.isPrimaryKey = this.setPrimaryKey(schema);
         this.numOfColumns = nullable.length;
     }
     
-    private String[] setColumnNames(String[] tableConfig){
+    private String[] setNames(String[] tableConfig){
         String[] result = new String[tableConfig.length];
         for (int i = 0;i<tableConfig.length;i++){
             result[i] = tableConfig[i].split(":")[0].trim();
         }
         return result;
-    }public String[] getColumnNames() {
+    }public String[] getNames() {
         return this.columnNames;
     }
 
-    private int[] setColumnSizes(String[] tableConfig){
+    private int[] setSizes(String[] tableConfig){
         int[] result = new int[tableConfig.length];
         for (int i = 0;i<tableConfig.length;i++){
-            result[i] = Integer.parseInt(tableConfig[i].split(":")[1].trim());
+            result[i] = this.columnTypes[i].getFixedSize();
+            if(result[i] == -1)result[i] = Integer.parseInt(tableConfig[i].split(":")[1].trim());
         }
         return result;
-    }public int[] getColumnSizes() {
+    }public int[] getSizes() {
         return this.columnSizes;
     }
 
-    private String[] setColumnTypes(String[] tableConfig){
-        String[] result = new String[tableConfig.length];
+    private Type[] setTypes(String[] tableConfig){
+        Type[] result = new Type[tableConfig.length];
         for (int i = 0;i<tableConfig.length;i++){
-            result[i] = tableConfig[i].split(":")[2].trim();
+            result[i] = Type.fromString(tableConfig[i].split(":")[2].trim());
         }
         return result;
-    }public String[] getColumnTypes() {
+    }public Type[] getTypes() {
         return this.columnTypes;
     }
 
@@ -105,7 +106,7 @@ public class Schema {
         for(int i = 0; i < this.numOfColumns; i++){
             columns[i+1] = "| "+this.columnNames[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-columnNames[i].length())+"| "
             +this.columnSizes[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-String.valueOf(this.columnSizes[i]).length())+"| "
-            +this.columnTypes[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-columnTypes[i].length())+"| "
+            +this.columnTypes[i].toString()+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-columnTypes[i].getFixedSize())+"| "
             +this.nullable[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-String.valueOf(this.nullable[i]).length())+"| "
             +this.isSecondaryKey[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-String.valueOf(this.isSecondaryKey[i]).length())+"| "
             +this.isPrimaryKey[i]+String.valueOf(" ").repeat(MAX_SIZE_OF_COLUMN_NAME-String.valueOf(this.isPrimaryKey[i]).length())+"| ";

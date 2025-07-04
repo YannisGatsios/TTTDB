@@ -8,7 +8,7 @@ import java.util.concurrent.ExecutionException;
 import com.database.db.FileIO;
 import com.database.db.table.Table;
 
-public class PageCache<K extends Comparable<K>> {
+public class PageCache<K extends Comparable<? super K>> {
     private final FileIO fileIO;
 
     private final int maxSize;
@@ -38,12 +38,12 @@ public class PageCache<K extends Comparable<K>> {
     public void loadPage(int pageID, Table<K> table) throws IOException,InterruptedException, ExecutionException  {
         if(this.cache.size() != this.maxSize){
             TablePage<K> newPage = new TablePage<>(pageID, table);
-            newPage.bufferToPage(fileIO.readPage(table.getTablePath(), newPage.getPagePos(), newPage.sizeInBytes()), table);
+            newPage.bufferToPage(fileIO.readPage(table.getTablePath(), newPage.getPagePos(), newPage.sizeInBytes()));
             this.cache.put(pageID, newPage);
         }else{
             this.writeCache();
             TablePage<K> newPage = new TablePage<>(pageID, table);
-            newPage.bufferToPage(fileIO.readPage(table.getTablePath(), newPage.getPagePos(), newPage.sizeInBytes()), table);
+            newPage.bufferToPage(fileIO.readPage(table.getTablePath(), newPage.getPagePos(), newPage.sizeInBytes()));
             this.cache.put(pageID, newPage);
         }
     }

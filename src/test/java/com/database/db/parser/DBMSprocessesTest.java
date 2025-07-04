@@ -111,11 +111,11 @@ public class DBMSprocessesTest {
 
                 int intNum = random.nextInt();
                 entryData.add(intNum);
-                int sizeOfString = random.nextInt(table.getSchema().getColumnSizes()[2]);
+                int sizeOfString = random.nextInt(table.getSchema().getSizes()[2]);
                 String randStr = generateRandomString(sizeOfString);
                 entryData.add(randStr);
 
-                int sizeOfData = random.nextInt(table.getSchema().getColumnSizes()[3]);
+                int sizeOfData = random.nextInt(table.getSchema().getSizes()[3]);
                 byte[] data = new byte[sizeOfData];
                 for(int y = 0; y < sizeOfData; y++){
                     data[y] = (byte) random.nextInt(127);
@@ -155,7 +155,7 @@ public class DBMSprocessesTest {
         java.io.File file = new java.io.File("DBMSprocessesTest.txt");
         if (!file.delete()) System.err.println("Failed to delete DBMSprocessesTest.txt");
 
-        PrimaryKey<String> tree2 = new PrimaryKey<>(table.getPageMaxNumOfEntries());
+        PrimaryKey<String> tree2 = new PrimaryKey<>(table.getEntriesPerPage());
         tree2.initialize(table);
 
         //Checking if all previously inserted keys are included in the new tree

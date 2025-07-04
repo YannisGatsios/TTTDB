@@ -24,7 +24,7 @@ import java.util.Queue;
  * @param <K> Key type (must implement Comparable)
  * @param <V> Value type associated with keys
  */
-public class BPlusTree<K extends Comparable<K>, V> implements BTree<K, V> {
+public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V> {
 
     private Node<K, V> root;
     private Node<K, V> start;// Points to the first leaf node

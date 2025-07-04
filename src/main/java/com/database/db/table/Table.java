@@ -9,7 +9,7 @@ import com.database.db.index.PrimaryKey;
 //import com.database.db.index.SecondaryKey;
 import com.database.db.page.PageCache;
 
-public class Table<K extends Comparable<K>> {
+public class Table<K extends Comparable<? super K>> {
     private String Database;
     private String tableName;
     private Schema tableSchema;
@@ -32,7 +32,7 @@ public class Table<K extends Comparable<K>> {
         this.tableName = tableName;
         this.tableSchema = schema;
         this.cache = new PageCache<>(this);
-        this.numOfColumns = (short) schema.getColumnSizes().length;
+        this.numOfColumns = (short) schema.getSizes().length;
         this.sizeOfEntry = this.setSizeOfEntry();
         this.primaryKeyColumnIndex = this.tableSchema.getPrimaryKeyIndex();
         this.maxEntriesPerPage = this.setPageMaxNumOfEntries();
@@ -42,76 +42,32 @@ public class Table<K extends Comparable<K>> {
         this.numberOfPages = Math.ceilDiv(this.primaryKey.size(),this.maxEntriesPerPage);
     }
     private int setSizeOfEntry(){
-        int sum = 0;
-        String type[] = this.tableSchema.getColumnTypes();
-        int size[] = this.tableSchema.getColumnSizes();
-        for (int i = 0;i < this.numOfColumns; i++) {
-            if(i == 0){
-                sum += size[i];
-            }else if(type[i].equals("String")){
-                sum += size[i] + Short.BYTES;
-            }else if(type[i].equals("Integer")){
-                sum += Integer.BYTES;
-            }else if(type[i].equals("Byte")){
-                sum += size[i] + Short.BYTES;
-            }else{
-                throw new IllegalArgumentException("Invalid Element Type For Entry.");
-            }
+        int result = 0;
+        int[] columnSizes = this.tableSchema.getSizes();
+        for (int i : columnSizes) {
+            result += i;
         }
-        return sum;
+        return result;
     }
 
     public boolean isValidEntry(Entry<?> entry){
         //Check if the number of columns matches the number of elements in the entry.
-        if (entry.getEntry().size() != this.numOfColumns) {
-            return false;
-        }
+        if (entry.getEntry().size() != this.numOfColumns) return false;
 
         // Get the entry data and check each element's type and size.
         ArrayList<Object> entryData = entry.getEntry();
-        String[] expectedTypes = this.tableSchema.getColumnTypes();
-        int[] expectedSizes = this.tableSchema.getColumnSizes();
+        Type[] expectedTypes = this.tableSchema.getTypes();
+        int[] expectedSizes = this.tableSchema.getSizes();
 
         for (int i = 0; i < this.numOfColumns; i++) {
-            Object value = entryData.get(i);
-            String expectedType = expectedTypes[i];
+            Type expectedType = expectedTypes[i];
             int expectedSize = expectedSizes[i];
-
+            Object value = entryData.get(i);
             // Validate type and size of each entry element.
-            if (!isValidType(value, expectedType) && i != 0) {
-                return false;
-            }if (!isValidSize(value, expectedSize)) {
-                return false;
-            }
+            expectedType.validateValue(value, expectedSize);
         }
-
         // All checks passed, return true.
         return true;
-    }
-    // Helper method to check if the type of the element matches the expected type.
-    private boolean isValidType(Object value, String expectedType) {
-        switch (expectedType) {
-            case "String":
-                return value instanceof String;
-            case "Integer":
-                return value instanceof Integer;
-            case "Byte":
-                return value instanceof byte[];
-            default:
-                return false; // Invalid type in schema.
-        }
-    }
-    // Helper method to check if the size of the element is within the expected
-    // size.
-    private boolean isValidSize(Object value, int expectedSize) {
-        if (value instanceof String) {
-            return ((String) value).length() <= expectedSize;
-        } else if (value instanceof Integer) {
-            return Integer.BYTES == expectedSize; // Integer size is always 4 bytes.
-        } else if (value instanceof byte[]) {
-            return ((byte[]) value).length <= expectedSize;
-        }
-        return false;
     }
 
     public String getDatabaseName(){
@@ -138,9 +94,9 @@ public class Table<K extends Comparable<K>> {
 
     public int getNumOfColumns(){return this.numOfColumns;}
     public int getSizeOfEntry(){return this.sizeOfEntry;}
-    public int getPrimaryKeyMaxSize(){return this.tableSchema.getColumnSizes()[0];}
+    public int getPrimaryKeyMaxSize(){return this.tableSchema.getSizes()[0];}
     public int getPrimaryKeyColumnIndex(){return this.primaryKeyColumnIndex;}
-    public String getPrimaryKeyType(){return this.getSchema().getColumnTypes()[this.getPrimaryKeyColumnIndex()];}
+    public Type getPrimaryKeyType(){return this.getSchema().getTypes()[this.getPrimaryKeyColumnIndex()];}
     public FileIOThread getFileIOThread() {return this.fileIOThread;}
     public short setPageMaxNumOfEntries(){
         if(!((BLOCK_SIZE-SIZE_OF_HEADER)/this.sizeOfEntry >= 3)){
@@ -153,7 +109,7 @@ public class Table<K extends Comparable<K>> {
         }
         return (short) (numOfPages * (BLOCK_SIZE-SIZE_OF_HEADER)/this.sizeOfEntry);
     }
-    public short getPageMaxNumOfEntries(){return this.maxEntriesPerPage;}
+    public short getEntriesPerPage(){return this.maxEntriesPerPage;}
     public int getPages(){return this.numberOfPages;}
     public void addOnePage(){this.numberOfPages++;}
     public void removeOnePage(){this.numberOfPages--;}

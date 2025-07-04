@@ -11,17 +11,22 @@ import com.database.db.FileIO;
 import com.database.db.FileIOThread;
 import com.database.db.table.Entry;
 import com.database.db.table.Table;
+import com.database.db.table.Type;
+import com.database.db.table.Type.DeserializationResult;
 
-public class TablePage<K extends Comparable<K>> extends Page<K>{
+public class TablePage<K extends Comparable<? super K>> extends Page<K>{
+
+    private Table<K> table;
 
     public TablePage(int PageID, Table<K> table) throws InterruptedException, ExecutionException, IOException {
         super(PageID, table);
+        this.table = table;
         String tablePath = table.getTablePath();
         FileIOThread fileIOThread = table.getFileIOThread();
         FileIO FileIO = new FileIO(fileIOThread);
         byte[] pageBuffer = FileIO.readPage(tablePath, this.getPagePos(), this.sizeInBytes());
         if (pageBuffer == null || pageBuffer.length == 0) return; //Checking if Page we read is empty.
-        this.bufferToPage(pageBuffer, table);
+        this.bufferToPage(pageBuffer);
     }
 
     public byte[] toBuffer() throws IOException {
@@ -37,24 +42,9 @@ public class TablePage<K extends Comparable<K>> extends Page<K>{
         // Add entries
         for (Entry<K> entryObj : this.getAll()) {
             ArrayList<Object> entry = entryObj.getEntry();
-            for (Object element : entry) {
-                switch (element.getClass().getSimpleName()) {
-                    case "Integer":
-                        buffer.putInt((Integer) element); // Add integer elements as 4 bytes
-                        break;
-                    case "byte[]":
-                        byte[] byteArray = (byte[]) element;
-                        buffer.putShort((short) byteArray.length); // Store length of byte array
-                        buffer.put(byteArray); // Add byte array elements
-                        break;
-                    case "String":
-                        byte[] strBytes = ((String) element).getBytes(StandardCharsets.UTF_8);
-                        buffer.putShort((short) strBytes.length); // Store length of string
-                        buffer.put(strBytes); // Then the string bytes
-                        break;
-                    default:
-                        throw new IOException("Unsupported data type in entry.");
-                }
+            for (int i = 0;i<this.table.getSchema().getNames().length;i++) {
+                Type elem = this.table.getSchema().getTypes()[i];
+                buffer.put(elem.toBytes(entryObj.getEntry().get(i)));
             }
         }
         buffer.flip();
@@ -68,7 +58,7 @@ public class TablePage<K extends Comparable<K>> extends Page<K>{
         return combinedArray.array();
     }
 
-    public void bufferToPage(byte[] bufferData, Table<K> table) throws IOException{
+    public void bufferToPage(byte[] bufferData) throws IOException{
         if (bufferData == null || bufferData.length == 0) throw new IllegalArgumentException("Buffer data cannot be null or empty.");
         if (bufferData.length%4096 != 0) throw new IllegalArgumentException("Buffer data must be a modulo of a Blocks Size(4096 BYTES) you gave : "+bufferData.length);
         if (table == null || table.getSchema() == null) throw new IllegalArgumentException("Table or table schema cannot be null.");
@@ -92,29 +82,11 @@ public class TablePage<K extends Comparable<K>> extends Page<K>{
         int startIndex = 0;
         for(int i = 0; i < numOfEntries; i++){
             ArrayList<Object> entry = new ArrayList<>();
-            
-            for (String type : table.getSchema().getColumnTypes()) {
-                switch (type) {
-                    case "String":
-                        short size = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, startIndex, startIndex + 2)).getShort();
-                        startIndex += 2;
-                        entry.add(new String(Arrays.copyOfRange(bufferData, startIndex, startIndex + size), StandardCharsets.UTF_8));
-                        startIndex += size;
-                        break;
-                    case "Integer":
-                        entry.add(ByteBuffer.wrap(Arrays.copyOfRange(bufferData, startIndex, startIndex + 4)).getInt());
-                        startIndex += 4;
-                        break;
-                    case "Byte":
-                        int byteSize = ByteBuffer.wrap(Arrays.copyOfRange(bufferData, startIndex, startIndex + 2)).getShort();
-                        startIndex += 2;
-                        byte[] data = Arrays.copyOfRange(bufferData, startIndex, startIndex + byteSize);
-                        entry.add(data);
-                        startIndex += byteSize;
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unexpected type: " + type);
-                }
+            for (Type type : table.getSchema().getTypes()) {
+                DeserializationResult result = type.fromBytes(bufferData, startIndex);
+                Object element = result.valueObject();
+                startIndex = result.nextIndex();
+                entry.add(element);
             }
             Entry<K> newEntry = new Entry<>(entry, table.getPrimaryKeyMaxSize());
             newEntry.setID(table.getPrimaryKeyColumnIndex());

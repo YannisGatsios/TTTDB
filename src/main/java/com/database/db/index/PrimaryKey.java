@@ -8,7 +8,7 @@ import com.database.db.page.TablePage;
 import com.database.db.table.Entry;
 import com.database.db.table.Table;
 
-public class PrimaryKey<K extends Comparable<K>> extends BPlusTree<K,Integer> {
+public class PrimaryKey<K extends Comparable<? super K>> extends BPlusTree<K,Integer> {
 
     public PrimaryKey(int order){
         super(order);

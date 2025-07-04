@@ -1,12 +1,15 @@
 package com.database.db;
 
 import java.io.IOException;
+import java.sql.Timestamp;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import com.database.db.table.Schema;
 import com.database.db.table.Table;
+import com.database.db.table.Type;
 
 public class Database {
     private String name;
@@ -18,14 +21,18 @@ public class Database {
         this.tables = new HashMap<>();
     }
 
-    public void addTable(String tableName, Schema schema) throws ExecutionException, InterruptedException, IOException {//TODO handle exceptions
-        String type = schema.getColumnTypes()[schema.getPrimaryKeyIndex()];
-        Table<?> table;
-        switch (type) {
-            case "String" -> table = new Table<String>(this.name, tableName, schema, this.fileIOThread);
-            case "Integer" -> table = new Table<Integer>(this.name, tableName, schema, this.fileIOThread);
-            default -> throw new IllegalArgumentException("Unsupported column type: " + type);
-        }
+    public void addTable(String tableName, Schema schema) throws ExecutionException, InterruptedException, IOException {// TODO handle exceptions
+        Type pkType = schema.getTypes()[schema.getPrimaryKeyIndex()];
+        Table<?> table = switch (pkType) {
+            case INT -> new Table<Integer>(this.name, tableName, schema, this.fileIOThread);
+            case LONG -> new Table<Long>(this.name, tableName, schema, this.fileIOThread);
+            case FLOAT -> new Table<Float>(this.name, tableName, schema, this.fileIOThread);
+            case DOUBLE -> new Table<Double>(this.name, tableName, schema, this.fileIOThread);
+            case STRING -> new Table<String>(this.name, tableName, schema, this.fileIOThread);
+            case DATE -> new Table<Date>(this.name, tableName, schema, this.fileIOThread);
+            case TIMESTAMP -> new Table<Timestamp>(this.name, tableName, schema, this.fileIOThread);
+            default -> throw new IllegalArgumentException("Unsupported primary key type: " + pkType);
+        };
         this.tables.put(tableName, table);
     }
     public void removeTable(String tableName){
