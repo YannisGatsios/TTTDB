@@ -2,24 +2,24 @@ package com.database.db.page;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.stream.Collectors;
 
 import com.database.db.table.Entry;
 import com.database.db.table.Table;
 
-public abstract class Page<K extends Comparable<? super K>> {
+public abstract class Page {
 
     private int pageID;
     private short numOfEntries;
     private int spaceInUse;
-    private ArrayList<Entry<K>> entries;
+    private ArrayList<Entry> entries;
     private short maxNumOfEntries;
     private int maxSizeOfEntry;
 
     private int BLOCK_SIZE = 4096;
+    private boolean dirty = false;
 
-    public Page(int PageID, Table<K> table) {
+    public Page(int PageID, Table table) {
         this.pageID = PageID;
         this.numOfEntries = 0;
         this.spaceInUse = 0;
@@ -29,53 +29,58 @@ public abstract class Page<K extends Comparable<? super K>> {
     }
 
     // ==========ADDING_ENTRIES==========
-    public void add(Entry<K> newEntry) throws IllegalArgumentException {
+    public void add(Entry newEntry) throws IllegalArgumentException {
         if (this.numOfEntries == this.maxNumOfEntries) throw new IllegalArgumentException("this Page is full, current Max Size : " + this.maxNumOfEntries);
-        int index = this.getIndex(newEntry.getID());
-        if(index<0) index = -index-1;
         this.numOfEntries++;
-        this.entries.add(index, newEntry);
+        this.entries.add(newEntry);
         this.spaceInUse += newEntry.size();
+        this.dirty = true;
     }
 
     // ===========REMOVING_ENTRIES===============
-    public void remove(K key){
-        int index = this.getIndex(key);
-        if(index<0) throw new IllegalArgumentException("Entry with key :"+key+" can not be found.");
-        this.remove(index);
+    public <K extends Comparable<? super K>> Entry remove(K key, int columnIndex){
+        int index = this.getIndex(key, columnIndex);
+        return this.remove(index);
     }
-    public void remove(int index) {
+    public Entry remove(int index) {
         if (index > this.entries.size() - 1 || index < 0) throw new IllegalArgumentException("Invalid Number OF Entry to remove out of bounds you gave : " + index);
         this.spaceInUse -= this.get(index).size();
-        this.entries.remove(index);
         this.numOfEntries--;
+        this.dirty = true;
+        return this.entries.remove(index);
     }
-    public void removeLast(){
-        this.remove(this.numOfEntries-1);
+    public Entry removeLast(){
+        return this.remove(this.numOfEntries-1);
     }
 
     // ===========SEARCHING_ENTRIES===============
-    public Entry<K> get(K key){
-        int index = this.getIndex(key);
+    public <K extends Comparable<? super K>> Entry get(K key, int columnIndex){
+        int index = this.getIndex(key, columnIndex);
         if(index<0) throw new IllegalArgumentException("Entry with key :"+key+" can not be found.");
         return this.get(index);
     }
-    public Entry<K> get(int index) {
+    public Entry get(int index) {
         if (index < 0 || this.entries.size() == 0) {
             throw new IndexOutOfBoundsException("invalid index You gave :" + index+" Size :"+this.entries.size());
         }
         return this.entries.get(index);
     }
 
-    public Entry<K> getLast(){
+    public Entry getLast(){
         return this.get(this.numOfEntries-1);
     }
 
-    private int getIndex(K key) {
-        if (key == null) throw new IllegalArgumentException("Key cannot be null");
-        Entry<K> tmp = new Entry<K>();
-        tmp.setID(key);
-        return Collections.binarySearch(this.entries, tmp, (e1, e2) -> e1.getID().compareTo(e2.getID()));
+    public int indexOf(Entry entry){
+        return this.entries.indexOf(entry);
+    }
+
+    @SuppressWarnings("Unchecked")
+    private <K extends Comparable<? super K>> int getIndex(K key, int columnIndex){
+        for (int i = 0;i < this.numOfEntries;i++){
+            Comparable<K> value = (Comparable<K>) this.entries.get(i).get(columnIndex);
+            if(value.compareTo(key) == 0) return i;
+        }
+        return -1;
     }
 
     // ===========PRINTING===============
@@ -91,7 +96,7 @@ public abstract class Page<K extends Comparable<? super K>> {
     }private String[] getEntriesList() {
         String[] result = new String[this.numOfEntries];
         int ind = 0;
-        for (Entry<K> entry : this.entries) {
+        for (Entry entry : this.entries) {
             result[ind] = entry.getEntry()
                     .stream().map(Object::toString)
                     .collect(Collectors.joining(", "));
@@ -105,14 +110,17 @@ public abstract class Page<K extends Comparable<? super K>> {
 
     public int getPageID() {return this.pageID;}
     public void setPageID(int newPageID) {this.pageID = newPageID;}
+    public int getSpaceInUse() {return this.spaceInUse;}
+    public ArrayList<Entry> getAll() {return this.entries;}
 
     public short size() {return this.numOfEntries;}
-    public int getSpaceInUse() {return this.spaceInUse;}
-    public ArrayList<Entry<K>> getAll() {return this.entries;}
 
     public int sizeInBytes() {return (sizeOfEntries() + sizeOfHeader())+ (BLOCK_SIZE - ((sizeOfEntries() + sizeOfHeader()) % BLOCK_SIZE));}
     public int sizeOfHeader() {return (2 * (Integer.BYTES)) + Short.BYTES;}
     public int sizeOfEntries() {return (maxSizeOfEntry * maxNumOfEntries);}
 
     public int getPagePos() {return this.pageID * this.sizeInBytes();}
+
+    public boolean isDirty() {return dirty;}
+    public void setDirty(boolean dirty) {this.dirty = dirty;}
 }

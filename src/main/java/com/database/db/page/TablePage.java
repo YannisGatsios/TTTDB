@@ -2,7 +2,6 @@ package com.database.db.page;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
@@ -14,14 +13,14 @@ import com.database.db.table.Table;
 import com.database.db.table.Type;
 import com.database.db.table.Type.DeserializationResult;
 
-public class TablePage<K extends Comparable<? super K>> extends Page<K>{
+public class TablePage extends Page{
 
-    private Table<K> table;
+    private Table table;
 
-    public TablePage(int PageID, Table<K> table) throws InterruptedException, ExecutionException, IOException {
+    public TablePage(int PageID, Table table) throws InterruptedException, ExecutionException, IOException {
         super(PageID, table);
         this.table = table;
-        String tablePath = table.getTablePath();
+        String tablePath = table.getPath();
         FileIOThread fileIOThread = table.getFileIOThread();
         FileIO FileIO = new FileIO(fileIOThread);
         byte[] pageBuffer = FileIO.readPage(tablePath, this.getPagePos(), this.sizeInBytes());
@@ -40,11 +39,11 @@ public class TablePage<K extends Comparable<? super K>> extends Page<K>{
         headBuffer.flip();
 
         // Add entries
-        for (Entry<K> entryObj : this.getAll()) {
-            ArrayList<Object> entry = entryObj.getEntry();
-            for (int i = 0;i<this.table.getSchema().getNames().length;i++) {
+        for (Entry entry : this.getAll()) {
+            ArrayList<Object> values = entry.getEntry();
+            for (int i = 0;i<values.size();i++) {
                 Type elem = this.table.getSchema().getTypes()[i];
-                buffer.put(elem.toBytes(entryObj.getEntry().get(i)));
+                buffer.put(elem.toBytes(values.get(i)));
             }
         }
         buffer.flip();
@@ -88,8 +87,7 @@ public class TablePage<K extends Comparable<? super K>> extends Page<K>{
                 startIndex = result.nextIndex();
                 entry.add(element);
             }
-            Entry<K> newEntry = new Entry<>(entry, table.getPrimaryKeyMaxSize());
-            newEntry.setID(table.getPrimaryKeyColumnIndex());
+            Entry newEntry = new Entry(entry, table.getPrimaryKeyMaxSize());
             this.add(newEntry);
         }
         if(spaceInUse != this.getSpaceInUse()){
@@ -98,8 +96,8 @@ public class TablePage<K extends Comparable<? super K>> extends Page<K>{
         if(numOfEntries != this.size()) throw new IOException("Mismatch between expected and actual numOfEntries and Page.size().");
     }
 
-    public void write(Table<K> table) throws IOException {
+    public void write(Table table) throws IOException {
         FileIO fileIO = new FileIO(table.getFileIOThread());
-        fileIO.writePage(table.getTablePath(), this.toBuffer(), this.getPagePos());
+        fileIO.writePage(table.getPath(), this.toBuffer(), this.getPagePos());
     }
 }

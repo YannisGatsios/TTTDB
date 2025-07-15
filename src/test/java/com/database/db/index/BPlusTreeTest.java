@@ -680,7 +680,7 @@ class BPlusTreeTest {
 
         // Update duplicate
         tree.update(100, "NewDuplicate", "Duplicate");
-        assertTrue(tree.search(100).getDuplicates().contains("NewDuplicate"));
+        assertTrue(tree.search(100).getDuplicates().contains(new Pair<>(100,"NewDuplicate")));
 
         // Invalid update (old value mismatch)
         tree.update(100, "Invalid", "WrongValue");

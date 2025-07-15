@@ -30,16 +30,19 @@ public class App {
         //DataBase INIT.
         String databaseName = "system";
         String tableName = "users";
-        Schema schema = new Schema("username:10:String:false:false:true;num:4:Integer:false:true:false;message:5:String:true:true:false;data:10:Byte:false:false:false".split(";"));
+        Schema schema = new Schema("username:10:String:false:false:true;num:4:Integer:false:true:false;message:5:String:true:false:false;data:10:Byte:false:false:false".split(";"));
         System.out.println(schema.toString());
         Database database = new Database(databaseName);
         database.setFileIOThread(fileIOThread);
         database.addTable(tableName, schema);
 
-        Table<String> table = (Table<String>) database.getTable(tableName);
+        Table table = database.getTable(tableName);
         System.out.println("======== Tree updated. Writing to file.");
         //Tree INIT.
         DBMSprocesses DBMS = new DBMSprocesses(fileIOThread);
+        DBMS.createTable(table);
+        DBMS.createPrimaryKey(table,0);
+        DBMS.createIndex(table, 1);
 
         Random random = new Random(); 
         ArrayList<String> keysList = new ArrayList<>(400);
@@ -47,7 +50,7 @@ public class App {
         while (ind < 400) {
             int sizeOfID = random.nextInt(table.getPrimaryKeyMaxSize()-1)+1;
             String userName = generateRandomString(sizeOfID);
-            if(!table.getPrimaryKey().isKey(userName)){
+            if(!table.isKeyFound(userName,0)){
                 keysList.add(userName);
                 ArrayList<Object> entryData = new ArrayList<>();
                 entryData.add(userName);
@@ -65,15 +68,14 @@ public class App {
                     data[y] = (byte) random.nextInt(127);
                 }
                 entryData.add(data);
-                Entry<String> entry = new Entry<>(entryData, table.getPrimaryKeyMaxSize());
-                entry.setID(table.getPrimaryKeyColumnIndex());
+                Entry entry = new Entry(entryData, table.getPrimaryKeyMaxSize());
                 DBMS.insertEntry(table, entry);
                 ind++;
             }
         }
         System.out.println(table.getPrimaryKey().toString());
         
-        PrimaryKey<String> tree2 = new PrimaryKey<>(table.getEntriesPerPage());
+        PrimaryKey<String> tree2 = new PrimaryKey<>(table);
         System.out.println(table.getPrimaryKeyType()+new String().getClass().getName());
         tree2.initialize(table);
         //tree2.printTree();
@@ -85,23 +87,22 @@ public class App {
             }else{
                 falser++;
             }
-            //System.out.println("Key is "+key+" : "+tree2.search((K)key));
         }
         System.out.println("True Are : "+trues+"\nFalse Are : "+falser+"\n===========[Starting Random 100 Deletions.]===========");
         table.setPrimaryKey(tree2);
         ind = 0;
         while (ind < 100) {
             int randInd = random.nextInt(400-ind);
-            if(table.getPrimaryKey().isKey(keysList.get(randInd))){
+            if(table.isKeyFound(keysList.get(randInd),0)){
                 System.out.println("("+keysList.get(randInd)+" : "+tree2.search(keysList.get(randInd))+")");
-                DBMS.deleteEntry(table, keysList.get(randInd));
+                DBMS.deleteEntry(table, keysList.get(randInd), 0);
                 System.out.println("("+ind+") : Random Index : "+keysList.get(randInd)+" : "+tree2.search(keysList.get(randInd))+
                 "\n========Deletion Finished=========\n");
                 keysList.remove(randInd);
                 ind++;
             }
         }
-        //fileIO.writeTree(table.getIndexPath(), tree2.treeToBuffer(table.getPrimaryKeyMaxSize()));
         fileIOThread.shutdown();
+        DBMS.dropTable(table);
     }
 }

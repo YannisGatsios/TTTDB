@@ -247,8 +247,9 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
             if (pair.value.equals(value)) {
                 // The primary value matches. Promote a duplicate if one exists.
                 if (pair.getDuplicates() != null && !pair.getDuplicates().isEmpty()) {
-                    pair.value = pair.getDuplicates().iterator().next();
-                    pair.removeDup(pair.value);
+                    Pair<K,V> dupPair = pair.getDuplicates().iterator().next();
+                    pair.value = dupPair.value;
+                    pair.removeDup(dupPair);
                     this.size--;
                 } else {
                     // This was the last value for this key. Remove the pair.
@@ -257,7 +258,7 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
                 }
             } else if (pair.getDuplicates() != null && pair.getDuplicates().contains(value)) {
                 // The value to remove is in the duplicate set.
-                pair.removeDup(value);
+                pair.removeDup(new Pair<>(key,value));
                 this.size--;
             } else {
                 return false; // The specific value was not found for this key.
@@ -464,17 +465,16 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
         if (key == null || newValue == null) return;
         Node<K, V> node = this.findNode(key);
         int idx = Collections.binarySearch(node.pairs, new Pair<>(key, null), keyComparator);
+        if (idx < 0) return;
+        Pair<K,V> pair = node.pairs.get(idx);
         if (isUnique) {
-            if (idx < 0)
-                return;
-            node.pairs.get(idx).value = newValue;
+            pair.value = newValue;
         } else {
             // For non-unique trees, update in place
-            if (idx < 0) return;
-            if (node.pairs.get(idx).value.equals(oldValue)) node.pairs.get(idx).value = newValue;
-            if (node.pairs.get(idx).getDuplicates()!=null && node.pairs.get(idx).getDuplicates().contains(oldValue)) {
-                node.pairs.get(idx).removeDup(oldValue);
-                node.pairs.get(idx).addDup(newValue);
+            if (pair.value.equals(oldValue)) pair.value = newValue;
+            else if (pair.getDuplicates()!=null && pair.getDuplicates().contains(new Pair<>(key,oldValue))) {
+                pair.removeDup(new Pair<>(key, oldValue));
+                pair.addDup(newValue);
             }
         }
     }

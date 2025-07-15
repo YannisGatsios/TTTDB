@@ -2,3 +2,6 @@
 .vscode/
 start.bat
 start.sh
+.project
+.classpath
+.settings/

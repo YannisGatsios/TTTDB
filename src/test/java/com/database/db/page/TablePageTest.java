@@ -16,9 +16,9 @@ import java.util.ArrayList;
 
 class TablePageTest {
     private FileIOThread fileIOThread;
-    private Table<String> table;
-    private TablePage<String> page;
-    private Entry<String> entry1, entry2, entry3;
+    private Table table;
+    private TablePage page;
+    private Entry entry1, entry2, entry3;
     private static final String SCHEMA_STRING = 
         "username:10:String:false:false:true;num:4:Integer:false:true:false;message:5:String:true:true:false;data:10:Byte:false:false:false";
 
@@ -29,22 +29,21 @@ class TablePageTest {
         fileIOThread = new FileIOThread();
         fileIOThread.start();
         Schema schema = new Schema(SCHEMA_STRING.split(";"));
-        table = new Table<>("testdb", "test", schema, fileIOThread);
+        table = new Table("testdb", "test", schema, fileIOThread);
 
         entry1 = createEntry("user1", 100, "msg1", new byte[]{1,2,3});
         entry2 = createEntry("user22", 200, "msg22", new byte[]{4,5,6});
         entry3 = createEntry("user333", 300, "msg333", new byte[]{7,8,9});
-        page = new TablePage<>(0, table);
+        page = new TablePage(0, table);
     }
 
-    private Entry<String> createEntry(String username, int num, String message, byte[] data) {
+    private Entry createEntry(String username, int num, String message, byte[] data) {
         ArrayList<Object> entryData = new ArrayList<>();
         entryData.add(username);
         entryData.add(num);
         entryData.add(message);
         entryData.add(data);
-        Entry<String> entry = new Entry<>(entryData, table.getPrimaryKeyMaxSize());
-        entry.setID(table.getPrimaryKeyColumnIndex());
+        Entry entry = new Entry(entryData, table.getPrimaryKeyMaxSize());
         return entry;
     }
 
@@ -66,9 +65,9 @@ class TablePageTest {
         page.add(entry2);
         
         assertEquals(3, page.size());
-        assertEquals(entry1, page.get(0));
-        assertEquals(entry2, page.get(1));
-        assertEquals(entry3, page.get(2));
+        assertEquals(entry1, page.get(1));
+        assertEquals(entry2, page.get(2));
+        assertEquals(entry3, page.get(0));
     }
 
     @Test
@@ -96,7 +95,8 @@ class TablePageTest {
         emptyPage();
         page.add(entry1);
         page.add(entry2);
-        page.remove(entry1.getID());
+        int ind = page.indexOf(entry1);
+        page.remove(ind);
         assertEquals(1, page.size());
         assertEquals(entry2, page.get(0));
     }
@@ -117,7 +117,7 @@ class TablePageTest {
         page.add(entry2);
         page.write(table);;
         
-        TablePage<String> newPage = new TablePage<>(0, table);
+        TablePage newPage = new TablePage(0, table);
         //newPage.bufferToPage(buffer, table);
         
         assertEquals(page.size(), newPage.size());
@@ -147,7 +147,7 @@ class TablePageTest {
         page.add(entry3);
         page.write(table);
         
-        TablePage<String> newPage = new TablePage<>(0, table);
+        TablePage newPage = new TablePage(0, table);
         assertEquals(page.size(), newPage.size());
         assertEquals(page.getSpaceInUse(), newPage.getSpaceInUse());
         arePageEntriesEqual(page,newPage);
@@ -155,7 +155,7 @@ class TablePageTest {
 
     @Test
     void readNonExistentPage_CreatesEmptyPage() throws Exception {
-        TablePage<String> newPage = new TablePage<>(99, table); // Unwritten page
+        TablePage newPage = new TablePage(99, table); // Unwritten page
         assertEquals(0, newPage.size());
         assertEquals(0, newPage.getSpaceInUse());
     }
@@ -187,7 +187,7 @@ class TablePageTest {
     // Helper method
     private void fillPage() {
         for (int i = this.page.size(); i < table.getEntriesPerPage(); i++) {
-            Entry<String> e = createEntry("user" + i, i, "msg", new byte[10]);
+            Entry e = createEntry("user" + i, i, "msg", new byte[10]);
             page.add(e);
         }
     }
@@ -198,12 +198,12 @@ class TablePageTest {
             size = page.size();
         }
     }
-    private void arePageEntriesEqual(Page<String> page1, Page<String> page2){
+    private void arePageEntriesEqual(Page page1, Page page2){
         for (int i = 0; i < page1.size(); i++) {
             areEntriesEqual(page1.get(i), page2.get(i));
         }
     }
-    private void areEntriesEqual(Entry<String> entry1, Entry<String> entry2){
+    private void areEntriesEqual(Entry entry1, Entry entry2){
         for (int i = 0; i < entry1.getEntry().size();i++) {
             ArrayList<Object> entry = entry1.getEntry();
             if(entry.get(i) instanceof String){

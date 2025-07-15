@@ -10,10 +10,8 @@ import java.util.concurrent.ExecutionException;
 import com.database.db.FileIO;
 import com.database.db.FileIOThread;
 import com.database.db.index.BPlusTree;
-import com.database.db.index.PrimaryKey;
 import com.database.db.page.TablePage;
 import com.database.db.table.Entry;
-import com.database.db.table.Schema;
 import com.database.db.table.Table;
 
 public class DBMSprocesses {
@@ -22,65 +20,62 @@ public class DBMSprocesses {
         this.fileIO = new FileIO(fileIOThread);
     }
     //==SELECTING==
-    public <K extends Comparable<K>> Entry<K> selectEntry(Table<K> table, K key) throws IOException, ExecutionException, InterruptedException {
-        Integer BlockID = table.getPrimaryKey().search(key).value;
+    public <K extends Comparable<K>> Entry selectEntry(Table table, K key, int columnIndex) throws IOException, ExecutionException, InterruptedException {
+        Integer BlockID = table.findBlock(key,columnIndex);
         if (BlockID != null){
-            TablePage<K> page = new TablePage<>(BlockID, table);
-            return page.get(key);
+            TablePage page = new TablePage(BlockID, table);
+            return page.get(key, columnIndex);
         }
         return null;
     }
     //==INSERTION==
-    public <K extends Comparable<K>> void insertEntry(Table<K> table, Entry<K> entry) throws IOException, ExecutionException, InterruptedException {
+    public void insertEntry(Table table, Entry entry) throws IOException, ExecutionException, InterruptedException {
         if(table.getPages()==0)table.addOnePage();
-        TablePage<K> page = new TablePage<>(table.getPages()-1, table);
+        TablePage page = table.getCache().get(table.getPages()-1);
         if(page.size() < table.getEntriesPerPage()){
             this.insertionProcess(table, entry, page);
             return;
         }
         table.addOnePage();
-        page = new TablePage<>(table.getPages()-1, table);
+        page = table.getCache().get(table.getPages()-1);
         this.insertionProcess(table, entry, page);
     }
-    private <K extends Comparable<K>> void insertionProcess(Table<K> table, Entry<K> entry, TablePage<K> page) throws IOException{
-        PrimaryKey<K> tree = table.getPrimaryKey();
+    private void insertionProcess(Table table, Entry entry, TablePage page) throws IOException{
         page.add(entry);
-        tree.insert(entry.getID(), (Integer) page.getPageID());
+        table.insertIndex(entry, page.getPageID());
         page.write(table);
     }
     //==DELETION==
-    public <K extends Comparable<K>> void deleteEntry(Table<K> table, K key) throws IllegalArgumentException,IOException, ExecutionException , InterruptedException {
-        TablePage<K> page = this.deletionProcess(table, key);
+    public <K extends Comparable<K>> void deleteEntry(Table table, K key, int columnIndex) throws IllegalArgumentException,IOException, ExecutionException , InterruptedException {
+        TablePage page = this.deletionProcess(table, key, columnIndex);
         if (page == null) return;
         if (page.getPageID() == table.getPages()-1 && page.size() != 0){
             page.write(table);
             return;
         }else if (page.getPageID() == table.getPages()-1 && page.size() == 0){
-            fileIO.deleteLastPage(table.getTablePath(), page.sizeInBytes());
+            fileIO.deleteLastPage(table.getPath(), page.sizeInBytes());
             table.removeOnePage();
             return;
         }
-        TablePage<K> lastPage = new TablePage<>(table.getPages()-1, table);
-        Entry<K> lastEntry = lastPage.getLast();
-        lastPage.removeLast();
+        TablePage lastPage = table.getCache().get(table.getPages()-1);
+        Entry lastEntry = lastPage.removeLast();
         page.add(lastEntry);
 
-        table.getPrimaryKey().update(lastEntry.getID(), page.getPageID());
+        table.updateIndex(lastEntry, page.getPageID(), lastPage.getPageID());
         page.write(table);
         if(lastPage.size() == 0){
-            fileIO.deleteLastPage(table.getTablePath(), lastPage.sizeInBytes());
+            fileIO.deleteLastPage(table.getPath(), lastPage.sizeInBytes());
             table.removeOnePage();
             return;
         }
         lastPage.write(table);
     }
-    private <K extends Comparable<K>> TablePage<K> deletionProcess(Table<K> table, K key) throws IOException, ExecutionException, InterruptedException {
-        PrimaryKey<K> tree = table.getPrimaryKey();
-        Integer BlockID = tree.search(key).value;
+    private <K extends Comparable<K>> TablePage deletionProcess(Table table, K key, int columnIndex) throws IOException, ExecutionException, InterruptedException {
+        Integer BlockID = table.findBlock(key,columnIndex);
         if (BlockID != null){
-            TablePage<K> page = new TablePage<>(BlockID, table);
-            page.remove(key);
-            tree.remove(key, BlockID);
+            TablePage page = table.getCache().get(BlockID);
+            Entry removedEntry = page.remove(key,columnIndex);
+            table.removeIndex(removedEntry, BlockID);
             return page;
         }
         return null;
@@ -94,15 +89,22 @@ public class DBMSprocesses {
     //==CREATING==
     public void createDatabase(){
     }
-    public void createTable(String databaseName, String tableName, Schema schema){
+    public void createTable(Table table){
         try {
-            File tableFile = new File("storage/"+databaseName+"."+tableName+".table");
+            File tableFile = new File(table.getPath());
             if (tableFile.createNewFile()) {
                 System.out.println("Table File created : " + tableFile.getName());
             } else {
                 System.out.println("Table File already exists.");
             }
-            File indexFile = new File("storage/index/"+databaseName+"."+tableName+".index");
+        } catch (IOException e) {
+            System.out.println("An error occurred.");
+            e.printStackTrace();
+        }
+    }
+    public void createPrimaryKey(Table table, int columnIndex)  throws InterruptedException, ExecutionException, IOException{
+        try {
+            File indexFile = new File(table.getPKPath());
             if (indexFile.createNewFile()) {
                 System.out.println("Index File created : " + indexFile.getName());
             } else {
@@ -112,20 +114,43 @@ public class DBMSprocesses {
             System.out.println("An error occurred.");
             e.printStackTrace();
         }
+        if(table.getPrimaryKey() == null){
+            table.initPrimaryKey(columnIndex);
+        }
     }
-    public void createIndex(){
+    public void createIndex(Table table, int columnIndex){
+        try {
+            File indexFile = new File(table.getSKPath(columnIndex));
+            if (indexFile.createNewFile()) {
+                System.out.println("Index File created : " + indexFile.getName());
+            } else {
+                System.out.println("Index File already exists.");
+            }
+        } catch (IOException e) {
+            System.out.println("An error occurred.");
+            e.printStackTrace();
+        }
+        if(!table.getSchema().getSecondaryKey()[columnIndex]){
+
+        }
     }
     //==DROPPING==
     public void dropDatabase(){
     }
-    public void dropTable(String databaseName, String tableName){
-        Path tablePath = Paths.get("storage/"+databaseName+"."+tableName+".table");
-        Path indexPath = Paths.get("storage/index/"+databaseName+"."+tableName+".index");
+    public void dropTable(Table table){
+        Path tablePath = Paths.get(table.getPath());
+        Path primaryKeyPath = Paths.get(table.getPKPath());
+        int[] indexList = table.getSchema().getSecondaryKeyIndex();
         try {
             Files.delete(tablePath);
             System.out.println("Table File deleted successfully.");
-            Files.delete(indexPath);
-            System.out.println("Index File deleted successfully.");
+            Files.delete(primaryKeyPath);
+            System.out.println("Primary Key File deleted successfully.");
+            for (int i : indexList) {
+                Path secondaryKeyPath = Paths.get(table.getSKPath(i)); 
+                Files.delete(secondaryKeyPath);
+                System.out.println("Secondary Key File deleted successfully.");
+            }
         } catch (IOException e) {
             System.out.println("An error occurred while deleting a Table or Index file.");
             e.printStackTrace();

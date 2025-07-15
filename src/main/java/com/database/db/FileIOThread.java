@@ -10,7 +10,7 @@ public class FileIOThread extends Thread {
 
     public void submit(Runnable task) {
         try {
-            taskQueue.put(task); // Blocks if queue is full (rare in unbounded)
+            taskQueue.put(task);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -18,7 +18,7 @@ public class FileIOThread extends Thread {
 
     public void shutdown() {
         running = false;
-        this.interrupt(); // Unblock if waiting
+        this.interrupt();
     }
 
     @Override
@@ -26,9 +26,14 @@ public class FileIOThread extends Thread {
         while (running || !taskQueue.isEmpty()) {
             try {
                 Runnable task = taskQueue.take();
-                task.run();
+                try {
+                    task.run();
+                } catch (Exception e) {
+                    System.err.println("Task execution failed: " + e);
+                    e.printStackTrace();
+                }
             } catch (InterruptedException e) {
-                // allow shutdown to exit loop
+                // allow shutdown
             }
         }
         System.out.println("FileIOThread shut down.");

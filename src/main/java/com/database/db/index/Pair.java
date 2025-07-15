@@ -1,7 +1,6 @@
 package com.database.db.index;
 
 import java.util.HashSet;
-import java.util.Set;
 
 /**
  * Represents a key-value pair in a B+ Tree with support for duplicate values.
@@ -16,7 +15,8 @@ import java.util.Set;
 public class Pair<K, V> {
     public K key;
     public V value;
-    private Set<V> duplicate;//Used to store duplicate values when B+Tree is not set to unique.
+    private HashSet<Pair<K,V>> duplicate;//Used to store duplicate values when B+Tree is not set to unique.
+    public Pair(){}
     /**
      * Creates a new key-value pair.
      *
@@ -35,15 +35,15 @@ public class Pair<K, V> {
      */
     public void addDup(V value){
         if(this.duplicate == null) this.duplicate = new HashSet<>();
-        this.duplicate.add(value);
+        this.duplicate.add(new Pair<>(this.key,value));
     }
     /**
      * Removes a duplicate value.
      *
-     * @param value Duplicate value to remove
+     * @param pair Duplicate value to remove
      */
-    public void removeDup(V value){
-        this.duplicate.remove(value);
+    public void removeDup(Pair<K,V> pair){
+        this.duplicate.remove(pair);
         if(this.duplicate.isEmpty()){
             this.duplicate = null;
         }
@@ -51,7 +51,7 @@ public class Pair<K, V> {
     /**
      * @return Set of duplicate values (null if none exist)
      */
-    public Set<V> getDuplicates(){return this.duplicate;}
+    public HashSet<Pair<K,V>> getDuplicates(){return this.duplicate;}
     /**
      * Checks if a value exists (either as primary or duplicate).
      *
@@ -60,8 +60,22 @@ public class Pair<K, V> {
      */
     public V get(V Value){
         if(Value.equals(this.value)) return this.value;
-        if(this.duplicate.contains(Value)) return Value;
+        if(this.duplicate.contains(new Pair<>(this.key, value))) return Value;
         return null;
+    }
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null || getClass() != obj.getClass())
+            return false;
+        Pair<?, ?> other = (Pair<?, ?>) obj;
+        return java.util.Objects.equals(key, other.key) &&
+                java.util.Objects.equals(value, other.value);
+    }
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(key, value);
     }
     /**
      * Generates a human-readable representation:
@@ -73,7 +87,7 @@ public class Pair<K, V> {
     @Override
     public String toString() {
         String keyString;
-        if(key instanceof byte[]){
+        if(key instanceof Byte[]){
             StringBuilder sb = new StringBuilder();
             for (byte b : (byte[])key) {
                 if (!sb.isEmpty()) {

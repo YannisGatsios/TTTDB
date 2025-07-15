@@ -1,10 +1,10 @@
 package com.database.db.table;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
-public class Entry<K extends Comparable<? super K>> {
+public class Entry {
     
-    private K ID;
     private ArrayList<Object> entryData;
     private int[] sizeOfElementsOfEntry;
     private int[] indexOfElementsOfEntry;
@@ -29,14 +29,21 @@ public class Entry<K extends Comparable<? super K>> {
         int[] sizes = new int[newEntry.size()];
         int ind = 0;
         for (Object value : newEntry) {
-            if(value instanceof Integer){
-                sizes[ind] = Integer.BYTES;
-            }else if(value instanceof String){
-                sizes[ind] = ((String)value).length();
-            }else if(value instanceof byte[]){
-                sizes[ind] = ((byte[])value).length;
+            if(value == null){
+                sizes[ind] = 0;
+                continue;
+            }
+            Type type = Type.detect(value);
+            int size = type.getFixedSize(); 
+            if(size != -1){
+                sizes[ind] = size;
             }else{
-                throw new IllegalArgumentException("Wrong type for Entry.");
+                if (type == Type.STRING) {
+                    // optionally use UTF-8 byte length if needed
+                    sizes[ind] = ((String) value).getBytes(StandardCharsets.UTF_8).length;
+                } else if (type == Type.BINARY) {
+                    sizes[ind] = ((byte[]) value).length;
+                }
             }
             ind++;
         }
@@ -70,18 +77,12 @@ public class Entry<K extends Comparable<? super K>> {
         }
         return sum;
     }
-    @SuppressWarnings("unchecked")
-    public void setID(int index){
-        this.ID = (K)this.entryData.get(index);
-    }public void setID(K ID){
-        this.ID = ID;
-    }public K getID(){
-        return this.ID;
-    }
 
     public int size(){
         return this.sizeInBytes;
     }
+
+    public Object get(int index){return this.entryData.get(index);}
 
     public ArrayList<Object> getEntry(){return this.entryData;}
 

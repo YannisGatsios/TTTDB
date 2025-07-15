@@ -14,17 +14,29 @@ import java.time.temporal.ChronoField;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Objects;
+import java.util.UUID;//TODO
 
 public enum Type {
-    INT,        // 4-byte integer
-    FLOAT,      // 4-byte floating point
-    DOUBLE,     // 8-byte floating point
-    STRING,     // Variable-length string
-    BOOLEAN,    // 1-byte boolean
-    LONG,       // 8-byte integer
-    DATE,       // 8-byte date (millis since epoch)
-    TIMESTAMP,  // 16-byte timestamp (nanosecond precision)
-    BINARY;     // Binary data
+    INT(Integer.class),        // 4-byte integer
+    FLOAT(Float.class),      // 4-byte floating point
+    DOUBLE(Double.class),     // 8-byte floating point
+    STRING(String.class),     // Variable-length string
+    BOOLEAN(Boolean.class),    // 1-byte boolean
+    LONG(Long.class),       // 8-byte integer
+    DATE(Date.class),       // 8-byte date (millis since epoch)
+    TIMESTAMP(Timestamp.class),  // 16-byte timestamp (nanosecond precision)
+    UUID(UUID.class),
+    BINARY(Byte[].class);     // Binary data
+
+        private final Class<?> javaClass;
+
+    Type(Class<?> javaClass) {
+        this.javaClass = javaClass;
+    }
+
+    public Class<?> getJavaClass() {
+        return javaClass;
+    }
 
     // UTC formatters for consistent date/time handling
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd")
@@ -49,6 +61,7 @@ public enum Type {
             case LONG -> 8;
             case DATE -> 8;
             case TIMESTAMP -> 16;
+            case UUID -> 16;
             case STRING, BINARY -> -1;  // Variable size
         };
     }
@@ -82,6 +95,8 @@ public enum Type {
                 return LONG;
             case "DATETIME":
                 return DATE;
+            case "UUID":
+                return UUID;
             case "BLOB":
             case "BYTE":
                 return BINARY;
@@ -135,6 +150,10 @@ public enum Type {
             case TIMESTAMP:
                 if (!(value instanceof java.sql.Timestamp))
                     throw new IllegalArgumentException("Expected Timestamp");
+                break;
+            case UUID:
+                if (!(value instanceof java.util.UUID))
+                    throw new IllegalArgumentException("Expected UUID");
                 break;
             case BINARY:
                 if (!(value instanceof byte[]))
@@ -196,6 +215,7 @@ public enum Type {
                     }
                 }
             }
+            case UUID -> java.util.UUID.fromString(s);
             case BINARY -> s.getBytes(); // Simplified for demo
         };
     }
@@ -225,28 +245,6 @@ public enum Type {
         int nextIndex = startIndex;
          try {
             switch (this) {
-                case STRING:
-                    // Read length (2 bytes)
-                    checkBuffer(bufferData, nextIndex, Short.BYTES);
-                    short size = ByteBuffer.wrap(bufferData, nextIndex, Short.BYTES).getShort();
-                    nextIndex += Short.BYTES;
-                    
-                    // Read string data
-                    checkBuffer(bufferData, nextIndex, size);
-                    object = new String(bufferData, nextIndex, size, StandardCharsets.UTF_8);
-                    nextIndex += size;
-                    break;
-                    
-                case BINARY:
-                    // Read length (2 bytes)
-                    checkBuffer(bufferData, nextIndex, Short.BYTES);
-                    short binSize = ByteBuffer.wrap(bufferData, nextIndex, Short.BYTES).getShort();
-                    nextIndex += Short.BYTES;
-                    // Read binary data
-                    checkBuffer(bufferData, nextIndex, binSize);
-                    object = Arrays.copyOfRange(bufferData, nextIndex, nextIndex + binSize);
-                    nextIndex += binSize;
-                    break;
                 case INT:
                     checkBuffer(bufferData, nextIndex, Integer.BYTES);
                     object = ByteBuffer.wrap(bufferData, nextIndex, Integer.BYTES).getInt();
@@ -288,6 +286,36 @@ public enum Type {
                     ts.setNanos(nanos);
                     object = ts;
                     nextIndex += Integer.BYTES;
+                    break;
+                case UUID:
+                    checkBuffer(bufferData, nextIndex, 16);
+                    long mostSigBits = ByteBuffer.wrap(bufferData, nextIndex, 8).getLong();
+                    nextIndex += 8;
+                    long leastSigBits = ByteBuffer.wrap(bufferData, nextIndex, 8).getLong();
+                    nextIndex += 8;
+                    object = new UUID(mostSigBits, leastSigBits);
+                    break;
+                case STRING:
+                    // Read length (2 bytes)
+                    checkBuffer(bufferData, nextIndex, Short.BYTES);
+                    short size = ByteBuffer.wrap(bufferData, nextIndex, Short.BYTES).getShort();
+                    nextIndex += Short.BYTES;
+                    
+                    // Read string data
+                    checkBuffer(bufferData, nextIndex, size);
+                    object = new String(bufferData, nextIndex, size, StandardCharsets.UTF_8);
+                    nextIndex += size;
+                    break;
+                    
+                case BINARY:
+                    // Read length (2 bytes)
+                    checkBuffer(bufferData, nextIndex, Short.BYTES);
+                    short binSize = ByteBuffer.wrap(bufferData, nextIndex, Short.BYTES).getShort();
+                    nextIndex += Short.BYTES;
+                    // Read binary data
+                    checkBuffer(bufferData, nextIndex, binSize);
+                    object = Arrays.copyOfRange(bufferData, nextIndex, nextIndex + binSize);
+                    nextIndex += binSize;
                     break;
                 default:
                     throw new IllegalArgumentException("Unsupported type: " + this);
@@ -349,6 +377,12 @@ public enum Type {
                 tsBuffer.putLong(baseMillis);
                 tsBuffer.putInt(nanos);
                 return tsBuffer.array();
+            case UUID:
+                UUID uuid = (UUID) value;
+                ByteBuffer uuidBuffer = ByteBuffer.allocate(16);
+                uuidBuffer.putLong(uuid.getMostSignificantBits());
+                uuidBuffer.putLong(uuid.getLeastSignificantBits());
+                return uuidBuffer.array();
             case STRING:
                 byte[] strBytes = ((String) value).getBytes(StandardCharsets.UTF_8);
                 ByteBuffer strBuffer = ByteBuffer.allocate(2 + strBytes.length);
@@ -373,21 +407,32 @@ public enum Type {
     public String toString(Object value) {
         if (value == null)
             return "null";
-
         return switch (this) {
             case DATE ->
                 DATE_FORMATTER.format(((Date) value).toInstant());
-
             case TIMESTAMP -> {
                 Timestamp ts = (Timestamp) value;
                 yield TIMESTAMP_FORMATTER.format(ts.toInstant());
             }
-
             case BINARY ->
                 new String((byte[]) value, StandardCharsets.UTF_8);
-
             default ->
                 value.toString();
         };
+    }
+
+    public static Type detect(Object value) {
+        if (value instanceof Integer) return Type.INT;
+        if (value instanceof Float) return Type.FLOAT;
+        if (value instanceof Double) return Type.DOUBLE;
+        if (value instanceof Boolean) return Type.BOOLEAN;
+        if (value instanceof Long) return Type.LONG;
+        if (value instanceof java.util.Date) return Type.DATE;
+        if (value instanceof java.sql.Timestamp) return Type.TIMESTAMP;
+        if (value instanceof String) return Type.STRING;
+        if (value instanceof java.util.UUID) return Type.UUID;
+        if (value instanceof byte[]) return Type.BINARY;
+
+        throw new IllegalArgumentException("Unsupported type: " + value.getClass());
     }
 }

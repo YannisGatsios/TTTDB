@@ -1,5 +1,8 @@
 package com.database.db.table;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Schema {
 
     private String[] columnNames;
@@ -84,15 +87,25 @@ public class Schema {
     }
 
     public int getPrimaryKeyIndex(){
-        int ind = -1;
-        for (boolean element : this.isPrimaryKey) {
-            if(element == true){
-                ind++;
-                return ind;
-            }
-            ind++;
+        for (int i = 0;i < this.numOfColumns;i++) {
+            if(this.isPrimaryKey[i])return i;
         }
-        return ind;
+        return -1;
+    }
+
+    public int[] getSecondaryKeyIndex(){
+        List<Integer> resultList = new ArrayList<>();
+        for (int i = 0; i < this.numOfColumns; i++) {
+            if (this.isSecondaryKey[i]) {
+                resultList.add(i);
+            }
+        }
+        int[] result = new int[resultList.size()];
+        for (int j = 0; j < resultList.size(); j++) {
+            result[j] = resultList.get(j);
+        }
+
+        return result;
     }
 
     @Override
