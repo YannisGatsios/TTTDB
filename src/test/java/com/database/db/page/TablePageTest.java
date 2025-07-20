@@ -43,7 +43,7 @@ class TablePageTest {
         entryData.add(num);
         entryData.add(message);
         entryData.add(data);
-        Entry entry = new Entry(entryData, table.getPrimaryKeyMaxSize());
+        Entry entry = new Entry(entryData.toArray(), table);
         return entry;
     }
 
@@ -53,8 +53,8 @@ class TablePageTest {
         emptyPage();
         page.add(entry1);
         assertEquals(1, page.size());
-        assertEquals(entry1.size(), page.getSpaceInUse());
-        assertTrue(page.getAll().contains(entry1));
+        assertEquals(entry1.sizeInBytes(), page.getSpaceInUse());
+        assertTrue(page.contains(entry1));
     }
 
     @Test
@@ -86,7 +86,7 @@ class TablePageTest {
         
         page.remove(0);
         assertEquals(1, page.size());
-        assertEquals(initialSpace - entry1.size(), page.getSpaceInUse());
+        assertEquals(initialSpace - entry1.sizeInBytes(), page.getSpaceInUse());
         assertEquals(entry2, page.get(0));
     }
 
@@ -129,14 +129,14 @@ class TablePageTest {
     void bufferToPage_ThrowsForInvalidBufferSize() {
         byte[] invalidBuffer = new byte[512]; // Not multiple of 4096
         assertThrows(IllegalArgumentException.class, 
-            () -> page.bufferToPage(invalidBuffer));
+            () -> page.fromBytes(invalidBuffer));
     }
 
     @Test
     void bufferToPage_ThrowsForCorruptedHeader() {
         byte[] buffer = new byte[4096];
         assertThrows(IOException.class, 
-            () -> page.bufferToPage(buffer));
+            () -> page.fromBytes(buffer));
     }
 
     // Test file I/O operations
@@ -181,12 +181,12 @@ class TablePageTest {
         
         assertTrue(stats.contains("Page ID :                 0"));
         assertTrue(stats.contains("Number Of Entries :        1"));
-        assertTrue(stats.contains("Space in Use :            [ " + entry1.size()));
+        assertTrue(stats.contains("Space in Use :            [ " + entry1.sizeInBytes()));
     }
 
     // Helper method
     private void fillPage() {
-        for (int i = this.page.size(); i < table.getEntriesPerPage(); i++) {
+        for (int i = this.page.size(); i < table.getPageCapacity(); i++) {
             Entry e = createEntry("user" + i, i, "msg", new byte[10]);
             page.add(e);
         }
@@ -204,14 +204,14 @@ class TablePageTest {
         }
     }
     private void areEntriesEqual(Entry entry1, Entry entry2){
-        for (int i = 0; i < entry1.getEntry().size();i++) {
-            ArrayList<Object> entry = entry1.getEntry();
-            if(entry.get(i) instanceof String){
-                assertEquals(entry.get(i), entry2.getEntry().get(i));
-            }else if(entry.get(i) instanceof Integer){
-                assertEquals(entry.get(i), entry2.getEntry().get(i));
-            }else if(entry.get(i) instanceof byte[]){
-                assertArrayEquals((byte[])entry.get(i),(byte[]) entry2.getEntry().get(i));
+        for (int i = 0; i < entry1.size();i++) {
+            Object[] entry = entry1.getEntry();
+            if(entry[i] instanceof String){
+                assertEquals(entry[i], entry2.get(i));
+            }else if(entry[i] instanceof Integer){
+                assertEquals(entry[i], entry2.get(i));
+            }else if(entry[i] instanceof byte[]){
+                assertArrayEquals((byte[])entry[i],(byte[]) entry2.get(i));
             }else{
                 fail("Invalid non sported type for entry.");
             }

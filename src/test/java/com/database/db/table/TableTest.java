@@ -5,9 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -20,7 +17,7 @@ class TableTest {
     private Schema complexSchema;
 
     @BeforeEach
-    void setup() {
+    void setup() throws Exception{
         fileIOThread = new FileIOThread();
         fileIOThread.start();
         
@@ -50,15 +47,15 @@ class TableTest {
         assertEquals(0, table.getPrimaryKeyColumnIndex());
         assertEquals(Type.INT, table.getPrimaryKeyType());
         assertEquals("storage/testdb.users.table", table.getPath());
-        assertEquals("storage/index/testdb.users.index", table.getPKPath());
+        assertEquals("storage/testdb.users.username.index", table.getIndexPath(0));
     }
 
     @Test
     void testValidEntry() throws Exception {
         Table table = new Table("testdb", "users", validSchema, fileIOThread);
         // Valid entry
-        ArrayList<Object> data = new ArrayList<>(Arrays.asList(42, "John Doe"));
-        Entry entry = new Entry(data, validSchema.getSizes()[0]);// Set ID to first column value
+        Object[] data = {42, "John Doe"};
+        Entry entry = new Entry(data, table);// Set ID to first column value
         assertTrue(table.isValidEntry(entry));
     }
 
@@ -66,8 +63,8 @@ class TableTest {
     void testInvalidEntry() throws Exception {
         Table table = new Table("testdb", "users", validSchema, fileIOThread);
         // Wrong column count
-        ArrayList<Object> invalidData1 = new ArrayList<>(Arrays.asList(42));
-        Entry invalidEntry1 = new Entry(invalidData1, validSchema.getSizes()[0]);
+        Object[] invalidData1 = {42};
+        Entry invalidEntry1 = new Entry(invalidData1, table);
         assertFalse(table.isValidEntry(invalidEntry1));
     }
 
@@ -76,7 +73,7 @@ class TableTest {
         // Test large column (4000 bytes)
         Schema largeColSchema = new Schema(new String[]{"string:4000:String:false:false:true"});
         Table table1 = new Table("testdb", "large", largeColSchema, fileIOThread);
-        assertEquals(3, table1.getEntriesPerPage());
+        assertEquals(3, table1.getPageCapacity());
     }
 
     @Test
@@ -99,7 +96,7 @@ class TableTest {
         assertEquals(4, table.getNumOfColumns());
         assertEquals(10 + 4 + 5 + 10, table.getSizeOfEntry());
         assertEquals(0, table.getPrimaryKeyColumnIndex()); // username is primary key
-        assertEquals(Type.STRING, table.getPrimaryKeyType());
+        assertEquals(Type.VARCHAR, table.getPrimaryKeyType());
     }
 
     @Test
@@ -114,7 +111,7 @@ class TableTest {
         Table table = new Table("system", "users", complexSchema, fileIOThread);
         // Block size 4096 - header 12 bytes = 4084
         // 4084 / 29 ≈ 140 entries
-        assertTrue(table.getEntriesPerPage() >= 140);
+        assertTrue(table.getPageCapacity() >= 140);
     }
 
     @Test
@@ -123,7 +120,7 @@ class TableTest {
         assertEquals(Type.INT, intTable.getPrimaryKeyType());
 
         Table stringTable = new Table("test", "stringTable", complexSchema, fileIOThread);
-        assertEquals(Type.STRING, stringTable.getPrimaryKeyType());
+        assertEquals(Type.VARCHAR, stringTable.getPrimaryKeyType());
     }
 
     @Test
@@ -149,13 +146,13 @@ class TableTest {
         Table table = new Table("testdb", "users", complexSchema, fileIOThread);
 
         // Valid complex entry
-        ArrayList<Object> data = new ArrayList<>(Arrays.asList(
+        Object[] data = {
                 "user123", // username (primary key)
                 42, // num (Integer)
                 "hello", // message (String)
                 new byte[10] // data (Byte array)
-        ));
-        Entry entry = new Entry(data, complexSchema.getSizes()[0]);
+        };
+        Entry entry = new Entry(data, table);
         assertTrue(table.isValidEntry(entry));
     }
 
@@ -164,12 +161,12 @@ class TableTest {
         Table table = new Table("testdb", "users", complexSchema, fileIOThread);
 
         // Invalid: Wrong type for num (String instead of Integer)
-        ArrayList<Object> invalidData = new ArrayList<>(Arrays.asList(
+        Object[] invalidData = {
                 "user123",
                 "should-be-int", // Invalid type
                 "hello",
-                new byte[10]));
-        Entry entry = new Entry(invalidData, complexSchema.getSizes()[0]);
+                new byte[10]};
+        Entry entry = new Entry(invalidData, table);
         assertThrows(IllegalArgumentException.class, () -> table.isValidEntry(entry));
     }
 
@@ -178,12 +175,12 @@ class TableTest {
         Table table = new Table("testdb", "users", complexSchema, fileIOThread);
 
         // Invalid: Username too long (max 10 chars)
-        ArrayList<Object> invalidData = new ArrayList<>(Arrays.asList(
+        Object[] invalidData = {
                 "this_username_is_too_long", // 24 chars > 10
                 42,
                 "hello",
-                new byte[10]));
-        Entry entry = new Entry(invalidData, complexSchema.getSizes()[0]);
+                new byte[10]};
+        Entry entry = new Entry(invalidData, table);
         assertThrows(IllegalArgumentException.class, () -> table.isValidEntry(entry));
     }
 
@@ -197,13 +194,13 @@ class TableTest {
         Table table = new Table("testdb", "nullable", nullableSchema, fileIOThread);
 
         // Valid null entry
-        ArrayList<Object> validNull = new ArrayList<>(Arrays.asList("user1", null));
-        Entry entry = new Entry(validNull, nullableSchema.getSizes()[0]);
+        Object[] validNull = {"user1", null};
+        Entry entry = new Entry(validNull, table);
         assertTrue(table.isValidEntry(entry));
 
         // Invalid: Non-nullable field is null
-        ArrayList<Object> invalidNull = new ArrayList<>(Arrays.asList(null, "msg"));
-        Entry invalidEntry = new Entry(invalidNull, nullableSchema.getSizes()[0]);
+        Object[] invalidNull = {null, "msg"};
+        Entry invalidEntry = new Entry(invalidNull, table);
         assertThrows(Exception.class, () -> table.isValidEntry(invalidEntry));
     }
     

@@ -1,5 +1,6 @@
 package com.database.db.table;
 
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
@@ -18,9 +19,10 @@ import java.util.UUID;//TODO
 
 public enum Type {
     INT(Integer.class),        // 4-byte integer
+    SHORT(Short.class),        // 2-byte short
     FLOAT(Float.class),      // 4-byte floating point
     DOUBLE(Double.class),     // 8-byte floating point
-    STRING(String.class),     // Variable-length string
+    VARCHAR(String.class),     // Variable-length string
     BOOLEAN(Boolean.class),    // 1-byte boolean
     LONG(Long.class),       // 8-byte integer
     DATE(Date.class),       // 8-byte date (millis since epoch)
@@ -28,7 +30,7 @@ public enum Type {
     UUID(UUID.class),
     BINARY(Byte[].class);     // Binary data
 
-        private final Class<?> javaClass;
+    private final Class<?> javaClass;
 
     Type(Class<?> javaClass) {
         this.javaClass = javaClass;
@@ -52,9 +54,10 @@ public enum Type {
      * Returns the fixed size in bytes for fixed-size types,
      * or -1 for variable-length types.
      */
-    public int getFixedSize() {
+    public int getSize() {
         return switch (this) {
             case INT -> 4;
+            case SHORT -> 2;
             case FLOAT -> 4;
             case DOUBLE -> 8;
             case BOOLEAN -> 1;
@@ -62,7 +65,7 @@ public enum Type {
             case DATE -> 8;
             case TIMESTAMP -> 16;
             case UUID -> 16;
-            case STRING, BINARY -> -1;  // Variable size
+            case VARCHAR, BINARY -> -1;  // Variable size
         };
     }
     /**
@@ -84,10 +87,12 @@ public enum Type {
             case "INT4":
             case "SIGNED INTEGER":
                 return INT;
+            case "SHOER":
+                return SHORT;
             case "CHAR":
             case "VARCHAR":
             case "TEXT":
-                return STRING;
+                return VARCHAR;
             case "BOOL":
                 return BOOLEAN;
             case "BIGINT":
@@ -121,6 +126,10 @@ public enum Type {
                 if (!(value instanceof Integer)) 
                     throw new IllegalArgumentException("Expected Integer");
                 break;
+            case SHORT:
+                if (!(value instanceof Short)) 
+                    throw new IllegalArgumentException("Expected Short");
+                break;
             case FLOAT:
                 if (!(value instanceof Float)) 
                     throw new IllegalArgumentException("Expected Float");
@@ -129,7 +138,7 @@ public enum Type {
                 if (!(value instanceof Double)) 
                     throw new IllegalArgumentException("Expected Double");
                 break;
-            case STRING:
+            case VARCHAR:
                 if (!(value instanceof String))
                     throw new IllegalArgumentException("Expected String");
                 if (size >= 0 && ((String) value).length() > size)
@@ -178,9 +187,10 @@ public enum Type {
         
         return switch (this) {
             case INT -> Integer.parseInt(s);
+            case SHORT -> Short.parseShort(s);
             case FLOAT -> Float.parseFloat(s);
             case DOUBLE -> Double.parseDouble(s);
-            case STRING -> s;
+            case VARCHAR -> s;
             case BOOLEAN -> Boolean.parseBoolean(s);
             case LONG -> Long.parseLong(s);
             case DATE -> {
@@ -235,104 +245,60 @@ public enum Type {
      * @return DeserializationResult containing the value and next read position
      * @throws IllegalArgumentException If the type is unsupported or data is invalid
      */
-    public DeserializationResult fromBytes(byte[] bufferData, int startIndex) {
-        Objects.requireNonNull(bufferData, "Buffer cannot be null");
-        if (startIndex < 0 || startIndex >= bufferData.length) {
-            throw new IllegalArgumentException("Invalid start index: " + startIndex);
-        }
-
-        Object object;
-        int nextIndex = startIndex;
-         try {
+    public Object fromBytes(ByteBuffer buffer) {
+        Objects.requireNonNull(buffer, "Buffer cannot be null");
+        try {
             switch (this) {
                 case INT:
-                    checkBuffer(bufferData, nextIndex, Integer.BYTES);
-                    object = ByteBuffer.wrap(bufferData, nextIndex, Integer.BYTES).getInt();
-                    nextIndex += Integer.BYTES;
-                    break;
+                    return buffer.getInt();
+                case SHORT:
+                    return buffer.getShort();
                 case LONG:
-                    checkBuffer(bufferData, nextIndex, Long.BYTES);
-                    object = ByteBuffer.wrap(bufferData, nextIndex, Long.BYTES).getLong();
-                    nextIndex += Long.BYTES;
-                    break;
+                    return buffer.getLong();
                 case FLOAT:
-                    checkBuffer(bufferData, nextIndex, Float.BYTES);
-                    object = ByteBuffer.wrap(bufferData, nextIndex, Float.BYTES).getFloat();
-                    nextIndex += Float.BYTES;
-                    break;
+                    return buffer.getFloat();
                 case DOUBLE:
-                    checkBuffer(bufferData, nextIndex, Double.BYTES);
-                    object = ByteBuffer.wrap(bufferData, nextIndex, Double.BYTES).getDouble();
-                    nextIndex += Double.BYTES;
-                    break;
+                    return buffer.getDouble();
                 case BOOLEAN:
-                    checkBuffer(bufferData, nextIndex, 1);
-                    object = bufferData[nextIndex] != 0;
-                    nextIndex += 1;
-                    break;
+                    return buffer.get() != 0;
                 case DATE:
-                    checkBuffer(bufferData, nextIndex, Long.BYTES);
-                    long millis = ByteBuffer.wrap(bufferData, nextIndex, Long.BYTES).getLong();
-                    object = new Date(millis);
-                    nextIndex += Long.BYTES;
-                    break;
-                case TIMESTAMP:
-                    // Read milliseconds (long) + nanoseconds (int)
-                    checkBuffer(bufferData, nextIndex, Long.BYTES + Integer.BYTES);
-                    long baseMillis = ByteBuffer.wrap(bufferData, nextIndex, Long.BYTES).getLong();
-                    nextIndex += Long.BYTES;
-                    int nanos = ByteBuffer.wrap(bufferData, nextIndex, Integer.BYTES).getInt();
-                    Timestamp ts = new Timestamp(baseMillis);
+                    return new Date(buffer.getLong());
+                case TIMESTAMP: {
+                    long millis = buffer.getLong();
+                    int nanos = buffer.getInt();
+                    Timestamp ts = new Timestamp(millis);
                     ts.setNanos(nanos);
-                    object = ts;
-                    nextIndex += Integer.BYTES;
-                    break;
-                case UUID:
-                    checkBuffer(bufferData, nextIndex, 16);
-                    long mostSigBits = ByteBuffer.wrap(bufferData, nextIndex, 8).getLong();
-                    nextIndex += 8;
-                    long leastSigBits = ByteBuffer.wrap(bufferData, nextIndex, 8).getLong();
-                    nextIndex += 8;
-                    object = new UUID(mostSigBits, leastSigBits);
-                    break;
-                case STRING:
-                    // Read length (2 bytes)
-                    checkBuffer(bufferData, nextIndex, Short.BYTES);
-                    short size = ByteBuffer.wrap(bufferData, nextIndex, Short.BYTES).getShort();
-                    nextIndex += Short.BYTES;
-                    
-                    // Read string data
-                    checkBuffer(bufferData, nextIndex, size);
-                    object = new String(bufferData, nextIndex, size, StandardCharsets.UTF_8);
-                    nextIndex += size;
-                    break;
-                    
-                case BINARY:
-                    // Read length (2 bytes)
-                    checkBuffer(bufferData, nextIndex, Short.BYTES);
-                    short binSize = ByteBuffer.wrap(bufferData, nextIndex, Short.BYTES).getShort();
-                    nextIndex += Short.BYTES;
-                    // Read binary data
-                    checkBuffer(bufferData, nextIndex, binSize);
-                    object = Arrays.copyOfRange(bufferData, nextIndex, nextIndex + binSize);
-                    nextIndex += binSize;
-                    break;
+                    return ts;
+                }
+                case UUID: {
+                    long msb = buffer.getLong();
+                    long lsb = buffer.getLong();
+                    return new UUID(msb, lsb);
+                }
+                case VARCHAR: {
+                    short len = buffer.getShort();
+                    if (buffer.remaining() < len)
+                        throw new IllegalArgumentException("Buffer underflow: expected " + len + " bytes for VARCHAR");
+                    byte[] bytes = new byte[len];
+                    buffer.get(bytes);
+                    return new String(bytes, StandardCharsets.UTF_8);
+                }
+                case BINARY: {
+                    short len = buffer.getShort();
+                    if (buffer.remaining() < len)
+                        throw new IllegalArgumentException("Buffer underflow: expected " + len + " bytes for BINARY");
+                    byte[] bytes = new byte[len];
+                    buffer.get(bytes);
+                    return bytes;
+                }
                 default:
                     throw new IllegalArgumentException("Unsupported type: " + this);
             }
-        } catch (IndexOutOfBoundsException e) {
+        } catch (BufferUnderflowException | IndexOutOfBoundsException e) {
             throw new IllegalArgumentException("Buffer too short for type: " + this, e);
         }
-        return new DeserializationResult(object, nextIndex);
     }
-    // Helper to check buffer length
-    private void checkBuffer(byte[] buffer, int start, int length) {
-        if (start + length > buffer.length) {
-            throw new IllegalArgumentException(
-                    String.format("Buffer too short. Required: %d, Available: %d",
-                            length, buffer.length - start));
-        }
-    }
+
     /**
      * Serializes a Java object to its byte representation according to this type.
      *
@@ -347,6 +313,10 @@ public enum Type {
             case INT:
                 return ByteBuffer.allocate(4)
                         .putInt((Integer) value)
+                        .array();
+            case SHORT:
+                return ByteBuffer.allocate(2)
+                        .putShort((Short) value)
                         .array();
             case LONG:
                 return ByteBuffer.allocate(8)
@@ -383,7 +353,7 @@ public enum Type {
                 uuidBuffer.putLong(uuid.getMostSignificantBits());
                 uuidBuffer.putLong(uuid.getLeastSignificantBits());
                 return uuidBuffer.array();
-            case STRING:
+            case VARCHAR:
                 byte[] strBytes = ((String) value).getBytes(StandardCharsets.UTF_8);
                 ByteBuffer strBuffer = ByteBuffer.allocate(2 + strBytes.length);
                 strBuffer.putShort((short) strBytes.length);
@@ -423,13 +393,14 @@ public enum Type {
 
     public static Type detect(Object value) {
         if (value instanceof Integer) return Type.INT;
+        if (value instanceof Short) return Type.SHORT;
         if (value instanceof Float) return Type.FLOAT;
         if (value instanceof Double) return Type.DOUBLE;
         if (value instanceof Boolean) return Type.BOOLEAN;
         if (value instanceof Long) return Type.LONG;
         if (value instanceof java.util.Date) return Type.DATE;
         if (value instanceof java.sql.Timestamp) return Type.TIMESTAMP;
-        if (value instanceof String) return Type.STRING;
+        if (value instanceof String) return Type.VARCHAR;
         if (value instanceof java.util.UUID) return Type.UUID;
         if (value instanceof byte[]) return Type.BINARY;
 

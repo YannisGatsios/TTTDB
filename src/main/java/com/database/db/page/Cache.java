@@ -3,6 +3,7 @@ package com.database.db.page;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 
 import com.database.db.FileIO;
@@ -41,7 +42,7 @@ public class Cache {
     /** Write the given page to disk if needed and remove it from cache. */
     private void evictPage(int pageID, TablePage page) throws IOException {
         if (page.isDirty()) { // assume TablePage has a dirty flag
-            fileIO.writePage(table.getPath(), page.toBuffer(), page.getPagePos());
+            fileIO.writePage(table.getPath(), page.toBytes(), page.getPagePos());
             this.counter++;
             if(this.counter >= this.capacity){
                 
@@ -52,10 +53,11 @@ public class Cache {
 
     /** Write all pages in cache to disk and clear cache. */
     public synchronized void writeCache() throws IOException {
-        for (Map.Entry<Integer, TablePage> entry : cache.entrySet()) {
+        Map<Integer, TablePage> sortedCache = new TreeMap<>(cache);
+        for (Map.Entry<Integer, TablePage> entry : sortedCache.entrySet()) {
             TablePage page = entry.getValue();
             if (page.isDirty()) {
-                fileIO.writePage(table.getPath(), page.toBuffer(), page.getPagePos());
+                fileIO.writePage(table.getPath(), page.toBytes(), page.getPagePos());
             }
         }
         cache.clear();
@@ -83,6 +85,11 @@ public class Cache {
             }
         }
         return page;
+    }
+
+    public synchronized TablePage getLast() throws IOException, ExecutionException, InterruptedException {
+        int lastPageId = table.getPages() - 1;
+        return this.get(lastPageId);
     }
 
     public synchronized void put(int pageID, TablePage page) {

@@ -18,6 +18,7 @@ import java.util.Queue;
  *   <li>Automatic height adjustment during insertions/deletions</li>
  *   <li>Leaf node chaining for efficient range scans</li>
  *   <li>Support for duplicate keys (when uniqueness is disabled)</li>
+ *   <li>Support for Null values (when null values are enabled)</li>
  *   <li>Dynamic node splitting/merging with borrowing optimizations</li>
  * </ul>
  *
@@ -29,8 +30,10 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
     private Node<K, V> root;
     private Node<K, V> start;// Points to the first leaf node
     private final int order;
-    private int size = 0;
+    private long size = 0;
     private boolean isUnique;
+    private boolean isNullable;
+    private Pair<K,V> nullPair;
     private final int minKeys;
     private final Comparator<Pair<K, V>> keyComparator = (pair1, pair2) -> pair1.key.compareTo(pair2.key);
 
@@ -48,6 +51,8 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
         this.order = order;
         this.size = 0;
         this.isUnique = true;
+        this.isNullable = false;
+        this.nullPair = new Pair<>(null,null);
         this.minKeys = (int) Math.ceil((double) this.order / 2.0) - 1;
     }
 
@@ -55,11 +60,23 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
     // Core Operation (see interface docs for details)
     public void insert(K key, V value) {
         Pair<K, V> newPair = new Pair<>(key, value);
+        if(this.nullInsert(newPair)) return;
         // Split root if it's full
         if (this.root.pairs.size() == order - 1) {
             splitRoot();
         }
         insertNonFull(this.root, newPair);
+    }
+
+    private boolean nullInsert(Pair<K,V> pair){
+        if(!this.isNullable) return false;
+        if(pair.key == null){
+            if(this.nullPair.value == null) this.nullPair.value = pair.value;
+            else this.nullPair.addDup(pair.value);
+            this.size++;
+            return true;
+        }
+        return false;
     }
 
     private void splitRoot() {
@@ -184,6 +201,7 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
     // ===========! REMOVING !=============
     // Core Operation (see interface docs for details)
     public void remove(K key, V value) {
+        if(nullRemoval(key, value)) return;
         if (key == null || root == null) return;
         // 1. Find the leaf node where the key should exist.
         Node<K, V> leaf = findLeafNode(key);
@@ -221,6 +239,28 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
                 }
             }
         }
+    }
+
+    private boolean nullRemoval(K key, V value) {
+        if (!this.isNullable) return false;
+        if (key == null) {
+            if (this.nullPair.value == value) {
+                if (this.nullPair.getDuplicates() != null) {
+                    Pair<K, V> dupPair = this.nullPair.getDuplicates().iterator().next();
+                    this.nullPair.value = dupPair.value;
+                    this.nullPair.removeDup(dupPair);
+                    this.size--;
+                } else {
+                    this.nullPair.value = null;
+                    this.size--;
+                }
+            } else if (this.nullPair.getDuplicates() != null) {
+                this.nullPair.getDuplicates().remove(new Pair<>(null, value));
+                this.size--;
+            }
+            return true;
+        }
+        return false;
     }
 
     private Node<K, V> findLeafNode(K key) {
@@ -378,6 +418,7 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
     // ==========! SEARCHING !===========
     // Core Operation (see interface docs for details)
     public Pair<K, V> search(K key) {
+        if(key == null && this.isNullable) return this.nullPair;
         Node<K, V> node = this.findNode(key);
         if (node == null)
             return null;
@@ -437,6 +478,7 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
                 break;
             }
         }
+        if(fromKey == null) result.add(0,this.nullPair);
         return result;
     }
 
@@ -461,6 +503,7 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
      * @param oldValue Old value to replace (required for non-unique trees)
      */
     public void update(K key, V newValue, V oldValue) throws IllegalStateException {
+        if(updateNull(key, newValue, oldValue)) return;
         if (this.isUnique && oldValue != null) throw new IllegalStateException("Cannot specify oldValue in unique trees.");
         if (key == null || newValue == null) return;
         Node<K, V> node = this.findNode(key);
@@ -477,6 +520,20 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
                 pair.addDup(newValue);
             }
         }
+    }
+
+    private boolean updateNull(K key, V newValue, V oldValue){
+        if(!this.isNullable) return false;
+        if(key == null){
+            if (this.nullPair.value.equals(oldValue)) {
+                this.nullPair.value = newValue;
+            } else if (this.nullPair.getDuplicates().contains(oldValue)) {
+                this.nullPair.removeDup(new Pair<>(null, oldValue));
+                this.nullPair.addDup(newValue);
+            }
+            return true;
+        }
+        return false;
     }
 
     // =======! PRINTING !======
@@ -527,12 +584,16 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
      * @param unique true to enforce unique keys, false to allow duplicates
      */
     public void setUnique(boolean unique) {this.isUnique = unique;}
+    public boolean isUnique(){return this.isUnique;}
+    public void setNullable(boolean nullable) {this.isNullable = nullable;}
+    public boolean isNullable(){return this.isNullable;}
+    public Pair<K,V> getNullPair(){return this.nullPair;}
     /** @return Root node of tree */
     public Node<K, V> getRoot() {return this.root;}
     /** @return First leaf node in sequence */
     public Node<K, V> getFirst() {return this.start;}
     /** @return Number of keys(if unique) or values(if not unique) in the tree */
-    public int size(){return this.size;}
+    public long size(){return this.size;}
     /** @return Order of the tree */
     public int getOrder() {return this.order;}
 }

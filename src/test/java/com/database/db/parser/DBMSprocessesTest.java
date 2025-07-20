@@ -49,19 +49,18 @@ public class DBMSprocessesTest {
     private String tableName;
 
     @BeforeAll
-    void setup() throws ExecutionException, InterruptedException, IOException {
+    void setup() throws ExecutionException, InterruptedException, IOException, Exception {
         fileIOThread = new FileIOThread();
         fileIOThread.start();
         databaseName = "test_database";
         tableName = "test_table";
-        Schema schema = new Schema("username:15:String:false:false:true;num:4:Integer:false:true:false;message:5:String:true:true:false;data:10:Byte:false:false:false".split(";"));
+        Schema schema = new Schema("username:VARCHAR:100:PRIMARY_KEY:NULL;num:INT:NON:INDEX:NULL;message:VARCHAR:10:NO_CONSTRAINT:NULL;data:BINARY:10:NOT_NULL:NON".split(";"));
         table = new Table(databaseName, tableName, schema, fileIOThread);//Table INIT
         
         DBMS = new DBMSprocesses(fileIOThread);
         DBMS.createTable(table); //Creating table
         DBMS.createPrimaryKey(table,0);
         DBMS.createIndex(table, 1);
-        DBMS.createIndex(table, 2);
 
         random = new Random();
         keysList = new String[400];
@@ -69,14 +68,14 @@ public class DBMSprocessesTest {
 
     @Test
     @Order(1)
-    void testOneInsert() throws ExecutionException, InterruptedException, IOException {
+    void testOneInsert() throws ExecutionException, InterruptedException, IOException, Exception {
         ArrayList<Object> entryData = new ArrayList<>();
         entryData.add("firstEntry");
         entryData.add(100);
         entryData.add("HELLO");
         byte[] data = new byte[10];
         entryData.add(data);
-        Entry entry = new Entry(entryData, table.getPrimaryKeyMaxSize());
+        Entry entry = new Entry(entryData.toArray(), table);
         try {
             DBMS.insertEntry(table, entry);
         } catch (IllegalArgumentException e) {
@@ -97,7 +96,7 @@ public class DBMSprocessesTest {
 
     @Test
     @Order(3)
-    void testRandomEntryInsertion() throws ExecutionException, InterruptedException, IOException {
+    void testRandomEntryInsertion() throws ExecutionException, InterruptedException, IOException, Exception {
         int ind = 0;
         while (ind < 400) {
             int sizeOfID = random.nextInt(table.getPrimaryKeyMaxSize()-1)+1;
@@ -119,7 +118,7 @@ public class DBMSprocessesTest {
                     data[y] = (byte) random.nextInt(127);
                 }
                 entryData.add(data);
-                Entry entry = new Entry(entryData, table.getPrimaryKeyMaxSize());
+                Entry entry = new Entry(entryData.toArray(), table);
                 try {
                     DBMS.insertEntry(table, entry);
                 } catch (IOException e) {
@@ -176,7 +175,7 @@ public class DBMSprocessesTest {
 
     @Test
     @Order(5)
-    void testOrderedEntryInsertion() throws ExecutionException, InterruptedException, IOException {
+    void testOrderedEntryInsertion() throws ExecutionException, InterruptedException, IOException, Exception {
         DBMS.dropTable(table);
         DBMS.createTable(table);
 
@@ -188,7 +187,7 @@ public class DBMSprocessesTest {
             entryData.add(ind);
             entryData.add("TEST");
             entryData.add(new byte[] {(byte)ind});
-            Entry entry = new Entry(entryData, table.getPrimaryKeyMaxSize());
+            Entry entry = new Entry(entryData.toArray(), table);
             try {
                 DBMS.insertEntry(table, entry);
             } catch (IOException e) {
@@ -196,11 +195,12 @@ public class DBMSprocessesTest {
             }
             ind++;
         }
+        table.getCache().writeCache();
     }
 
     @AfterAll
     void end(){
-        DBMS.dropTable(table);
         fileIOThread.shutdown();
+        DBMS.dropTable(table);
     }
 }

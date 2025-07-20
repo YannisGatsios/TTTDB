@@ -24,17 +24,22 @@ public class App {
         }
         return sb.toString();
     }
-    public static void main(String[] args) throws IOException,InterruptedException, ExecutionException{
+    public static void main(String[] args) throws IOException,InterruptedException, ExecutionException, Exception{
         FileIOThread fileIOThread = new FileIOThread();
         fileIOThread.start();//Starting File IO Operations Thread
         //DataBase INIT.
         String databaseName = "system";
         String tableName = "users";
-        Schema schema = new Schema("username:10:String:false:false:true;num:4:Integer:false:true:false;message:5:String:true:false:false;data:10:Byte:false:false:false".split(";"));
+        Schema schema = new Schema((
+            "username:VARCHAR:10:PRIMARY_KEY:NULL;"+
+            "num:INT:NON:INDEX:NULL;"+
+            "message:VARCHAR:10:NO_CONSTRAINT:NULL;"+
+            "data:BINARY:10:NOT_NULL:NON")
+            .split(";"));
         System.out.println(schema.toString());
         Database database = new Database(databaseName);
         database.setFileIOThread(fileIOThread);
-        database.addTable(tableName, schema);
+        database.addTable(tableName, schema,1);
 
         Table table = database.getTable(tableName);
         System.out.println("======== Tree updated. Writing to file.");
@@ -53,14 +58,12 @@ public class App {
             if(!table.isKeyFound(userName,0)){
                 keysList.add(userName);
                 ArrayList<Object> entryData = new ArrayList<>();
+                
                 entryData.add(userName);
-
-                int intNum =101;// random.nextInt();
-                entryData.add(intNum);
-
-                int sizeOfString = random.nextInt(table.getSchema().getSizes()[2]);
-                String randStr = generateRandomString(sizeOfString);
-                entryData.add(randStr);
+                int intNum = random.nextInt();
+                entryData.add((intNum%25)==0 ? null : intNum);
+                //"_HELLO_"
+                entryData.add((ind%25)==0 ? null : "_HELLO_");
 
                 int sizeOfData = random.nextInt(table.getSchema().getSizes()[3]);
                 byte[] data = new byte[sizeOfData];
@@ -68,14 +71,14 @@ public class App {
                     data[y] = (byte) random.nextInt(127);
                 }
                 entryData.add(data);
-                Entry entry = new Entry(entryData, table.getPrimaryKeyMaxSize());
+                Entry entry = new Entry(entryData.toArray(),table);
                 DBMS.insertEntry(table, entry);
                 ind++;
             }
         }
         System.out.println(table.getPrimaryKey().toString());
-        
-        PrimaryKey<String> tree2 = new PrimaryKey<>(table);
+        table.getCache().writeCache();
+        PrimaryKey<String> tree2 = new PrimaryKey<>(table,0);
         System.out.println(table.getPrimaryKeyType()+new String().getClass().getName());
         tree2.initialize(table);
         //tree2.printTree();

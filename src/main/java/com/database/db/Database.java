@@ -1,6 +1,7 @@
 package com.database.db;
 
 import java.io.IOException;
+import java.net.CacheRequest;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -18,8 +19,8 @@ public class Database {
         this.tables = new HashMap<>();
     }
 
-    public void addTable(String tableName, Schema schema) throws ExecutionException, InterruptedException, IOException {// TODO handle exceptions
-        this.tables.put(tableName, new Table(this.name, tableName, schema, this.fileIOThread));
+    public void addTable(String tableName, Schema schema, int cacheCapacity) throws ExecutionException, InterruptedException, IOException, Exception {// TODO handle exceptions
+        this.tables.put(tableName, new Table(this.name, tableName, schema, this.fileIOThread, cacheCapacity));
     }
     public void removeTable(String tableName){
         this.tables.remove(tableName);
