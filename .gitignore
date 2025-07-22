@@ -5,3 +5,4 @@ start.sh
 .project
 .classpath
 .settings/
+target/
