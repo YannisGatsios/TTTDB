@@ -7,8 +7,12 @@ public class FileIOThread extends Thread {
 
     private final BlockingQueue<Runnable> taskQueue = new LinkedBlockingQueue<>();
     private volatile boolean running = true;
+    private volatile boolean acceptingTasks = true;
 
     public void submit(Runnable task) {
+        if (!acceptingTasks) {
+            throw new IllegalStateException("Cannot submit task — shutdown in progress.");
+        }
         try {
             taskQueue.put(task);
         } catch (InterruptedException e) {
@@ -16,9 +20,11 @@ public class FileIOThread extends Thread {
         }
     }
 
-    public void shutdown() {
+    public void shutdown() throws InterruptedException {
+        acceptingTasks = false;
         running = false;
         this.interrupt();
+        this.join();
     }
 
     @Override
@@ -33,9 +39,9 @@ public class FileIOThread extends Thread {
                     e.printStackTrace();
                 }
             } catch (InterruptedException e) {
-                // allow shutdown
+                // Ignore — check running flag & queue again
             }
         }
-        System.out.println("FileIOThread shut down.");
+        System.out.println("FileIOThread shut down. All tasks completed.");
     }
 }

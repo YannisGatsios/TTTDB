@@ -1,6 +1,8 @@
 package com.database.db.index;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 
 /**
  * Represents a key-value pair in a B+ Tree with support for duplicate values.
@@ -15,7 +17,7 @@ import java.util.HashSet;
 public class Pair<K, V> {
     public K key;
     public V value;
-    private HashSet<Pair<K,V>> duplicate;//Used to store duplicate values when B+Tree is not set to unique.
+    private HashSet<V> duplicate;//Used to store duplicate values when B+Tree is not set to unique.
     public Pair(){}
     /**
      * Creates a new key-value pair.
@@ -28,6 +30,16 @@ public class Pair<K, V> {
         this.value = value;
         this.duplicate = null;
     }
+
+    public List<V> getAll(){
+        List<V> result = new ArrayList<>();
+        result.add(this.value);
+        if (duplicate != null) {
+            result.addAll(duplicate);
+        }
+        return result;
+    }
+
     /**
      * Adds a duplicate value for this key.
      *
@@ -35,14 +47,14 @@ public class Pair<K, V> {
      */
     public void addDup(V value){
         if(this.duplicate == null) this.duplicate = new HashSet<>();
-        this.duplicate.add(new Pair<>(this.key,value));
+        this.duplicate.add(value);
     }
     /**
      * Removes a duplicate value.
      *
      * @param pair Duplicate value to remove
      */
-    public void removeDup(Pair<K,V> pair){
+    public void removeDup(V pair){
         this.duplicate.remove(pair);
         if(this.duplicate.isEmpty()){
             this.duplicate = null;
@@ -51,16 +63,17 @@ public class Pair<K, V> {
     /**
      * @return Set of duplicate values (null if none exist)
      */
-    public HashSet<Pair<K,V>> getDuplicates(){return this.duplicate;}
+    public HashSet<V> getDuplicates(){return this.duplicate;}
     /**
      * Checks if a value exists (either as primary or duplicate).
+     * Used for testing.
      *
      * @param Value Value to search for
      * @return The value if found, otherwise null
      */
     public V get(V Value){
         if(Value.equals(this.value)) return this.value;
-        if(this.duplicate.contains(new Pair<>(this.key, value))) return Value;
+        if(this.duplicate.contains(value)) return Value;
         return null;
     }
     @Override

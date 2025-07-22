@@ -1,36 +1,50 @@
 package com.database.db;
 
 import java.io.IOException;
-import java.net.CacheRequest;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
-import com.database.db.table.Schema;
+import com.database.db.App.TableConfig;
 import com.database.db.table.Table;
 
 public class Database {
     private String name;
-    private Map<String,Table> tables;
-    private FileIOThread fileIOThread;
+    private String path = "storage/";
+    private HashMap<String,Table> tables;
 
     public Database(String name){
         this.name = name;
         this.tables = new HashMap<>();
     }
 
-    public void addTable(String tableName, Schema schema, int cacheCapacity) throws ExecutionException, InterruptedException, IOException, Exception {// TODO handle exceptions
-        this.tables.put(tableName, new Table(this.name, tableName, schema, this.fileIOThread, cacheCapacity));
+    public void addTable(TableConfig tableConfig) throws ExecutionException, InterruptedException, IOException, Exception {// TODO handle exceptions
+        FileIOThread fileIOThread = new FileIOThread();
+        fileIOThread.start();//Starting File IO Operations Thread
+        this.tables.put(tableConfig.tableName(), 
+            new Table(this.name,
+                tableConfig.tableName(),
+                tableConfig.schema(),
+                fileIOThread,
+                tableConfig.cacheCapacity(),
+                this.path
+                )
+            );
     }
-    public void removeTable(String tableName){
+    public void removeTable(String tableName) throws InterruptedException{
+        Table table = this.getTable(tableName);
+        table.getFileIOThread().shutdown();
         this.tables.remove(tableName);
     }
     public Table getTable(String tableName) {
         return tables.get(tableName);
     }
+    public void close() throws InterruptedException{
+        for (Table table : this.tables.values()) {
+            table.getFileIOThread().shutdown();
+        }
+    }
 
-    public void setFileIOThread(FileIOThread fileIOThread){ this.fileIOThread = fileIOThread; }
     public String getName(){ return this.name; }
-    public void setName(String newName){ this.name = newName; }
     public Map<String,Table> getTables(){ return this.tables; }
 }

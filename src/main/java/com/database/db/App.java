@@ -7,8 +7,9 @@ import java.io.IOException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 
+import com.database.db.CRUD.CRUD;
 import com.database.db.index.PrimaryKey;
-import com.database.db.parser.DBMSprocesses;
+import com.database.db.manager.SchemaManager;
 import com.database.db.table.Entry;
 import com.database.db.table.Schema;
 import com.database.db.table.Table;
@@ -24,9 +25,10 @@ public class App {
         }
         return sb.toString();
     }
+
+    public record TableConfig(String tableName, Schema schema, int cacheCapacity){}
+
     public static void main(String[] args) throws IOException,InterruptedException, ExecutionException, Exception{
-        FileIOThread fileIOThread = new FileIOThread();
-        fileIOThread.start();//Starting File IO Operations Thread
         //DataBase INIT.
         String databaseName = "system";
         String tableName = "users";
@@ -37,23 +39,24 @@ public class App {
             "data:BINARY:10:NOT_NULL:NON")
             .split(";"));
         System.out.println(schema.toString());
+        TableConfig tableConf = new TableConfig(tableName, schema, 0);
+
         Database database = new Database(databaseName);
-        database.setFileIOThread(fileIOThread);
-        database.addTable(tableName, schema,1);
+        database.addTable(tableConf);
 
         Table table = database.getTable(tableName);
         System.out.println("======== Tree updated. Writing to file.");
         //Tree INIT.
-        DBMSprocesses DBMS = new DBMSprocesses(fileIOThread);
-        DBMS.createTable(table);
-        DBMS.createPrimaryKey(table,0);
-        DBMS.createIndex(table, 1);
+        CRUD crud = new CRUD(table.getFileIOThread());
+        SchemaManager.createTable(table);
+        SchemaManager.createPrimaryKey(table,0);
+        SchemaManager.createIndex(table, 1);
 
         Random random = new Random(); 
         ArrayList<String> keysList = new ArrayList<>(400);
         int ind = 0;
         while (ind < 400) {
-            int sizeOfID = random.nextInt(table.getPrimaryKeyMaxSize()-1)+1;
+            int sizeOfID = random.nextInt(schema.getSizes()[schema.getPrimaryKeyIndex()]-1)+1;
             String userName = generateRandomString(sizeOfID);
             if(!table.isKeyFound(userName,0)){
                 keysList.add(userName);
@@ -72,14 +75,14 @@ public class App {
                 }
                 entryData.add(data);
                 Entry entry = new Entry(entryData.toArray(),table);
-                DBMS.insertEntry(table, entry);
+                crud.insertEntry(table, entry);
                 ind++;
             }
         }
-        System.out.println(table.getPrimaryKey().toString());
+        //System.out.println(table.getPrimaryKey().toString());
         table.getCache().writeCache();
         PrimaryKey<String> tree2 = new PrimaryKey<>(table,0);
-        System.out.println(table.getPrimaryKeyType()+new String().getClass().getName());
+        System.out.println(schema.getTypes()[schema.getPrimaryKeyIndex()]+new String().getClass().getName());
         tree2.initialize(table);
         //tree2.printTree();
         int trues = 0;
@@ -92,20 +95,21 @@ public class App {
             }
         }
         System.out.println("True Are : "+trues+"\nFalse Are : "+falser+"\n===========[Starting Random 100 Deletions.]===========");
-        table.setPrimaryKey(tree2);
+        //table.setPrimaryKey(tree2);
         ind = 0;
         while (ind < 100) {
             int randInd = random.nextInt(400-ind);
             if(table.isKeyFound(keysList.get(randInd),0)){
                 System.out.println("("+keysList.get(randInd)+" : "+tree2.search(keysList.get(randInd))+")");
-                DBMS.deleteEntry(table, keysList.get(randInd), 0);
+                String key = keysList.get(randInd);
+                crud.deleteEntry(table, key,key, 0,1);
                 System.out.println("("+ind+") : Random Index : "+keysList.get(randInd)+" : "+tree2.search(keysList.get(randInd))+
                 "\n========Deletion Finished=========\n");
                 keysList.remove(randInd);
                 ind++;
             }
         }
-        fileIOThread.shutdown();
-        DBMS.dropTable(table);
+        database.close();
+        SchemaManager.dropTable(table);
     }
 }

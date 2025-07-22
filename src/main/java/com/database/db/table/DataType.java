@@ -12,12 +12,11 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.Objects;
 import java.util.UUID;//TODO
 
-public enum Type {
+public enum DataType {
     INT(Integer.class),        // 4-byte integer
     SHORT(Short.class),        // 2-byte short
     FLOAT(Float.class),      // 4-byte floating point
@@ -32,7 +31,7 @@ public enum Type {
 
     private final Class<?> javaClass;
 
-    Type(Class<?> javaClass) {
+    DataType(Class<?> javaClass) {
         this.javaClass = javaClass;
     }
 
@@ -75,7 +74,7 @@ public enum Type {
      * @return The matching DataType enum
      * @throws IllegalArgumentException if no matching type is found
      */
-    public static Type fromString(String typeName) {
+    public static DataType fromString(String typeName) {
         if (typeName == null || typeName.isBlank()) {
             throw new IllegalArgumentException("Type name cannot be null or blank");
         }
@@ -108,7 +107,7 @@ public enum Type {
         }
         // Try exact enum name match
         try {
-            return Type.valueOf(normalized);
+            return DataType.valueOf(normalized);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Unknown data type: " + typeName, e);
         }
@@ -183,7 +182,7 @@ public enum Type {
      * Useful for parsing input data.
      */
     public Object parseValue(String s) {
-        if (s == null || s.equalsIgnoreCase("null")) return null;
+        if (s == null || s.equalsIgnoreCase("NULL")) return null;
         
         return switch (this) {
             case INT -> Integer.parseInt(s);
@@ -391,18 +390,18 @@ public enum Type {
         };
     }
 
-    public static Type detect(Object value) {
-        if (value instanceof Integer) return Type.INT;
-        if (value instanceof Short) return Type.SHORT;
-        if (value instanceof Float) return Type.FLOAT;
-        if (value instanceof Double) return Type.DOUBLE;
-        if (value instanceof Boolean) return Type.BOOLEAN;
-        if (value instanceof Long) return Type.LONG;
-        if (value instanceof java.util.Date) return Type.DATE;
-        if (value instanceof java.sql.Timestamp) return Type.TIMESTAMP;
-        if (value instanceof String) return Type.VARCHAR;
-        if (value instanceof java.util.UUID) return Type.UUID;
-        if (value instanceof byte[]) return Type.BINARY;
+    public static DataType detect(Object value) {
+        if (value instanceof Integer) return DataType.INT;
+        if (value instanceof Short) return DataType.SHORT;
+        if (value instanceof Float) return DataType.FLOAT;
+        if (value instanceof Double) return DataType.DOUBLE;
+        if (value instanceof Boolean) return DataType.BOOLEAN;
+        if (value instanceof Long) return DataType.LONG;
+        if (value instanceof java.util.Date) return DataType.DATE;
+        if (value instanceof java.sql.Timestamp) return DataType.TIMESTAMP;
+        if (value instanceof String) return DataType.VARCHAR;
+        if (value instanceof java.util.UUID) return DataType.UUID;
+        if (value instanceof byte[]) return DataType.BINARY;
 
         throw new IllegalArgumentException("Unsupported type: " + value.getClass());
     }

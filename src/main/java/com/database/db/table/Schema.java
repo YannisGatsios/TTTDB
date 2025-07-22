@@ -1,232 +1,211 @@
 package com.database.db.table;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class Schema {
 
-    private String[] columnNames;
-    private String[] columnParameters;
-    private Type[] columnTypes;
-    private int[] columnSizes;
-    private List<Constraint>[] columnConstraints;
-    private String[] columnDefault;
+    private Column[] columns;
     
     public boolean hasPrimaryKey = false;
     public boolean hasUnique = false;
     public boolean hasIndex = false;
 
-    private static final int MAX_CONSTRAINTS_PER_COLUMN = 4;
+    public record Column(String name, DataType type, int size, List<Constraint> constraints, Object Default) {}
 
     public Schema(String[] schema) throws Exception{
-        this.columnNames = this.setNames(schema);
-        this.columnParameters = this.setParams(schema);
-        this.columnSizes = new int[schema.length];
-        this.columnTypes = this.setTypes(schema);
-        this.columnConstraints = this.setConstraints(schema);
-        this.columnDefault = this.setDefault(schema);
+        this.columns = this.getColumns(schema);
     }
-    
-    private String[] setNames(String[] tableConfig){
-        String[] result = new String[tableConfig.length];
-        for (int i = 0;i<tableConfig.length;i++){
-            result[i] = tableConfig[i].split(":")[0].trim();
-        }
-        return result;
-    }public String[] getNames() {
-        return this.columnNames;
-    }
-    
-    private String[] setParams(String[] tableConfig){
-        String[] result = new String[tableConfig.length];
-        for (int i = 0;i<tableConfig.length;i++){
-            result[i] = tableConfig[i].split(":")[2];
+
+    private Column[] getColumns(String[] columnConfigs){
+        Column[] result = new Column[columnConfigs.length]; 
+        for (int i = 0;i<result.length;i++) {
+            result[i] = this.createColumn(columnConfigs[i]);
         }
         return result;
     }
 
-    private Type[] setTypes(String[] tableConfig){
-        Type[] result = new Type[tableConfig.length];
-        for (int i = 0;i<tableConfig.length;i++){
-            Type type = Type.fromString(tableConfig[i].split(":")[1].trim());
-            if(type.getSize() == -1) this.columnSizes[i] = Integer.parseInt(this.columnParameters[i]);
-            else this.columnSizes[i] = type.getSize();
-            result[i] = type;
-        }
-        return result;
-    }public Type[] getTypes() {
-        return this.columnTypes;
-    }
-    public int[] getSizes() {
-        return this.columnSizes;
-    }
-    @SuppressWarnings("unchecked")
-    private ArrayList<Constraint>[] setConstraints(String[] tableConfig) throws Exception{
-        ArrayList<Constraint>[] result = new ArrayList[tableConfig.length];
-        for (int i = 0;i<tableConfig.length;i++){
-            int index = 0;
-            ArrayList<Constraint> list = new ArrayList<>();
-            for(String constraintString : tableConfig[i].split(":")[3].trim().split(",")){
-                if(index > MAX_CONSTRAINTS_PER_COLUMN) 
-                    throw new Exception("Number of Constraints must not be bigger than "+MAX_CONSTRAINTS_PER_COLUMN);
-                Constraint constraint = Constraint.fromString(constraintString);
-                if(constraint==null) throw new IllegalArgumentException("Invalid Constraint from column "+this.columnNames[i]);
-                switch (constraint) {
-                    case PRIMARY_KEY -> this.hasPrimaryKey = true;
-                    case UNIQUE -> this.hasUnique = true;
-                    case INDEX -> this.hasIndex = true;
-                    default -> {}
-                }
-                list.add(constraint);
-                index++;
+    private Column createColumn(String columnConfig) {
+        String[] fields = columnConfig.split(":");
+        String columnName = fields[0].trim();
+        DataType columnDataType = DataType.fromString(fields[1].trim());
+        int size = columnDataType.getSize();
+        int columnSize = size == -1 ? Integer.parseInt(fields[2].trim()) : size;
+        String[] constraintStrings = (fields[3].trim()).split(",");
+        ArrayList<Constraint> columnConstraints = new ArrayList<>();
+        for (String constraintString : constraintStrings) {
+            Constraint constraint = Constraint.fromString(constraintString);
+            if (constraint == null)
+                throw new IllegalArgumentException("Invalid Constraint from column " + columnName);
+            switch (constraint) {
+                case PRIMARY_KEY -> this.hasPrimaryKey = true;
+                case UNIQUE -> this.hasUnique = true;
+                case INDEX -> this.hasIndex = true;
+                default -> {}
             }
-            result[i] = list;
+            columnConstraints.add(constraint);
         }
-        return result;
+        Object Default = columnDataType.parseValue(fields[4].trim());
+        return new Column(columnName, columnDataType, columnSize, columnConstraints, Default);
     }
-    public List<Constraint>[] getConstraints(){return this.columnConstraints;}
+    public String[] getNames(){
+        String[] names = new String[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            names[i] = columns[i].name();
+        }
+        return names;
+    }
+    public DataType[] getTypes() {
+    DataType[] types = new DataType[columns.length];
+    for (int i = 0; i < columns.length; i++) {
+        types[i] = columns[i].type();
+    }
+    return types;
+}
 
-    private String[] setDefault(String[] tableConfig){
-        String[] result = new String[tableConfig.length];
-        for (int i = 0;i<tableConfig.length;i++){
-            result[i] = tableConfig[i].split(":")[4].trim();
-        }
-        return result;
+public int[] getSizes() {
+    int[] sizes = new int[columns.length];
+    for (int i = 0; i < columns.length; i++) {
+        sizes[i] = columns[i].size();
     }
-    public String[] getDefaults(){return this.columnDefault;}
+    return sizes;
+}
+
+public List<Constraint>[] getConstraints() {
+    @SuppressWarnings("unchecked")
+    List<Constraint>[] constraints = (List<Constraint>[]) new List[columns.length];
+    for (int i = 0; i < columns.length; i++) {
+        constraints[i] = columns[i].constraints();
+    }
+    return constraints;
+}
+
+public Object[] getDefaults() {
+    Object[] defaults = new Object[columns.length];
+    for (int i = 0; i < columns.length; i++) {
+        defaults[i] = columns[i].Default();
+    }
+    return defaults;
+}
 
     public int getPrimaryKeyIndex(){
         int index = 0;
-        for (List<Constraint> constraintList : columnConstraints) {
-            if(constraintList.indexOf(Constraint.PRIMARY_KEY) != -1) return index;
+        for (Column column : this.columns) {
+            if(column.constraints.contains(Constraint.PRIMARY_KEY)) return index;
             index++;
         }
         return -1;
     }
 
-    public int[] getUniqueIndex(){
-        List<Integer> resultList = new ArrayList<>();
-        int index = 0;
-        for (List<Constraint> constraintList : columnConstraints) {
-            if(constraintList.indexOf(Constraint.UNIQUE) != -1) resultList.add(index);
-            index++;
-        }
-        int[] result = new int[resultList.size()];
-        for (int j = 0; j < resultList.size(); j++) {
-            result[j] = resultList.get(j);
+    public boolean[] getUniqueIndex(){
+        boolean[] result = new boolean[this.columns.length];
+        for (int i = 0;i<this.columns.length;i++) {
+            Column column = this.columns[i];
+            result[i] = (column.constraints.contains(Constraint.UNIQUE));
         }
         return result;
     }
 
-    public int[] getAutoIncrementIndex(){
-        List<Integer> resultList = new ArrayList<>();
-        int index = 0;
-        for (List<Constraint> constraintList : columnConstraints) {
-            if(constraintList.indexOf(Constraint.AUTO_INCREMENT) != -1) resultList.add(index);;
-            index++;
-        }
-        int[] result = new int[resultList.size()];
-        for (int j = 0; j < resultList.size(); j++) {
-            result[j] = resultList.get(j);
+    public boolean[] getIndexIndex(){
+        boolean[] result = new boolean[this.columns.length];
+        for (int i = 0;i<this.columns.length;i++) {
+            Column column = this.columns[i];
+            result[i] = (column.constraints.contains(Constraint.INDEX));
         }
         return result;
     }
 
-    public int[] getIndexIndex(){
-        List<Integer> resultList = new ArrayList<>();
-        int index = 0;
-        for (List<Constraint> constraintList : columnConstraints) {
-            if(constraintList.indexOf(Constraint.INDEX) != -1) resultList.add(index);;
-            index++;
-        }
-        int[] result = new int[resultList.size()];
-        for (int j = 0; j < resultList.size(); j++) {
-            result[j] = resultList.get(j);
+    public boolean[] getAutoIncrementIndex(){
+        boolean[] result = new boolean[this.columns.length];
+        for (int i = 0;i<this.columns.length;i++) {
+            Column column = this.columns[i];
+            result[i] = (column.constraints.indexOf(Constraint.AUTO_INCREMENT) != -1);
         }
         return result;
     }
 
-    public boolean[] getNotNull(){
-        boolean[] result = new boolean[this.columnNames.length];
-        int index = 0;
-        for (List<Constraint> constraintList : columnConstraints) {
-            result[index] = (constraintList.indexOf(Constraint.PRIMARY_KEY) != -1 || constraintList.indexOf(Constraint.NOT_NULL) != -1);
-            index++;
+    public boolean[] getNotNull() {
+        boolean[] result = new boolean[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            var c = columns[i];
+            result[i] = c.constraints().contains(Constraint.PRIMARY_KEY) ||
+                    c.constraints().contains(Constraint.NOT_NULL);
         }
         return result;
     }
 
-    public int getNumOfColumns(){return this.columnNames.length;}
-
-    public int numNullables(){
-        boolean[] notNull = this.getNotNull();
+    public int numNullables() {
+        boolean[] notNull = getNotNull();
         int count = 0;
         for (boolean b : notNull) {
-            if (!b) count++;
+            if (!b)
+                count++;
         }
         return count;
     }
 
+    public int getNumOfColumns(){return this.columns.length;}
+
     @Override
-    public String toString(){
-        String[] headers = {"Column Name :", "Type :", "Size :", "Constraints :", "Default :"};
-        String[] columns = new String[this.columnNames.length+1];
-        columns[0] = "| ";
+    public String toString() {
+        String[] headers = { "Column Name", "Type", "Size", "Constraints", "Default" };
 
-        int maxNameLen = Math.max(
-                Arrays.stream(columnNames).mapToInt(String::length).max().orElse(0),
-                headers[0].length());
-        int maxTypeLen = 9;
-        int maxSizeLen = Math.max(
-                Arrays.stream(columnSizes).map(s -> String.valueOf(s).length()).max().orElse(0),
-                headers[2].length());
-        int maxConstraintLen = Math.max(
-                Arrays.stream(columnConstraints)
-                        .map(list -> list.toString())
-                        .mapToInt(String::length)
-                        .max()
-                        .orElse(0),
-                headers[3].length());
-        int maxDefaultLen = Math.max(
-                Arrays.stream(columnDefault).mapToInt(String::length).max().orElse(0),
-                headers[4].length());
-            String border =
-            "+" + "-".repeat(maxNameLen + 2) +
-            "+" + "-".repeat(maxTypeLen + 2) +
-            "+" + "-".repeat(maxSizeLen + 2) +
-            "+" + "-".repeat(maxConstraintLen + 2) +
-            "+" + "-".repeat(maxDefaultLen + 2) + "+";
+        int maxNameLen = headers[0].length();
+        int maxTypeLen = headers[1].length();
+        int maxSizeLen = headers[2].length();
+        int maxConstraintLen = headers[3].length();
+        int maxDefaultLen = headers[4].length();
 
-            String banner = "TABLE SCHEMA";
-            int padding = Math.max(0, (border.length() - banner.length()) / 2);
+        // compute max widths in one loop
+        for (Column c : columns) {
+            maxNameLen = Math.max(maxNameLen, c.name().length());
+            maxTypeLen = Math.max(maxTypeLen, c.type().toString().length());
+            maxSizeLen = Math.max(maxSizeLen, String.valueOf(c.size()).length());
+            maxConstraintLen = Math.max(maxConstraintLen, c.constraints().toString().length());
+            maxDefaultLen = Math.max(maxDefaultLen, String.valueOf(c.Default()).length());
+        }
 
-            StringBuilder sb = new StringBuilder();
-            sb.append(" ".repeat(padding))
-                    .append(banner).append("\n")
-                    .append(border).append("\n");
-            // Header row
+        String border = "+" + "-".repeat(maxNameLen + 2) +
+                "+" + "-".repeat(maxTypeLen + 2) +
+                "+" + "-".repeat(maxSizeLen + 2) +
+                "+" + "-".repeat(maxConstraintLen + 2) +
+                "+" + "-".repeat(maxDefaultLen + 2) + "+";
+
+        String banner = "TABLE SCHEMA";
+        int padding = Math.max(0, (border.length() - banner.length()) / 2);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(" ".repeat(padding)).append(banner).append("\n");
+        sb.append(border).append("\n");
+
+        // header row
+        sb.append("| ")
+                .append(pad(headers[0], maxNameLen)).append(" | ")
+                .append(pad(headers[1], maxTypeLen)).append(" | ")
+                .append(pad(headers[2], maxSizeLen)).append(" | ")
+                .append(pad(headers[3], maxConstraintLen)).append(" | ")
+                .append(pad(headers[4], maxDefaultLen)).append(" |\n");
+
+        sb.append(border).append("\n");
+
+        // data rows
+        for (Column c : columns) {
             sb.append("| ")
-                    .append(pad(headers[0], maxNameLen)).append(" | ")
-                    .append(pad(headers[1], maxTypeLen)).append(" | ")
-                    .append(pad(headers[2], maxSizeLen)).append(" | ")
-                    .append(pad(headers[3], maxConstraintLen)).append(" | ")
-                    .append(pad(headers[4], maxDefaultLen)).append(" |\n")
-                    .append(border).append("\n");
-
-            for (int i = 0; i < columnNames.length; i++) {
-                sb.append("| ")
-                        .append(pad(columnNames[i], maxNameLen)).append(" | ")
-                        .append(pad(columnTypes[i].toString(), maxTypeLen)).append(" | ")
-                        .append(pad(String.valueOf(columnSizes[i]), maxSizeLen)).append(" | ")
-                        .append(pad(String.valueOf(columnConstraints[i]), maxConstraintLen)).append(" | ")
-                        .append(pad(columnDefault[i], maxDefaultLen)).append(" |\n")
-                        .append(border).append("\n");
-            }
-
-            return sb.toString();
+                    .append(pad(c.name(), maxNameLen)).append(" | ")
+                    .append(pad(c.type().toString(), maxTypeLen)).append(" | ")
+                    .append(pad(String.valueOf(c.size()), maxSizeLen)).append(" | ")
+                    .append(pad(c.constraints().toString(), maxConstraintLen)).append(" | ")
+                    .append(pad(String.valueOf(c.Default()), maxDefaultLen)).append(" |\n");
+            sb.append(border).append("\n");
         }
-        private String pad(String s, int width) {
-            return s + " ".repeat(Math.max(0, width - s.length()));
-        }
+
+        return sb.toString();
+    }
+
+    private String pad(String s, int width) {
+        if (s == null)
+            s = "null"; // safeguard
+        return s + " ".repeat(Math.max(0, width - s.length()));
+    }
+
 }

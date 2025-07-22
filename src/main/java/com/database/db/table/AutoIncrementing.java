@@ -1,4 +1,4 @@
-package com.database.db.index;
+package com.database.db.table;
 
 public class AutoIncrementing {
     private long nextKey;

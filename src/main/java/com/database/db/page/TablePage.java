@@ -2,7 +2,6 @@ package com.database.db.page;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
 
 import com.database.db.FileIO;

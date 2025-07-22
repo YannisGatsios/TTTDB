@@ -4,17 +4,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import com.database.db.FileIO;
 import com.database.db.page.TablePage;
 import com.database.db.table.Entry;
 import com.database.db.table.Table;
-import com.database.db.table.Type;
-import com.database.db.table.Type.DeserializationResult;
+import com.database.db.table.DataType;
 
 public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTree<K,BTreeSerialization.BlockPointer>{
     protected int columnIndex;
@@ -50,7 +47,7 @@ public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTr
         if (this.getRoot() == null || this.getRoot().pairs.size() == 0) return new byte[0];
         try (ByteArrayOutputStream byteStream = new ByteArrayOutputStream();DataOutputStream dataStream = new DataOutputStream(byteStream)) {
             Node<K, BlockPointer> node = this.getFirst();
-            Type keyType = table.getSchema().getTypes()[this.columnIndex];
+            DataType keyType = table.getSchema().getTypes()[this.columnIndex];
             dataStream.writeLong(this.size());
             if(this.isNullable()){
                 this.nullsToBytes(dataStream);
@@ -75,16 +72,14 @@ public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTr
     }
 
     private void nullsToBytes(DataOutputStream out) throws IOException {
-        List<Pair<K, BlockPointer>> nullEntries = new ArrayList<>();
-        if (this.getNullPair().value != null)nullEntries.add(this.getNullPair());
-        if (this.getNullPair().getDuplicates() != null)nullEntries.addAll(this.getNullPair().getDuplicates());
+        List<BlockPointer> nullEntries = this.getNullPair().getAll();
         out.writeInt(nullEntries.size());
-        for (Pair<K, BlockPointer> pair : nullEntries) {
-            out.write(this.blockPointerToBytes(pair.value));
+        for (BlockPointer value : nullEntries) {
+            out.write(this.blockPointerToBytes(value));
         }
     }
 
-    private void pairToBytes(Pair<K, BlockPointer> pair, DataOutputStream dataStream, Type keyType) throws IOException {
+    private void pairToBytes(Pair<K, BlockPointer> pair, DataOutputStream dataStream, DataType keyType) throws IOException {
         // Serialize key
         byte[] keyBytes = keyType.toBytes(pair.key);
         dataStream.write(keyBytes);
@@ -92,9 +87,9 @@ public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTr
         dataStream.write(this.blockPointerToBytes(pair.value));
         // Serialize duplicates if any
         if (!this.isUnique() && pair.getDuplicates() != null) {
-            for (Pair<K, BlockPointer> dup : pair.getDuplicates()) {
+            for (BlockPointer dup : pair.getDuplicates()) {
                 dataStream.write(keyBytes);
-                dataStream.write(this.blockPointerToBytes(dup.value));
+                dataStream.write(this.blockPointerToBytes(dup));
             }
         }
     }
@@ -107,7 +102,7 @@ public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTr
             this.nullFromBytes(buffer);
         }
         Pair<K,BlockPointer> result;
-        Type keyType = table.getSchema().getTypes()[this.columnIndex];
+        DataType keyType = table.getSchema().getTypes()[this.columnIndex];
         for (int i = 0; i < size; i++) {
             result = this.pairFromBytes(buffer, keyType);
             this.insert(result.key, result.value);
@@ -127,7 +122,7 @@ public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTr
             this.insert(key, value);
         }
     }
-    private Pair<K, BlockPointer> pairFromBytes(ByteBuffer buffer, Type keyType) {
+    private Pair<K, BlockPointer> pairFromBytes(ByteBuffer buffer, DataType keyType) {
         K key = (K) keyType.fromBytes(buffer);
         BlockPointer value = this.blockPointerFromBytes(buffer);
         return new Pair<>(key, value);

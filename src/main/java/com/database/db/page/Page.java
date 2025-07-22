@@ -31,11 +31,10 @@ public abstract class Page {
     public void add(int index, Entry entry) {
         if (entry == null) throw new IllegalArgumentException("Cannot add null Entry.");
         if (index < 0 || index >= this.entries.length) throw new IllegalArgumentException("Index out of bounds: " + index);
-        if (this.numOfEntries == this.entries.length) throw new IllegalArgumentException("This page is full, max size: " + this.entries.length);
         if (this.entries[index] != null) throw new IllegalArgumentException("Entry already exists at index " + index+" can not add a new one");
         this.numOfEntries++;
         this.entries[index] = entry;
-        this.spaceInUse += entry.sizeInBytes();
+        this.spaceInUse += this.maxSizeOfEntry;
         this.dirty = true;
     }
 
@@ -52,7 +51,7 @@ public abstract class Page {
             throw new IllegalArgumentException("Null Entry to remove for Index: "+index+" Maximum: "+this.numOfEntries);
         this.swapWithLast(index);
         this.entries[this.numOfEntries-1] = null;
-        this.spaceInUse -= result.sizeInBytes();
+        this.spaceInUse -= this.maxSizeOfEntry;
         this.numOfEntries--;
         this.dirty = true;
         return result;
@@ -73,7 +72,7 @@ public abstract class Page {
         return this.get(index);
     }
     public Entry get(int index) {
-        if (index < 0 || this.entries.length == 0) throw new IndexOutOfBoundsException("invalid index You gave :" + index+" Size :"+this.entries.length);
+        if (index < 0 || index >= this.numOfEntries) throw new IndexOutOfBoundsException("invalid index You gave :" + index+" Size :"+this.numOfEntries);
         return this.entries[index];
     }
     public boolean contains(Entry entry){
@@ -87,9 +86,8 @@ public abstract class Page {
     public Entry[] getAll() {return this.entries;}
 
     public int indexOf(Entry entry){
-        int index = 0;
-        for (Entry entryComp : this.entries) {
-            if(entry.equals(entryComp)) return index;
+        for (int i = 0;i<this.numOfEntries;i++) {
+            if(entry.equals(this.entries[i])) return i;
         }
         return -1;
     }
@@ -127,6 +125,7 @@ public abstract class Page {
     public int sizeOfHeader() {return (2 * (Integer.BYTES)) + Short.BYTES;}
     public int sizeOfEntries() {return (maxSizeOfEntry * this.entries.length);}
 
+    public int getCapacity(){return this.entries.length;}
     public int getPagePos() {return this.pageID * this.sizeInBytes();}
 
     public boolean isDirty() {return dirty;}

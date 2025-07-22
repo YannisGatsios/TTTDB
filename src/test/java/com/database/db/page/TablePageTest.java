@@ -19,8 +19,11 @@ class TablePageTest {
     private Table table;
     private TablePage page;
     private Entry entry1, entry2, entry3;
-    private static final String SCHEMA_STRING = 
-        "username:10:String:false:false:true;num:4:Integer:false:true:false;message:5:String:true:true:false;data:10:Byte:false:false:false";
+    private static final String SCHEMA_STRING = (
+            "username:VARCHAR:10:PRIMARY_KEY:NULL;"+
+            "num:INT:NON:INDEX:NULL;"+
+            "message:VARCHAR:10:NO_CONSTRAINT:NULL;"+
+            "data:BINARY:10:NOT_NULL:NON");
 
     @BeforeEach
     void setUp() throws Exception {
@@ -29,7 +32,7 @@ class TablePageTest {
         fileIOThread = new FileIOThread();
         fileIOThread.start();
         Schema schema = new Schema(SCHEMA_STRING.split(";"));
-        table = new Table("testdb", "test", schema, fileIOThread);
+        table = new Table("testdb", "test", schema, fileIOThread,"storage/");
 
         entry1 = createEntry("user1", 100, "msg1", new byte[]{1,2,3});
         entry2 = createEntry("user22", 200, "msg22", new byte[]{4,5,6});
@@ -53,7 +56,7 @@ class TablePageTest {
         emptyPage();
         page.add(entry1);
         assertEquals(1, page.size());
-        assertEquals(entry1.sizeInBytes(), page.getSpaceInUse());
+        assertEquals(table.getSizeOfEntry(), page.getSpaceInUse());
         assertTrue(page.contains(entry1));
     }
 
@@ -86,7 +89,7 @@ class TablePageTest {
         
         page.remove(0);
         assertEquals(1, page.size());
-        assertEquals(initialSpace - entry1.sizeInBytes(), page.getSpaceInUse());
+        assertEquals(initialSpace - table.getSizeOfEntry(), page.getSpaceInUse());
         assertEquals(entry2, page.get(0));
     }
 
@@ -181,7 +184,7 @@ class TablePageTest {
         
         assertTrue(stats.contains("Page ID :                 0"));
         assertTrue(stats.contains("Number Of Entries :        1"));
-        assertTrue(stats.contains("Space in Use :            [ " + entry1.sizeInBytes()));
+        assertTrue(stats.contains("Space in Use :            [ " + table.getSizeOfEntry()));
     }
 
     // Helper method

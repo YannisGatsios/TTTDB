@@ -54,15 +54,15 @@ public class Entry {
                 sizes[ind] = 0;
                 continue;
             }
-            Type type = Type.detect(value);
+            DataType type = DataType.detect(value);
             int size = type.getSize(); 
             if(size != -1){
                 sizes[ind] = size;
             }else{
-                if (type == Type.VARCHAR) {
+                if (type == DataType.VARCHAR) {
                     // optionally use UTF-8 byte length if needed
                     sizes[ind] = ((String) value).getBytes(StandardCharsets.UTF_8).length;
-                } else if (type == Type.BINARY) {
+                } else if (type == DataType.BINARY) {
                     sizes[ind] = ((byte[]) value).length;
                 }
             }
@@ -114,7 +114,7 @@ public class Entry {
         buffer.put(bitMapBytes);
         for (int i = 0;i<this.entryData.length;i++) {
             Object value = this.entryData[i];
-            Type elem = table.getSchema().getTypes()[i];
+            DataType elem = table.getSchema().getTypes()[i];
             buffer.put(elem.toBytes(value));
         }
         return buffer.array();
@@ -123,26 +123,22 @@ public class Entry {
     public static Entry fromBytes(ByteBuffer buffer,Table table){
         int startPos = buffer.position();
         int expectedSize = table.getSizeOfEntry();
-
         // optional: validate enough bytes remain
         if (buffer.remaining() < expectedSize) {
             throw new IllegalArgumentException(
                     "Not enough bytes in buffer for one entry: " + buffer.remaining() + " < " + expectedSize);
         }
-
         Schema schema = table.getSchema();
-        Object[] entry = new Object[table.getNumOfColumns()];
-        Type[] types = schema.getTypes();
+        Object[] entry = new Object[table.getSchema().getNumOfColumns()];
+        DataType[] types = schema.getTypes();
 
         int bitmapSize = (schema.numNullables() + 7) / 8;
-
         byte[] nullBitmapBytes = new byte[bitmapSize];
         buffer.get(nullBitmapBytes); // advances position
         BitSet nullBitmap = BitSet.valueOf(nullBitmapBytes);
 
         boolean[] notNullables = schema.getNotNull();
         int nullableBitCount = 0;
-
         for (int i = 0; i < entry.length; i++) {
             if (!notNullables[i] && nullBitmap.get(nullableBitCount++)) {
                 entry[i] = null;
@@ -150,14 +146,49 @@ public class Entry {
             }
             entry[i] = types[i].fromBytes(buffer);
         }
-
         int bytesRead = buffer.position() - startPos;
         if (bytesRead >= expectedSize) {
             throw new IllegalStateException("Entry deserialization consumed " + bytesRead +
                     " bytes, expected " + expectedSize);
         }
-
         return new Entry(entry, table);
+    }
+
+    public static Entry prepareEntry(Object[] entry, Table table) throws Exception{
+        Schema schema = table.getSchema();
+        int primaryKeyIndex = schema.getPrimaryKeyIndex();
+        boolean[] notNullable = schema.getNotNull();
+        boolean[] AutoIncrementing = schema.getAutoIncrementIndex();
+        boolean[] hasUniqueIndex = schema.getUniqueIndex();
+        for (int i = 0;i<schema.getNumOfColumns();i++) {
+            boolean isPrimaryKey = (i == primaryKeyIndex);
+            boolean isUnique = (hasUniqueIndex[i] || isPrimaryKey);
+            if (notNullable[i] && !AutoIncrementing[i] && entry[i] == null)
+                throw new Exception("Gave null value for NOT_NULL field: "+schema.getNames()[i]);
+            if (AutoIncrementing[i] && entry[i] == null) 
+                entry[i] = table.getAutoIncrementing(i).getNextKey();
+            else if (entry[i] == null) 
+                entry[i] = schema.getDefaults()[i];
+            if(isUnique && table.isKeyFound(entry[i], i))
+                throw new Exception("Already Existing value for Primary Key column: "+schema.getNames()[i]);
+        }
+        return null;
+    }
+
+    public static boolean isValidEntry(Object[] entry, Schema schema) throws Exception{
+        //Check if the number of columns matches the number of elements in the entry.
+        if (entry.length != schema.getNumOfColumns()) return false;
+        // Get the entry data and check each element's type and size.
+        DataType[] expectedTypes = schema.getTypes();
+        int[] expectedSizes = schema.getSizes();
+        boolean[] isNotNullable = schema.getNotNull();
+        for (int i = 0; i < schema.getNumOfColumns(); i++) {
+            DataType expectedType = expectedTypes[i];
+            int expectedSize = expectedSizes[i];
+            if(!isNotNullable[i] && entry[i] != null) expectedType.validateValue(entry[i], expectedSize);
+        }
+        // All checks passed, return true.
+        return true;
     }
 
     @Override
@@ -174,12 +205,8 @@ public class Entry {
     }
 
     public Object get(int index){return this.entryData[index];}
-
     public Object[] getEntry(){return this.entryData;}
-
     public int[] getElementSizes(){return this.sizeOfElementsOfEntry;}
-
     public int[] getElementIndexes(){return this.indexOfElementsOfEntry;}
-
     public int getNumOfElements(){return this.indexOfElementsOfEntry[this.indexOfElementsOfEntry.length - 1];}
 }
