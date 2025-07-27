@@ -65,19 +65,16 @@ public class Cache {
 
     /** Load a page into cache, evicting LRU if necessary. */
     public   TablePage loadPage(int pageID) throws IOException, InterruptedException, ExecutionException {
-        TablePage page = cache.get(pageID);
-        if (page != null) {
-            return page;
-        }
-
         TablePage newPage = new TablePage(pageID, table);
         cache.put(pageID, newPage);
         return newPage;
     }
 
     public synchronized TablePage get(int pageID) {
-        TablePage page = cache.get(pageID);
-        if (page == null) {
+        TablePage page;
+        if (cache.containsKey(pageID)){
+            page = cache.get(pageID);
+        }else {
             try {
                 page = loadPage(pageID);
             } catch (IOException | InterruptedException | ExecutionException e) {
@@ -89,6 +86,7 @@ public class Cache {
 
     public synchronized TablePage getLast() throws IOException, ExecutionException, InterruptedException {
         int lastPageId = table.getPages() - 1;
+        if (lastPageId == -1) lastPageId = 0;
         return this.get(lastPageId);
     }
 

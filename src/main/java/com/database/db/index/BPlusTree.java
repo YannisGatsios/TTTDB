@@ -437,7 +437,7 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
     }
 
     public K getMax(){
-        if (this.root == null) return null;
+        if (this.root.pairs.size() == 0) return null;
         Node<K, V> current = this.root;
         while (!current.isLeaf) {
             current = current.children.getLast();

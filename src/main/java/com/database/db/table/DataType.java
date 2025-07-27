@@ -3,18 +3,11 @@ package com.database.db.table;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.sql.Timestamp;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
-import java.time.format.DateTimeParseException;
-import java.time.temporal.ChronoField;
-import java.util.Date;
+import java.util.Base64;
 import java.util.Objects;
-import java.util.UUID;//TODO
+import java.util.UUID;
 
 public enum DataType {
     INT(Integer.class),        // 4-byte integer
@@ -24,10 +17,13 @@ public enum DataType {
     VARCHAR(String.class),     // Variable-length string
     BOOLEAN(Boolean.class),    // 1-byte boolean
     LONG(Long.class),       // 8-byte integer
-    DATE(Date.class),       // 8-byte date (millis since epoch)
-    TIMESTAMP(Timestamp.class),  // 16-byte timestamp (nanosecond precision)
+    DATE(LocalDate.class),       // Date without time
+    TIME(LocalTime.class),      // Time without date
+    TIMESTAMP(LocalDateTime.class),  // Date and time without timezone
+    TIMESTAMP_WITH_TIME_ZONE(ZonedDateTime.class), // Date and time with timezone
+    INTERVAL(Duration.class),    // Time interval
     UUID(UUID.class),
-    BINARY(Byte[].class);     // Binary data
+    BINARY(byte[].class);     // Binary data
 
     private final Class<?> javaClass;
 
@@ -40,14 +36,10 @@ public enum DataType {
     }
 
     // UTC formatters for consistent date/time handling
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-            .withZone(ZoneOffset.UTC);
-
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = new DateTimeFormatterBuilder()
-            .appendPattern("yyyy-MM-dd HH:mm:ss")
-            .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
-            .toFormatter()
-            .withZone(ZoneOffset.UTC);
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_TIME;
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private static final DateTimeFormatter TIMESTAMP_WITH_TZ_FORMATTER = DateTimeFormatter.ISO_ZONED_DATE_TIME;
 
     /**
      * Returns the fixed size in bytes for fixed-size types,
@@ -62,9 +54,11 @@ public enum DataType {
             case BOOLEAN -> 1;
             case LONG -> 8;
             case DATE -> 8;
+            case TIME -> 8;
             case TIMESTAMP -> 16;
+            case INTERVAL -> 16;
             case UUID -> 16;
-            case VARCHAR, BINARY -> -1;  // Variable size
+            case VARCHAR, BINARY, TIMESTAMP_WITH_TIME_ZONE -> -1;  // Variable size
         };
     }
     /**
@@ -86,7 +80,7 @@ public enum DataType {
             case "INT4":
             case "SIGNED INTEGER":
                 return INT;
-            case "SHOER":
+            case "SHORT":
                 return SHORT;
             case "CHAR":
             case "VARCHAR":
@@ -98,12 +92,18 @@ public enum DataType {
             case "INT8":
                 return LONG;
             case "DATETIME":
-                return DATE;
+                return TIMESTAMP;
             case "UUID":
                 return UUID;
             case "BLOB":
             case "BYTE":
                 return BINARY;
+            case "TIME":
+                return TIME;
+            case "TIMESTAMPTZ":
+                return TIMESTAMP_WITH_TIME_ZONE;
+            case "DURATION":
+                return INTERVAL;
         }
         // Try exact enum name match
         try {
@@ -120,6 +120,9 @@ public enum DataType {
      * @throws IllegalArgumentException if validation fails
      */
     public void validateValue(Object value, int size) {
+        if (value == null) {
+            throw new NullPointerException("Value cannot be null");
+        }
         switch (this) {
             case INT:
                 if (!(value instanceof Integer)) 
@@ -152,12 +155,24 @@ public enum DataType {
                     throw new IllegalArgumentException("Expected Long");
                 break;
             case DATE:
-                if (!(value instanceof java.util.Date))
-                    throw new IllegalArgumentException("Expected Date");
+                if (!(value instanceof LocalDate))
+                    throw new IllegalArgumentException("Expected LocalDate");
+                break;
+            case TIME:
+                if (!(value instanceof LocalTime))
+                    throw new IllegalArgumentException("Expected LocalTime");
                 break;
             case TIMESTAMP:
-                if (!(value instanceof java.sql.Timestamp))
-                    throw new IllegalArgumentException("Expected Timestamp");
+                if (!(value instanceof LocalDateTime))
+                    throw new IllegalArgumentException("Expected LocalDateTime");
+                break;
+            case TIMESTAMP_WITH_TIME_ZONE:
+                if (!(value instanceof ZonedDateTime))
+                    throw new IllegalArgumentException("Expected ZonedDateTime");
+                break;
+            case INTERVAL:
+                if (!(value instanceof Duration))
+                    throw new IllegalArgumentException("Expected Duration");
                 break;
             case UUID:
                 if (!(value instanceof java.util.UUID))
@@ -190,58 +205,28 @@ public enum DataType {
             case FLOAT -> Float.parseFloat(s);
             case DOUBLE -> Double.parseDouble(s);
             case VARCHAR -> s;
-            case BOOLEAN -> Boolean.parseBoolean(s);
+            case BOOLEAN -> {
+                if (!s.equalsIgnoreCase("true") && !s.equalsIgnoreCase("false")) {
+                    throw new IllegalArgumentException("Invalid boolean value: " + s);
+                }
+                yield Boolean.parseBoolean(s);
+            }
             case LONG -> Long.parseLong(s);
-            case DATE -> {
-                try {
-                    // First try ISO format parsing
-                    Instant instant = Instant.parse(s);
-                    yield Date.from(instant);
-                } catch (DateTimeParseException e) {
-                    try {
-                        // Fall back to date-only format
-                        LocalDate date = LocalDate.parse(s, DATE_FORMATTER);
-                        yield Date.from(date.atStartOfDay(ZoneOffset.UTC).toInstant());
-                    } catch (DateTimeParseException e2) {
-                        throw new IllegalArgumentException("Invalid date format: " + s);
-                    }
-                }
-            }
-            case TIMESTAMP -> {
-                try {
-                    // First try ISO format parsing
-                    Instant instant = Instant.parse(s);
-                    yield Timestamp.from(instant);
-                } catch (DateTimeParseException e) {
-                    try {
-                        // Fall back to custom format with UTC timezone
-                        LocalDateTime dateTime = LocalDateTime.parse(s, TIMESTAMP_FORMATTER);
-                        // Convert to UTC instant
-                        Instant instant = dateTime.atZone(ZoneOffset.UTC).toInstant();
-                        yield Timestamp.from(instant);
-                    } catch (DateTimeParseException e2) {
-                        throw new IllegalArgumentException("Invalid timestamp format: " + s);
-                    }
-                }
-            }
+            case DATE -> LocalDate.parse(s, DATE_FORMATTER);
+            case TIME -> LocalTime.parse(s, TIME_FORMATTER);
+            case TIMESTAMP -> LocalDateTime.parse(s, TIMESTAMP_FORMATTER);
+            case TIMESTAMP_WITH_TIME_ZONE -> ZonedDateTime.parse(s, TIMESTAMP_WITH_TZ_FORMATTER);
+            case INTERVAL -> Duration.parse(s);
             case UUID -> java.util.UUID.fromString(s);
-            case BINARY -> s.getBytes(); // Simplified for demo
+            case BINARY -> Base64.getDecoder().decode(s);
         };
     }
-    /**
-     * Represents the result of deserialization: the deserialized value and 
-     * the next position in the buffer after reading the value.
-     *
-     * @param valueObject The deserialized Java object
-     * @param nextIndex The next read position in the buffer
-     */
-    public record DeserializationResult(Object valueObject, int nextIndex) {};
     /**
      * Deserializes a value from a byte buffer starting at the specified position.
      * 
      * @param bufferData The byte buffer containing serialized data
      * @param startIndex The starting position in the buffer
-     * @return DeserializationResult containing the value and next read position
+     * @return Object containing the value
      * @throws IllegalArgumentException If the type is unsupported or data is invalid
      */
     public Object fromBytes(ByteBuffer buffer) {
@@ -260,14 +245,36 @@ public enum DataType {
                     return buffer.getDouble();
                 case BOOLEAN:
                     return buffer.get() != 0;
-                case DATE:
-                    return new Date(buffer.getLong());
+                case DATE: {
+                    long epochDay = buffer.getLong();
+                    return LocalDate.ofEpochDay(epochDay);
+                }
+                case TIME: {
+                    long nanosOfDay = buffer.getLong();
+                    return LocalTime.ofNanoOfDay(nanosOfDay);
+                }
                 case TIMESTAMP: {
-                    long millis = buffer.getLong();
+                    long epochDay = buffer.getLong();
+                    long nanosOfDay = buffer.getLong();
+                    LocalDate date = LocalDate.ofEpochDay(epochDay);
+                    LocalTime time = LocalTime.ofNanoOfDay(nanosOfDay);
+                    return LocalDateTime.of(date, time);
+                }
+                case TIMESTAMP_WITH_TIME_ZONE: {
+                    long epochSecond = buffer.getLong();
+                    int nano = buffer.getInt();
+                    short zoneIdLength = buffer.getShort();
+                    byte[] zoneBytes = new byte[zoneIdLength];
+                    buffer.get(zoneBytes);
+                    String zoneId = new String(zoneBytes, StandardCharsets.UTF_8);
+                    Instant instant = Instant.ofEpochSecond(epochSecond, nano);
+                    return ZonedDateTime.ofInstant(instant, ZoneId.of(zoneId));
+                }
+                case INTERVAL: {
+                    long seconds = buffer.getLong();
                     int nanos = buffer.getInt();
-                    Timestamp ts = new Timestamp(millis);
-                    ts.setNanos(nanos);
-                    return ts;
+                    buffer.getInt(); // Skip padding
+                    return Duration.ofSeconds(seconds, nanos);
                 }
                 case UUID: {
                     long msb = buffer.getLong();
@@ -331,39 +338,69 @@ public enum DataType {
                         .array();
             case BOOLEAN:
                 return new byte[] { (byte) (((Boolean) value) ? 1 : 0) };
-            case DATE:
-                long epoch = ((Date) value).getTime();
+            case DATE: {
+                LocalDate date = (LocalDate) value;
                 return ByteBuffer.allocate(8)
-                        .putLong(epoch)
+                        .putLong(date.toEpochDay())
                         .array();
-            case TIMESTAMP:
-                Timestamp ts = (Timestamp) value;
-                long milliseconds = ts.getTime();
-                int nanos = ts.getNanos();
-                // Adjust for nanos already included in milliseconds
-                long baseMillis = milliseconds - (nanos / 1_000_000);
-                ByteBuffer tsBuffer = ByteBuffer.allocate(12);
-                tsBuffer.putLong(baseMillis);
-                tsBuffer.putInt(nanos);
-                return tsBuffer.array();
-            case UUID:
+            }
+            case TIME: {
+                LocalTime time = (LocalTime) value;
+                return ByteBuffer.allocate(8)
+                        .putLong(time.toNanoOfDay())
+                        .array();
+            }
+            case TIMESTAMP: {
+                LocalDateTime ldt = (LocalDateTime) value;
+                ByteBuffer buffer = ByteBuffer.allocate(16);
+                buffer.putLong(ldt.toLocalDate().toEpochDay());
+                buffer.putLong(ldt.toLocalTime().toNanoOfDay());
+                return buffer.array();
+            }
+            case TIMESTAMP_WITH_TIME_ZONE: {
+                ZonedDateTime zdt = (ZonedDateTime) value;
+                Instant instant = zdt.toInstant();
+                String zoneId = zdt.getZone().getId();
+                byte[] zoneBytes = zoneId.getBytes(StandardCharsets.UTF_8);
+                if (zoneBytes.length > 64) {
+                    throw new IllegalArgumentException("Zone ID too long: " + zoneId);
+                }
+                ByteBuffer buffer = ByteBuffer.allocate(14 + zoneBytes.length);
+                buffer.putLong(instant.getEpochSecond());
+                buffer.putInt(instant.getNano());
+                buffer.putShort((short) zoneBytes.length);
+                buffer.put(zoneBytes);
+                return buffer.array();
+            }
+            case INTERVAL: {
+                Duration duration = (Duration) value;
+                ByteBuffer buffer = ByteBuffer.allocate(16);
+                buffer.putLong(duration.getSeconds());
+                buffer.putInt(duration.getNano());
+                buffer.putInt(0); // Padding
+                return buffer.array();
+            }
+            case UUID: {
                 UUID uuid = (UUID) value;
                 ByteBuffer uuidBuffer = ByteBuffer.allocate(16);
                 uuidBuffer.putLong(uuid.getMostSignificantBits());
                 uuidBuffer.putLong(uuid.getLeastSignificantBits());
                 return uuidBuffer.array();
-            case VARCHAR:
+            }
+            case VARCHAR: {
                 byte[] strBytes = ((String) value).getBytes(StandardCharsets.UTF_8);
                 ByteBuffer strBuffer = ByteBuffer.allocate(2 + strBytes.length);
                 strBuffer.putShort((short) strBytes.length);
                 strBuffer.put(strBytes);
                 return strBuffer.array();
-            case BINARY:
+            }
+            case BINARY: {
                 byte[] binData = (byte[]) value;
                 ByteBuffer binBuffer = ByteBuffer.allocate(2 + binData.length);
                 binBuffer.putShort((short) binData.length);
                 binBuffer.put(binData);
                 return binBuffer.array();
+            }
             default:
                 throw new IllegalArgumentException("Unsupported type for serialization: " + this);
         }
@@ -377,16 +414,13 @@ public enum DataType {
         if (value == null)
             return "null";
         return switch (this) {
-            case DATE ->
-                DATE_FORMATTER.format(((Date) value).toInstant());
-            case TIMESTAMP -> {
-                Timestamp ts = (Timestamp) value;
-                yield TIMESTAMP_FORMATTER.format(ts.toInstant());
-            }
-            case BINARY ->
-                new String((byte[]) value, StandardCharsets.UTF_8);
-            default ->
-                value.toString();
+            case DATE -> DATE_FORMATTER.format((LocalDate) value);
+            case TIME -> TIME_FORMATTER.format((LocalTime) value);
+            case TIMESTAMP -> TIMESTAMP_FORMATTER.format((LocalDateTime) value);
+            case TIMESTAMP_WITH_TIME_ZONE -> TIMESTAMP_WITH_TZ_FORMATTER.format((ZonedDateTime) value);
+            case INTERVAL -> value.toString();
+            case BINARY -> Base64.getEncoder().encodeToString((byte[]) value);
+            default -> value.toString();
         };
     }
 
@@ -397,8 +431,11 @@ public enum DataType {
         if (value instanceof Double) return DataType.DOUBLE;
         if (value instanceof Boolean) return DataType.BOOLEAN;
         if (value instanceof Long) return DataType.LONG;
-        if (value instanceof java.util.Date) return DataType.DATE;
-        if (value instanceof java.sql.Timestamp) return DataType.TIMESTAMP;
+        if (value instanceof LocalDate) return DataType.DATE;
+        if (value instanceof LocalTime) return DataType.TIME;
+        if (value instanceof LocalDateTime) return DataType.TIMESTAMP;
+        if (value instanceof ZonedDateTime) return DataType.TIMESTAMP_WITH_TIME_ZONE;
+        if (value instanceof Duration) return DataType.INTERVAL;
         if (value instanceof String) return DataType.VARCHAR;
         if (value instanceof java.util.UUID) return DataType.UUID;
         if (value instanceof byte[]) return DataType.BINARY;

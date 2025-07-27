@@ -2,6 +2,8 @@ package com.database.db.CRUD;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -12,6 +14,7 @@ import com.database.db.index.BTreeSerialization.BlockPointer;
 import com.database.db.page.TablePage;
 import com.database.db.table.Entry;
 import com.database.db.table.Table;
+import com.database.db.CRUD.Functions.InnerFunctions;
 
 public class CRUD {
     private FileIO fileIO;
@@ -19,26 +22,32 @@ public class CRUD {
         this.fileIO = new FileIO(fileIOThread);
     }
     //==SELECTING==
-    public List<Entry> selectEntry(Table table, Object start,Object end, int columnIndex) throws IOException, ExecutionException, InterruptedException {
-        return this.selectEntry(table, start, end, columnIndex, -1);
-    }
-    public List<Entry> selectEntry(Table table, Object start,Object end, int columnIndex,int limit) throws IOException, ExecutionException, InterruptedException {
-        List<Entry> result = new ArrayList<>();
-        int index = -1;
+    public List<Entry> selectEntryASC(Table table, Object start,Object end, int columnIndex,int begin, int limit) throws IOException, ExecutionException, InterruptedException {
         List<BlockPointer> blockPointerList = table.findRangeIndex(start, end, columnIndex);
+        return this.selectEntry(table, blockPointerList, begin, limit);
+    }
+    public List<Entry> selectEntryDEC(Table table, Object start,Object end, int columnIndex,int begin, int limit) throws IOException, ExecutionException, InterruptedException {
+        List<BlockPointer> reversed = table.findRangeIndex(start, end, columnIndex);
+        Collections.reverse(reversed);
+        return this.selectEntry(table, reversed, begin, limit);
+    }
+    private List<Entry> selectEntry(Table table, List<BlockPointer> blockPointerList, int begin, int limit){
+        List<Entry> result = new ArrayList<>();
+        int index = 0;
         boolean selectAll = limit < 0;
         for (BlockPointer blockPointer : blockPointerList) {
-            index++;
-            if(!selectAll && index>=limit)return result;
+            if(index++ < begin) continue;
+            if(!selectAll && index>=limit+begin) break;
             TablePage page = table.getCache().get(blockPointer.BlockID());
             result.add(page.get(blockPointer.RowOffset()));
+            
         }
         return result;
     }
     //==INSERTION==
     public void insertEntry(Table table, Entry entry) throws IOException, ExecutionException, InterruptedException,Exception {
-        if(Entry.isValidEntry(entry.getEntry(),table.getSchema()))
-        if(table.getPages()==0)table.addOnePage();
+        if(!Entry.isValidEntry(entry.getEntry(),table.getSchema())) throw new IllegalArgumentException("Invalid Entry");
+        if(table.getPages()==0) table.addOnePage();
         TablePage page = table.getCache().getLast();
         if(page.size() < page.getCapacity()){
             this.insertionProcess(table, entry, page);
@@ -53,17 +62,13 @@ public class CRUD {
         table.insertIndex(entry, new BlockPointer(page.getPageID(), (short)(page.size()-1)));
     }
     //==DELETION==
-    public List<Entry> deleteEntry(Table table, Object start, Object end, int columnIndex) throws IllegalArgumentException,IOException, ExecutionException , InterruptedException {
-        return this.deleteEntry(table, start, end, columnIndex, -1);
-    }
     public List<Entry> deleteEntry(Table table, Object start, Object end, int columnIndex, int limit) throws IllegalArgumentException,IOException, ExecutionException , InterruptedException {
         ArrayList<Entry> result = new ArrayList<>();
-        int index = -1;
         List<BlockPointer> blockPointerList = table.findRangeIndex(start,end,columnIndex);
         boolean deleteAll = limit < 0;
+        int index = 0;
         for (BlockPointer blockPointer : blockPointerList) {
-            index++;
-            if(!deleteAll && index>=limit)return result;
+            if(!deleteAll && index++>=limit)return result;
             TablePage page = table.getCache().get(blockPointer.BlockID());
             if (page == null) continue;
             result.add(this.deletionProcess(table, page, blockPointer));
@@ -96,8 +101,10 @@ public class CRUD {
         return removed;
     }
 
+    public record updateField(int columnIndex, Functions function, Object[] arguments){}
+
     //==UPDATING==
-    public int update(Table table, Object start, Object end, int columnIndex, int limit, Map<Integer, Object> updates){
+    public int updateEntry(Table table, Object start, Object end, int columnIndex, int limit, List<Map.Entry<String,InnerFunctions>> updates){
         int result = 0;
         List<BlockPointer> blockPointerList = table.findRangeIndex(start, end, columnIndex);
         boolean updateAll = limit < 0;
@@ -111,15 +118,22 @@ public class CRUD {
         }
         return result;
     }
-    private void updateProcess(Table table, TablePage page, BlockPointer blockPointer,  Map<Integer, Object> updates){
+    private void updateProcess(Table table, TablePage page, BlockPointer blockPointer,  List<Map.Entry<String,InnerFunctions>> updates){
         Entry removed = page.remove(blockPointer.RowOffset());
         table.removeIndex(removed, blockPointer);
         Object[] values = removed.getEntry();
-        for (Map.Entry<Integer, Object> change : updates.entrySet()) {
-            values[change.getKey()] = change.getValue();
-        }
+        values = this.applyUpdates(table, values, updates);
         Entry updatedEntry = new Entry(values,table);
         page.add(updatedEntry);
         table.insertIndex(updatedEntry, blockPointer);
+    }
+    private Object[] applyUpdates(Table table, Object[] values, List<Map.Entry<String,InnerFunctions>> updates){
+        ArrayList<String> columnNames = new ArrayList<>(Arrays.asList(table.getSchema().getNames()));
+        for (Map.Entry<String, InnerFunctions> update : updates) {
+            int index = columnNames.indexOf(update.getKey());
+            if(index<0) throw new IllegalArgumentException("Invalid column to update: "+update.getKey());
+            values[index] = update.getValue().apply(table.getSchema(), values, index);
+        }
+        return values;
     }
 }

@@ -8,8 +8,9 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 
 import com.database.db.CRUD.CRUD;
+import com.database.db.CRUD.Functions;
+import com.database.db.CRUD.updateFields;
 import com.database.db.index.PrimaryKey;
-import com.database.db.manager.SchemaManager;
 import com.database.db.table.Entry;
 import com.database.db.table.Schema;
 import com.database.db.table.Table;
@@ -36,10 +37,11 @@ public class App {
             "username:VARCHAR:10:PRIMARY_KEY:NULL;"+
             "num:INT:NON:INDEX:NULL;"+
             "message:VARCHAR:10:NO_CONSTRAINT:NULL;"+
-            "data:BINARY:10:NOT_NULL:NON")
+            "data:BINARY:10:NOT_NULL:NON;"+
+            "id:LONG:NON:AUTO_INCREMENT,UNIQUE:NULL")
             .split(";"));
         System.out.println(schema.toString());
-        TableConfig tableConf = new TableConfig(tableName, schema, 0);
+        TableConfig tableConf = new TableConfig(tableName, schema, 10);
 
         Database database = new Database(databaseName);
         database.addTable(tableConf);
@@ -48,10 +50,7 @@ public class App {
         System.out.println("======== Tree updated. Writing to file.");
         //Tree INIT.
         CRUD crud = new CRUD(table.getFileIOThread());
-        SchemaManager.createTable(table);
-        SchemaManager.createPrimaryKey(table,0);
-        SchemaManager.createIndex(table, 1);
-
+        
         Random random = new Random(); 
         ArrayList<String> keysList = new ArrayList<>(400);
         int ind = 0;
@@ -65,16 +64,15 @@ public class App {
                 entryData.add(userName);
                 int intNum = random.nextInt();
                 entryData.add((intNum%25)==0 ? null : intNum);
-                //"_HELLO_"
                 entryData.add((ind%25)==0 ? null : "_HELLO_");
-
                 int sizeOfData = random.nextInt(table.getSchema().getSizes()[3]);
                 byte[] data = new byte[sizeOfData];
                 for(int y = 0; y < sizeOfData; y++){
                     data[y] = (byte) random.nextInt(127);
                 }
                 entryData.add(data);
-                Entry entry = new Entry(entryData.toArray(),table);
+                entryData.add(null);
+                Entry entry = Entry.prepareEntry(entryData.toArray(),table);
                 crud.insertEntry(table, entry);
                 ind++;
             }
@@ -84,7 +82,6 @@ public class App {
         PrimaryKey<String> tree2 = new PrimaryKey<>(table,0);
         System.out.println(schema.getTypes()[schema.getPrimaryKeyIndex()]+new String().getClass().getName());
         tree2.initialize(table);
-        //tree2.printTree();
         int trues = 0;
         int falser = 0;
         for (String key : keysList) {
@@ -109,7 +106,22 @@ public class App {
                 ind++;
             }
         }
+        table.getCache().writeCache();
+        ind = 0;
+        while (ind < 100) {
+            int randInd = random.nextInt(300-ind);
+            if(table.isKeyFound(keysList.get(randInd),0)){
+                String key = keysList.get(randInd);
+                crud.updateEntry(table, key, key, 0, -1, new updateFields()
+                    .leftPad("username", 10, "x")
+                    .set("data", new byte[10])
+                    .getFunctionsList());
+                keysList.remove(randInd);
+                ind++;
+            }
+        }
+        table.getCache().writeCache();
+        //database.removeTable(tableName);
         database.close();
-        SchemaManager.dropTable(table);
     }
 }

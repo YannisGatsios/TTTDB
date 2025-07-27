@@ -20,7 +20,7 @@ public class Table {
 
     private int sizeOfEntry;
     public static int SIZE_OF_HEADER = 2 * (Integer.BYTES) + Short.BYTES;
-    private final int BLOCK_SIZE = 4096;
+    public final int BLOCK_SIZE = 4096;
     private int numberOfPages;
 
     private AutoIncrementing[] autoIncrementing;
@@ -74,7 +74,9 @@ public class Table {
         for (int i = 0;i<result.length;i++){
             if(isAutoIncrementing[i]){
                 long max;
-                if(this.indexes.isIndexed(i)) max = (Long)this.indexes.getMax(i);
+                Object maxValue = this.indexes.getMax(i);
+                if(this.indexes.isIndexed(i) && maxValue != null) max = (long)maxValue;
+                else if (this.indexes.isIndexed(i) && maxValue == null) max = 0;
                 else{
                     max = this.getMaxSequential(i);
                 }
@@ -145,6 +147,7 @@ public class Table {
     public Schema getSchema(){return this.schema;}
     public Cache getCache(){return this.cache;}
     public FileIOThread getFileIOThread() {return this.fileIOThread;}
+    public IndexManager getIndexManager(){return this.indexes;}
 
     //Get Index and Table file paths for this Table. 
     public String getPath(){return this.path+this.getDatabaseName()+"."+this.getName()+".table";}

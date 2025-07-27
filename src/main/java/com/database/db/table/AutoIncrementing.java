@@ -12,9 +12,11 @@ public class AutoIncrementing {
         return this.nextKey++;
     }
 
+    public long getKey(){return this.nextKey;}
+
     // You would initialize this generator by finding the max key currently in the
     // table.
     public void setNextKey(long key) {
-        this.nextKey = key;
+        this.nextKey = key+1;
     }
 }

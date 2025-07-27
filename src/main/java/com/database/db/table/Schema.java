@@ -59,34 +59,39 @@ public class Schema {
     DataType[] types = new DataType[columns.length];
     for (int i = 0; i < columns.length; i++) {
         types[i] = columns[i].type();
+        }
+        return types;
     }
-    return types;
-}
+    public int[] getSizes() {
+        int[] sizes = new int[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            sizes[i] = columns[i].size();
+        }
+        return sizes;
+    }
+    public List<Constraint>[] getConstraints() {
+        @SuppressWarnings("unchecked")
+        List<Constraint>[] constraints = (List<Constraint>[]) new List[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            constraints[i] = columns[i].constraints();
+        }
+        return constraints;
+    }
+    public Object[] getDefaults() {
+        Object[] defaults = new Object[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            defaults[i] = columns[i].Default();
+        }
+        return defaults;
+    }
 
-public int[] getSizes() {
-    int[] sizes = new int[columns.length];
-    for (int i = 0; i < columns.length; i++) {
-        sizes[i] = columns[i].size();
+    public boolean[] isIndexed(){
+        boolean[] result = new boolean[this.columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            result[i] = (columns[i].constraints.contains(Constraint.PRIMARY_KEY) || columns[i].constraints.contains(Constraint.UNIQUE) || columns[i].constraints.contains(Constraint.INDEX));
+        }
+        return result;
     }
-    return sizes;
-}
-
-public List<Constraint>[] getConstraints() {
-    @SuppressWarnings("unchecked")
-    List<Constraint>[] constraints = (List<Constraint>[]) new List[columns.length];
-    for (int i = 0; i < columns.length; i++) {
-        constraints[i] = columns[i].constraints();
-    }
-    return constraints;
-}
-
-public Object[] getDefaults() {
-    Object[] defaults = new Object[columns.length];
-    for (int i = 0; i < columns.length; i++) {
-        defaults[i] = columns[i].Default();
-    }
-    return defaults;
-}
 
     public int getPrimaryKeyIndex(){
         int index = 0;

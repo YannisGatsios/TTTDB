@@ -160,19 +160,21 @@ public class Entry {
         boolean[] notNullable = schema.getNotNull();
         boolean[] AutoIncrementing = schema.getAutoIncrementIndex();
         boolean[] hasUniqueIndex = schema.getUniqueIndex();
-        for (int i = 0;i<schema.getNumOfColumns();i++) {
+        for (int i = 0;i<notNullable.length;i++) {
             boolean isPrimaryKey = (i == primaryKeyIndex);
             boolean isUnique = (hasUniqueIndex[i] || isPrimaryKey);
             if (notNullable[i] && !AutoIncrementing[i] && entry[i] == null)
                 throw new Exception("Gave null value for NOT_NULL field: "+schema.getNames()[i]);
             if (AutoIncrementing[i] && entry[i] == null) 
                 entry[i] = table.getAutoIncrementing(i).getNextKey();
+            else if (AutoIncrementing[i] && entry[i] != null)
+                if(table.getAutoIncrementing(i).getKey() < (long)entry[i]) table.getAutoIncrementing(i).setNextKey((long)entry[i]);
             else if (entry[i] == null) 
                 entry[i] = schema.getDefaults()[i];
             if(isUnique && table.isKeyFound(entry[i], i))
                 throw new Exception("Already Existing value for Primary Key column: "+schema.getNames()[i]);
         }
-        return null;
+        return new Entry(entry, table);
     }
 
     public static boolean isValidEntry(Object[] entry, Schema schema) throws Exception{
@@ -182,7 +184,7 @@ public class Entry {
         DataType[] expectedTypes = schema.getTypes();
         int[] expectedSizes = schema.getSizes();
         boolean[] isNotNullable = schema.getNotNull();
-        for (int i = 0; i < schema.getNumOfColumns(); i++) {
+        for (int i = 0; i < expectedTypes.length; i++) {
             DataType expectedType = expectedTypes[i];
             int expectedSize = expectedSizes[i];
             if(!isNotNullable[i] && entry[i] != null) expectedType.validateValue(entry[i], expectedSize);

@@ -1,4 +1,4 @@
-package com.database.db.parser;
+package com.database.db.CRUD;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import com.database.db.FileIOThread;
-import com.database.db.CRUD.CRUD;
 import com.database.db.manager.SchemaManager;
 import com.database.db.table.Entry;
 import com.database.db.table.Schema;
@@ -44,6 +43,7 @@ public class CRUDTest {
     }
 
     private Table table;
+    private Schema schema;
     private CRUD CRUD;
     private Random random;
     private String[] keysList;
@@ -56,13 +56,14 @@ public class CRUDTest {
         fileIOThread.start();
         databaseName = "test_database";
         tableName = "test_table";
-        Schema schema = new Schema("username:VARCHAR:100:PRIMARY_KEY:NULL;num:INT:NON:INDEX:NULL;message:VARCHAR:10:NO_CONSTRAINT:NULL;data:BINARY:10:NOT_NULL:NON".split(";"));
+        schema = new Schema(("username:VARCHAR:100:PRIMARY_KEY:NULL;"+
+        "num:INT:NON:INDEX:NULL;"+
+        "message:VARCHAR:10:NO_CONSTRAINT:NULL;"+
+        "data:BINARY:10:NOT_NULL:NON").split(";"));
+        SchemaManager.createTable(schema,"storage/",databaseName,tableName);
         table = new Table(databaseName, tableName, schema, fileIOThread,"storage/");//Table INIT
         
         CRUD = new CRUD(fileIOThread);
-        SchemaManager.createTable(table); //Creating table
-        SchemaManager.createPrimaryKey(table,0);
-        SchemaManager.createIndex(table, 1);
 
         random = new Random();
         keysList = new String[400];
@@ -90,7 +91,7 @@ public class CRUDTest {
     @Order(2)
     void testDeleteLastEntry() throws ExecutionException, InterruptedException, IOException {
         try {
-            CRUD.deleteEntry(table, "firstEntry", "firstEntry", 0);
+            CRUD.deleteEntry(table, "firstEntry", "firstEntry", 0,-1);
         } catch (IllegalArgumentException | IOException e) {
             fail(e);
         }
@@ -167,7 +168,7 @@ public class CRUDTest {
             if(table.isKeyFound(keysList[randInd],0)){
                 try {
                     String key = keysList[randInd];
-                    CRUD.deleteEntry(table, key, key, 0);
+                    CRUD.deleteEntry(table, key, key, 0,-1);
                 } catch (IllegalArgumentException | IOException e) {
                     fail(e);
                 }
@@ -180,7 +181,7 @@ public class CRUDTest {
     @Order(5)
     void testOrderedEntryInsertion() throws ExecutionException, InterruptedException, IOException, Exception {
         SchemaManager.dropTable(table);
-        SchemaManager.createTable(table);
+        SchemaManager.createTable(schema,"storage/","test_database", "test_table");
 
         int ind = 0;
         while(ind < 1000000){

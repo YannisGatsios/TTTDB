@@ -5,9 +5,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.concurrent.ExecutionException;
 
-import com.database.db.table.Constraint;
+import com.database.db.table.Schema;
 import com.database.db.table.Table;
 
 public class SchemaManager {
@@ -16,13 +15,20 @@ public class SchemaManager {
         // TODO: implement creating a database folder or similar
     }
 
-    public static void createTable(Table table) {
+    public static void createTable(Schema schema, String path, String databaseName, String tableName) {
         try {
-            File tableFile = new File(table.getPath());
+            File tableFile = new File(path+databaseName+"."+tableName+".table");
             if (tableFile.createNewFile()) {
                 System.out.println("Table File created: " + tableFile.getName());
             } else {
                 System.out.println("Table File already exists.");
+            }
+            String[] columnNames = schema.getNames();
+            boolean[] isIndexed = schema.isIndexed();
+            for (int i = 0;i<columnNames.length;i++) {
+                if(isIndexed[i]){
+                    SchemaManager.createIndex(path+databaseName+"."+tableName+"."+columnNames[i]+".index");
+                }
             }
         } catch (IOException e) {
             System.out.println("An error occurred while creating the table.");
@@ -30,27 +36,9 @@ public class SchemaManager {
         }
     }
 
-    public static void createPrimaryKey(Table table, int columnIndex) 
-            throws InterruptedException, ExecutionException, IOException {
+    public static void createIndex(String path) {
         try {
-            File indexFile = new File(table.getIndexPath(columnIndex));
-            if (indexFile.createNewFile()) {
-                System.out.println("Index File created: " + indexFile.getName());
-            } else {
-                System.out.println("Index File already exists.");
-            }
-        } catch (IOException e) {
-            System.out.println("An error occurred while creating the primary key.");
-            e.printStackTrace();
-        }
-        if (table.getSchema().hasPrimaryKey) {
-            table.initPrimaryKey(columnIndex);
-        }
-    }
-
-    public static void createIndex(Table table, int columnIndex) {
-        try {
-            File indexFile = new File(table.getIndexPath(columnIndex));
+            File indexFile = new File(path);
             if (indexFile.createNewFile()) {
                 System.out.println("Index File created: " + indexFile.getName());
             } else {
@@ -60,9 +48,6 @@ public class SchemaManager {
             System.out.println("An error occurred while creating the index.");
             e.printStackTrace();
         }
-        if (table.getSchema().getConstraints()[columnIndex].indexOf(Constraint.INDEX) == -1) {
-            // TODO: actually set the constraint
-        }
     }
 
     public static void dropDatabase() {
@@ -71,15 +56,12 @@ public class SchemaManager {
 
     public static void dropTable(Table table) {
         Path tablePath = Paths.get(table.getPath());
-        Path primaryKeyPath = Paths.get(table.getIndexPath(table.getSchema().getPrimaryKeyIndex()));
-        boolean[] indexList = table.getSchema().getIndexIndex();
+        boolean[] isIndexed = table.getSchema().isIndexed();
         try {
             Files.delete(tablePath);
             System.out.println("Table File deleted successfully.");
-            Files.delete(primaryKeyPath);
-            System.out.println("Primary Key File deleted successfully.");
-            for (int i = 0;i<indexList.length;i++) {
-                if(indexList[i]){
+            for (int i = 0;i<isIndexed.length;i++) {
+                if(isIndexed[i]){
                     Path secondaryKeyPath = Paths.get(table.getIndexPath(i));
                     Files.delete(secondaryKeyPath);
                     System.out.println("Secondary Key File deleted successfully.");

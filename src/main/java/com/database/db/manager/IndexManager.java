@@ -22,26 +22,23 @@ public class IndexManager {
 
     private Table table;
     Schema schema;
-    private List<BTreeSerialization<?>> indexes;
+    private BTreeSerialization<?>[] indexes;
 
     public IndexManager(Table table) throws InterruptedException, ExecutionException, IOException {
         this.table = table;
         this.schema = table.getSchema();
-        this.indexes = new ArrayList<>(schema.getNumOfColumns());
+        this.indexes = new BTreeSerialization<?>[schema.getNumOfColumns()];
         // Checking if primary key is set and then setting it
-        if(schema.hasPrimaryKey) {
-            int pkIndex = schema.getPrimaryKeyIndex();
-            this.indexes.add(pkIndex,this.newPrimaryKey(pkIndex));
-        }
-        if(this.schema.hasUnique){
-            boolean[] unIndexes = schema.getUniqueIndex();
-            for (int i = 0;i<unIndexes.length;i++) 
-                if(unIndexes[i]) this.indexes.add(i,this.newUnique(i));
-        }
-        if(this.schema.hasIndex){
-            boolean[] inIndexes = schema.getIndexIndex();
-            for (int i = 0;i<inIndexes.length;i++) 
-                if(inIndexes[i]) this.indexes.add(i,this.newIndex(i));
+        boolean[] isIndexed = schema.isIndexed();
+        int PrimaryKeyIndex = schema.getPrimaryKeyIndex();
+        boolean[] unIndexes = schema.getUniqueIndex();
+        boolean[] inIndexes = schema.getIndexIndex();
+        for (int i = 0;i<isIndexed.length;i++) {
+            if(isIndexed[i]){
+                if(PrimaryKeyIndex == i) this.indexes[i] = this.newPrimaryKey(i);
+                else if (unIndexes[i]) this.indexes[i] = this.newUnique(i);
+                else if (inIndexes[i]) this.indexes[i] = this.newIndex(i);
+            }
         }
     }
 
@@ -88,22 +85,24 @@ public class IndexManager {
         };
     }
     public boolean isIndexed(int columnIndex){
-        return this.indexes.get(columnIndex) != null;
+        if(this.indexes.length == 0) return false;
+        return this.indexes[columnIndex] != null;
     }
 
     public Object getMax(int columnIndex){
-        return this.indexes.get(columnIndex).getMax();
+        if(this.indexes[columnIndex] == null)return null;
+        return this.indexes[columnIndex].getMax();
     }
     
     public <K extends Comparable<? super K>> List<BlockPointer> findRangeIndex(K upper, K lower, int columnIndex){
-        return this.rangeSearch(upper, lower, this.indexes.get(columnIndex));
+        return this.rangeSearch(upper, lower, this.indexes[columnIndex]);
     }
     @SuppressWarnings("unchecked")
     private <K extends Comparable<? super K>> List<BlockPointer> rangeSearch(K upper, K lower,BTreeSerialization<?> index){
         return ((BTreeSerialization<K>) index).rangeSearch(upper, lower);
     }
     public <K extends Comparable<? super K>> List<BlockPointer> findBlock(K key, int columnIndex){
-        return this.search(key, this.indexes.get(columnIndex));
+        return this.search(key, this.indexes[columnIndex]);
     }
     @SuppressWarnings("unchecked")
     private <K extends Comparable<? super K>> List<BlockPointer> search(K key, BTreeSerialization<?> index){
@@ -111,12 +110,13 @@ public class IndexManager {
     }
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> boolean isKeyFound(K key, int columnIndex){
-        return ((BTreeSerialization<K>)this.indexes.get(columnIndex)).isKey(key);
+        return ((BTreeSerialization<K>)this.indexes[columnIndex]).isKey(key);
     }
 
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> void insertIndex(Entry entry, BlockPointer blockPointer){
         for (BTreeSerialization<?> index : this.indexes) {
+            if(index == null) continue;
             int columnIndex = index.getColumnIndex();
             Object key = entry.get(columnIndex);
             DataType type = schema.getTypes()[columnIndex];
@@ -134,6 +134,7 @@ public class IndexManager {
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>,V> void removeIndex(Entry entry, BlockPointer blockPointer){
         for (BTreeSerialization<?> index : this.indexes) {
+            if(index == null) continue;
             int columnIndex = index.getColumnIndex();
             Object key = entry.get(columnIndex);
             DataType type = schema.getTypes()[columnIndex];
@@ -151,6 +152,7 @@ public class IndexManager {
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>,V> void updateIndex(Entry entry, BlockPointer newBlockPointer, BlockPointer oldBlockPointer){
         for (BTreeSerialization<?> index : this.indexes) {
+            if(index == null) continue;
             int columnIndex = index.getColumnIndex();
             Object key = entry.get(columnIndex);
             DataType type = schema.getTypes()[columnIndex];
@@ -168,12 +170,12 @@ public class IndexManager {
 
     public void initPrimaryKey(int columnIndex) throws InterruptedException, ExecutionException, IOException{
         //this.tableSchema.update TODO
-        this.indexes.add(this.newPrimaryKey(columnIndex));
-        ((PrimaryKey<?>)this.indexes.get(columnIndex)).initialize(table);
+        this.indexes[columnIndex] = this.newPrimaryKey(columnIndex);
+        ((PrimaryKey<?>)this.indexes[columnIndex]).initialize(table);
     }
     public void initIndex(int columnIndex) throws InterruptedException, ExecutionException, IOException{
         //this.tableSchema.update TODO
-        this.indexes.add(this.newIndex(columnIndex));
-        ((Index<?>)this.indexes.getLast()).initialize(table);
+        this.indexes[columnIndex] = this.newIndex(columnIndex);
+        ((Index<?>)this.indexes[columnIndex]).initialize(table);
     }
 }
