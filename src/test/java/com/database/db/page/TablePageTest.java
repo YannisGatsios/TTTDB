@@ -27,12 +27,16 @@ class TablePageTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        File file = new File("./storage/testdb.test.table");
+        File file = new File("./testdb.test.table");
+        File file1 = new File("./testdb.test.username.index");
+        File file2 = new File("./testdb.test.num.index");
         file.createNewFile();
+        file1.createNewFile();
+        file2.createNewFile();
         fileIOThread = new FileIOThread();
         fileIOThread.start();
         Schema schema = new Schema(SCHEMA_STRING.split(";"));
-        table = new Table("testdb", "test", schema, fileIOThread,"storage/");
+        table = new Table("testdb", "test", schema, fileIOThread,"");
 
         entry1 = createEntry("user1", 100, "msg1", new byte[]{1,2,3});
         entry2 = createEntry("user22", 200, "msg22", new byte[]{4,5,6});
@@ -222,7 +226,11 @@ class TablePageTest {
     }
     @AfterAll
     static void end(){
-        File file = new File("./storage/testdb.test.table");
+        File file = new File("./testdb.test.table");
+        File file1 = new File("./testdb.test.username.index");
+        File file2 = new File("./testdb.test.num.index");
         file.delete();
+        file1.delete();
+        file2.delete();
     }
 }

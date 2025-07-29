@@ -85,7 +85,7 @@ class PageTest {
 
     @BeforeEach
     void setUp() throws IOException, ExecutionException, InterruptedException, Exception {
-        File file = new File("./storage/mockDB.mockTable.table");
+        File file = new File("./mockDB.mockTable.table");
         file.createNewFile();
         Schema mockSchema = new Schema((
     "id:INTEGER:NON:NO_CONSTRAINT:NULL;" +
@@ -255,7 +255,7 @@ class PageTest {
     }
     @AfterAll
     static void end(){
-        File file = new File("./storage/mockDB.mockTable.table");
+        File file = new File("./mockDB.mockTable.table");
         file.delete();
     }
 }
