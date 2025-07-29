@@ -20,17 +20,17 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import com.database.db.FileIOThread;
-import com.database.db.manager.SchemaManager;
+import com.database.db.App.TableConfig;
+import com.database.db.manager.EntryManager;
+import com.database.db.Database;
 import com.database.db.table.Entry;
 import com.database.db.table.Schema;
 import com.database.db.table.Table;
 
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class CRUDTest {
+public class EntryManagerTest {
 
-    private FileIOThread fileIOThread;
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private String generateRandomString(int length) {
@@ -42,28 +42,29 @@ public class CRUDTest {
         return sb.toString();
     }
 
+    private Database database;
     private Table table;
+    private TableConfig config;
     private Schema schema;
-    private CRUD CRUD;
+    private EntryManager CRUD;
     private Random random;
     private String[] keysList;
-    private String databaseName;
-    private String tableName;
 
     @BeforeAll
     void setup() throws ExecutionException, InterruptedException, IOException, Exception {
-        fileIOThread = new FileIOThread();
-        fileIOThread.start();
-        databaseName = "test_database";
-        tableName = "test_table";
+        database = new Database("test_database");
         schema = new Schema(("username:VARCHAR:100:PRIMARY_KEY:NULL;"+
-        "num:INT:NON:INDEX:NULL;"+
-        "message:VARCHAR:10:NO_CONSTRAINT:NULL;"+
-        "data:BINARY:10:NOT_NULL:NON").split(";"));
-        SchemaManager.createTable(schema,"storage/",databaseName,tableName);
-        table = new Table(databaseName, tableName, schema, fileIOThread,"storage/");//Table INIT
+            "num:INT:NON:INDEX:NULL;"+
+            "message:VARCHAR:10:NO_CONSTRAINT:NULL;"+
+            "data:BINARY:10:NOT_NULL:NON")
+            .split(";"));
+        config = new TableConfig("test_table", schema, 10);
+        database.createTable(config);
+        table = database.getTable("test_table");
         
-        CRUD = new CRUD(fileIOThread);
+        CRUD = new EntryManager();
+        CRUD.selectDatabase(database);
+        CRUD.selectTable("test_table");
 
         random = new Random();
         keysList = new String[400];
@@ -79,22 +80,12 @@ public class CRUDTest {
         byte[] data = new byte[10];
         entryData.add(data);
         Entry entry = new Entry(entryData.toArray(), table);
-        try {
-            CRUD.insertEntry(table, entry);
-        } catch (IllegalArgumentException e) {
-            fail(e);
-        } catch (IOException e) {
-            fail(e);
-        }
+        CRUD.insertEntry(entry);
     }
     @Test
     @Order(2)
     void testDeleteLastEntry() throws ExecutionException, InterruptedException, IOException {
-        try {
-            CRUD.deleteEntry(table, "firstEntry", "firstEntry", 0,-1);
-        } catch (IllegalArgumentException | IOException e) {
-            fail(e);
-        }
+        CRUD.deleteEntry("firstEntry", "firstEntry", 0,-1);
     }
 
     @Test
@@ -122,11 +113,7 @@ public class CRUDTest {
                 }
                 entryData.add(data);
                 Entry entry = new Entry(entryData.toArray(), table);
-                try {
-                    CRUD.insertEntry(table, entry);
-                } catch (IOException e) {
-                    fail(e);
-                }
+                CRUD.insertEntry(entry);
                 ind++;
             }
         }
@@ -166,12 +153,8 @@ public class CRUDTest {
         while (ind < 100) {
             int randInd = random.nextInt(400);
             if(table.isKeyFound(keysList[randInd],0)){
-                try {
-                    String key = keysList[randInd];
-                    CRUD.deleteEntry(table, key, key, 0,-1);
-                } catch (IllegalArgumentException | IOException e) {
-                    fail(e);
-                }
+                String key = keysList[randInd];
+                CRUD.deleteEntry(key, key, 0,-1);
                 ind++;
             }
         }
@@ -180,8 +163,6 @@ public class CRUDTest {
     @Test
     @Order(5)
     void testOrderedEntryInsertion() throws ExecutionException, InterruptedException, IOException, Exception {
-        SchemaManager.dropTable(table);
-        SchemaManager.createTable(schema,"storage/","test_database", "test_table");
 
         int ind = 0;
         while(ind < 1000000){
@@ -192,14 +173,11 @@ public class CRUDTest {
             entryData.add("TEST");
             entryData.add(new byte[] {(byte)ind});
             Entry entry = new Entry(entryData.toArray(), table);
-            try {
-                CRUD.insertEntry(table, entry);
-            } catch (IOException e) {
-                fail(e);
-            }
+            CRUD.insertEntry(entry);
             ind++;
         }
-        table.getCache().writeCache();
+        table.getCache().clear();
+        System.out.println();
     }
 
     @AfterAll
@@ -210,6 +188,6 @@ public class CRUDTest {
             e.printStackTrace();
             fail();
         }
-        SchemaManager.dropTable(table);
+        database.removeAllTables();
     }
 }

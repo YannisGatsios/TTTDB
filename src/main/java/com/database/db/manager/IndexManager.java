@@ -1,12 +1,13 @@
 package com.database.db.manager;
 
+import java.io.File;
 import java.io.IOException;
 import java.sql.Timestamp;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
+import com.database.db.FileIO;
 import com.database.db.index.BPlusTree;
 import com.database.db.index.BTreeSerialization;
 import com.database.db.index.Index;
@@ -165,6 +166,19 @@ public class IndexManager {
                 ", but got " + key.getClass().getName());
             if(index.isUnique())((BTreeSerialization<K>) index).update((K) key, newBlockPointer);
             else ((BTreeSerialization<K>) index).update((K) key, newBlockPointer, oldBlockPointer);
+        }
+    }
+
+    public void writeIndexes(Table table) throws ExecutionException, InterruptedException{
+        FileIO fileIO = new FileIO(table.getFileIOThread());
+        for (BTreeSerialization<?> index : indexes) {
+            if(index != null){
+                File file = new File(table.getIndexPath(index.getColumnIndex()));
+                long fileSize = file.length();
+                byte[] treeBytes = index.toBytes(table);
+                if(fileSize > treeBytes.length) fileIO.truncateFile(table.getIndexPath(index.getColumnIndex()), (int)(fileSize-treeBytes.length));
+                fileIO.writeTree(table.getIndexPath(index.getColumnIndex()), treeBytes);
+            }
         }
     }
 

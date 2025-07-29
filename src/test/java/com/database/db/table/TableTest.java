@@ -6,9 +6,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.database.db.App.TableConfig;
+import com.database.db.manager.EntryManager;
 import com.database.db.Database;
 import com.database.db.FileIOThread;
-import com.database.db.CRUD.CRUD;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -36,7 +36,7 @@ public class TableTest {
         TableConfig tableConf = new TableConfig(tableName, schema, 10);
         database = new Database(databaseName);
         database.setPath(testPath);
-        database.addTable(tableConf);
+        database.createTable(tableConf);
         // Create real Schema instance
 
         // Get table
@@ -103,17 +103,19 @@ public class TableTest {
         Schema aiSchema = new Schema(aiSchemaDef.split(";"));
         //Files.createFile(tempDir.resolve("testDB.aiTable.table"));
         TableConfig tableConf = new TableConfig("aiTable", aiSchema, 10);
-        database.addTable(tableConf);
+        database.createTable(tableConf);
 
         // Create table with auto-increment
         Table aiTable = database.getTable("aiTable");
         
         // Add some entries to build up the auto-increment sequence
-        CRUD crud = new CRUD(aiTable.getFileIOThread());
+        EntryManager crud = new EntryManager();
+        crud.selectDatabase(database);
+        crud.selectTable("aiTable");
         for (long i = 1; i <= 100; i++) {
             Object[] entryData = {i, "Name" + i};
             Entry entry = Entry.prepareEntry(entryData, aiTable);
-            crud.insertEntry(aiTable, entry);
+            crud.insertEntry(entry);
         }
         
         // Verify auto-increment starts at the next value
@@ -123,7 +125,7 @@ public class TableTest {
         for (long i = 1; i <= 100; i++) {
             Object[] entryData = {null, "Name" + i};
             Entry entry = Entry.prepareEntry(entryData, aiTable);
-            crud.insertEntry(aiTable, entry);
+            crud.insertEntry(entry);
         }
         
         // Verify auto-increment starts at the next value

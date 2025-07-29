@@ -72,7 +72,9 @@ public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTr
     }
 
     private void nullsToBytes(DataOutputStream out) throws IOException {
-        List<BlockPointer> nullEntries = this.getNullPair().getAll();
+        Pair<K, BlockPointer> pair = this.getNullPair();
+        if(pair == null) return;
+        List<BlockPointer> nullEntries = pair.getAll();
         out.writeInt(nullEntries.size());
         for (BlockPointer value : nullEntries) {
             out.write(this.blockPointerToBytes(value));

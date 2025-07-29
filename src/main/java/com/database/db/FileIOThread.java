@@ -2,8 +2,11 @@ package com.database.db;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-
+import java.util.logging.Level;
+import java.util.logging.Logger;
 public class FileIOThread extends Thread {
+
+    private static final Logger logger = Logger.getLogger(FileIOThread.class.getName());
 
     private final BlockingQueue<Runnable> taskQueue = new LinkedBlockingQueue<>();
     private volatile boolean running = true;
@@ -17,14 +20,15 @@ public class FileIOThread extends Thread {
             taskQueue.put(task);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            logger.log(Level.WARNING, "Interrupted while submitting a task to the queue.", e);
         }
     }
 
     public void shutdown() throws InterruptedException {
         acceptingTasks = false;
         running = false;
-        this.interrupt();
-        this.join();
+        this.interrupt(); // In case it's blocked on take()
+        this.join();      // Wait for thread to finish
     }
 
     @Override
@@ -35,13 +39,12 @@ public class FileIOThread extends Thread {
                 try {
                     task.run();
                 } catch (Exception e) {
-                    System.err.println("Task execution failed: " + e);
-                    e.printStackTrace();
+                    logger.log(Level.SEVERE, "Task execution failed.", e);
                 }
             } catch (InterruptedException e) {
-                // Ignore — check running flag & queue again
+                // Thread was interrupted (likely due to shutdown), check flags and loop
             }
         }
-        System.out.println("FileIOThread shut down. All tasks completed.");
+        logger.info("FileIOThread shut down. All tasks completed.");
     }
 }

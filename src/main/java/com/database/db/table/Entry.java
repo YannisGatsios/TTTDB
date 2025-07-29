@@ -177,7 +177,7 @@ public class Entry {
         return new Entry(entry, table);
     }
 
-    public static boolean isValidEntry(Object[] entry, Schema schema) throws Exception{
+    public static boolean isValidEntry(Object[] entry, Schema schema) {
         //Check if the number of columns matches the number of elements in the entry.
         if (entry.length != schema.getNumOfColumns()) return false;
         // Get the entry data and check each element's type and size.

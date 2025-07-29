@@ -5,11 +5,15 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import com.database.db.FileIO;
 import com.database.db.table.Table;
 
 public class Cache {
+    private static final Logger logger = Logger.getLogger(Cache.class.getName());
+
     private final FileIO fileIO;
     private final int capacity;
     private final Table table;
@@ -30,7 +34,8 @@ public class Cache {
                     try {
                         evictPage(eldest.getKey(), eldest.getValue());
                     } catch (IOException e) {
-                        throw new RuntimeException(e); // or handle properly
+                        logger.log(Level.SEVERE, String.format("Failed to evict page ID %d from table '%s'.", eldest.getKey(), table.getName()), e);
+                        throw new RuntimeException("Eviction failed for page ID: " + eldest.getKey(), e);
                     }
                     return true;
                 }
@@ -41,50 +46,61 @@ public class Cache {
 
     /** Write the given page to disk if needed and remove it from cache. */
     private void evictPage(int pageID, TablePage page) throws IOException {
-        if (page.isDirty()) { // assume TablePage has a dirty flag
+        if (page.isDirty()) {
             fileIO.writePage(table.getPath(), page.toBytes(), page.getPagePos());
-            this.counter++;
-            if(this.counter >= this.capacity){
-                
+            counter++;
+            if (counter >= capacity) {
+                // If needed, future place for flush/rotation logic
+                counter = 0; // Reset or handle otherwise
             }
         }
-        // no need to remove explicitly, LinkedHashMap does it
     }
 
     /** Write all pages in cache to disk and clear cache. */
-    public synchronized void writeCache() throws IOException {
-        Map<Integer, TablePage> sortedCache = new TreeMap<>(cache);
+    private synchronized void writeCache() {
+        Map<Integer, TablePage> sortedCache = new TreeMap<>(cache); // deterministic eviction
         for (Map.Entry<Integer, TablePage> entry : sortedCache.entrySet()) {
             TablePage page = entry.getValue();
             if (page.isDirty()) {
-                fileIO.writePage(table.getPath(), page.toBytes(), page.getPagePos());
+                try {
+                    fileIO.writePage(table.getPath(), page.toBytes(), page.getPagePos());
+                } catch (IOException e) {
+                    logger.log(Level.WARNING, String.format("Failed to write page ID %d to disk for table '%s'.", entry.getKey(), table.getName()), e);
+                }
             }
         }
         cache.clear();
+        logger.info(String.format("Cache flushed and cleared for table '%s'.", table.getName()));
     }
 
     /** Load a page into cache, evicting LRU if necessary. */
-    public   TablePage loadPage(int pageID) throws IOException, InterruptedException, ExecutionException {
-        TablePage newPage = new TablePage(pageID, table);
-        cache.put(pageID, newPage);
-        return newPage;
+    public TablePage loadPage(int pageID) {
+        try {
+            TablePage newPage = new TablePage(pageID, table);
+            cache.put(pageID, newPage);
+            return newPage;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.log(Level.SEVERE, String.format("Interrupted while loading page ID %d for table '%s'.", pageID, table.getName()), e);
+        } catch (ExecutionException e) {
+            logger.log(Level.SEVERE, String.format("Execution failed while loading page ID %d for table '%s'.", pageID, table.getName()), e);
+        } catch (IOException e) {
+            logger.log(Level.SEVERE, String.format("IO error while loading page ID %d for table '%s'.", pageID, table.getName()), e);
+        }
+        return null;
     }
 
     public synchronized TablePage get(int pageID) {
-        TablePage page;
-        if (cache.containsKey(pageID)){
-            page = cache.get(pageID);
-        }else {
-            try {
-                page = loadPage(pageID);
-            } catch (IOException | InterruptedException | ExecutionException e) {
-                throw new RuntimeException("Failed to load page " + pageID, e);
-            }
+        TablePage page = cache.get(pageID);
+        if (page != null) {
+            return page;
+        } else {
+            logger.fine(String.format("Cache miss for page ID %d in table '%s'. Loading...", pageID, table.getName()));
+            return loadPage(pageID);
         }
-        return page;
     }
 
-    public synchronized TablePage getLast() throws IOException, ExecutionException, InterruptedException {
+    public synchronized TablePage getLast(){
         int lastPageId = table.getPages() - 1;
         if (lastPageId == -1) lastPageId = 0;
         return this.get(lastPageId);
@@ -102,7 +118,16 @@ public class Cache {
         return cache.containsKey(pageID);
     }
 
-    public synchronized void clear() throws IOException {
+    public synchronized void clear(){
+        try {
+            table.getIndexManager().writeIndexes(table);
+        } catch (ExecutionException e) {
+            logger.log(Level.SEVERE, "ExecutionException while writing indexes for table '" + table.getName() + "'", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // restore interrupt status
+            logger.log(Level.SEVERE, "InterruptedException while writing indexes for table '" + table.getName() + "'",
+                    e);
+        }
         writeCache();
     }
 }

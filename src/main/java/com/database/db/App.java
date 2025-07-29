@@ -7,10 +7,9 @@ import java.io.IOException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 
-import com.database.db.CRUD.CRUD;
-import com.database.db.CRUD.Functions;
 import com.database.db.CRUD.updateFields;
 import com.database.db.index.PrimaryKey;
+import com.database.db.manager.EntryManager;
 import com.database.db.table.Entry;
 import com.database.db.table.Schema;
 import com.database.db.table.Table;
@@ -31,8 +30,7 @@ public class App {
 
     public static void main(String[] args) throws IOException,InterruptedException, ExecutionException, Exception{
         //DataBase INIT.
-        String databaseName = "system";
-        String tableName = "users";
+        Database database = new Database("system");
         Schema schema = new Schema((
             "username:VARCHAR:10:PRIMARY_KEY:NULL;"+
             "num:INT:NON:INDEX:NULL;"+
@@ -41,15 +39,15 @@ public class App {
             "id:LONG:NON:AUTO_INCREMENT,UNIQUE:NULL")
             .split(";"));
         System.out.println(schema.toString());
-        TableConfig tableConf = new TableConfig(tableName, schema, 10);
+        TableConfig tableConf = new TableConfig("users", schema, 10);
 
-        Database database = new Database(databaseName);
-        database.addTable(tableConf);
+        database.createTable(tableConf);
+        EntryManager crud = new EntryManager();
+        crud.selectDatabase(database);
+        crud.selectTable("users");
 
-        Table table = database.getTable(tableName);
-        System.out.println("======== Tree updated. Writing to file.");
+        Table table = database.getTable("users");
         //Tree INIT.
-        CRUD crud = new CRUD(table.getFileIOThread());
         
         Random random = new Random(); 
         ArrayList<String> keysList = new ArrayList<>(400);
@@ -73,15 +71,12 @@ public class App {
                 entryData.add(data);
                 entryData.add(null);
                 Entry entry = Entry.prepareEntry(entryData.toArray(),table);
-                crud.insertEntry(table, entry);
+                crud.insertEntry(entry);
                 ind++;
             }
         }
-        //System.out.println(table.getPrimaryKey().toString());
-        table.getCache().writeCache();
+        table.getCache().clear();
         PrimaryKey<String> tree2 = new PrimaryKey<>(table,0);
-        System.out.println(schema.getTypes()[schema.getPrimaryKeyIndex()]+new String().getClass().getName());
-        tree2.initialize(table);
         int trues = 0;
         int falser = 0;
         for (String key : keysList) {
@@ -91,28 +86,26 @@ public class App {
                 falser++;
             }
         }
-        System.out.println("True Are : "+trues+"\nFalse Are : "+falser+"\n===========[Starting Random 100 Deletions.]===========");
-        //table.setPrimaryKey(tree2);
+        //System.out.println("True Are : "+trues+"\nFalse Are : "+falser+"\n===========[Starting Random 100 Deletions.]===========");
         ind = 0;
         while (ind < 100) {
             int randInd = random.nextInt(400-ind);
             if(table.isKeyFound(keysList.get(randInd),0)){
-                System.out.println("("+keysList.get(randInd)+" : "+tree2.search(keysList.get(randInd))+")");
+                //System.out.println("("+keysList.get(randInd)+" : "+tree2.search(keysList.get(randInd))+")");
                 String key = keysList.get(randInd);
-                crud.deleteEntry(table, key,key, 0,1);
-                System.out.println("("+ind+") : Random Index : "+keysList.get(randInd)+" : "+tree2.search(keysList.get(randInd))+
-                "\n========Deletion Finished=========\n");
+                crud.deleteEntry(key,key, 0,1);
+                //System.out.println("("+ind+") : Random Index : "+keysList.get(randInd)+" : "+tree2.search(keysList.get(randInd))+"\n========Deletion Finished=========\n");
                 keysList.remove(randInd);
                 ind++;
             }
         }
-        table.getCache().writeCache();
+        table.getCache().clear();
         ind = 0;
         while (ind < 100) {
             int randInd = random.nextInt(300-ind);
             if(table.isKeyFound(keysList.get(randInd),0)){
                 String key = keysList.get(randInd);
-                crud.updateEntry(table, key, key, 0, -1, new updateFields()
+                crud.updateEntry(key, key, 0, -1, new updateFields()
                     .leftPad("username", 10, "x")
                     .set("data", new byte[10])
                     .getFunctionsList());
@@ -120,8 +113,8 @@ public class App {
                 ind++;
             }
         }
-        table.getCache().writeCache();
-        //database.removeTable(tableName);
+        table.getCache().clear();
+        database.removeTable("users");
         database.close();
     }
 }

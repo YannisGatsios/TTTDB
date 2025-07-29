@@ -5,48 +5,48 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import com.database.db.table.Schema;
 import com.database.db.table.Table;
 
 public class SchemaManager {
+    private static final Logger logger = Logger.getLogger(SchemaManager.class.getName());
 
     public static void createDatabase() {
         // TODO: implement creating a database folder or similar
     }
 
     public static void createTable(Schema schema, String path, String databaseName, String tableName) {
+        File tableFile = new File(path + databaseName + "." + tableName + ".table");
         try {
-            File tableFile = new File(path+databaseName+"."+tableName+".table");
-            if (tableFile.createNewFile()) {
-                System.out.println("Table File created: " + tableFile.getName());
-            } else {
-                System.out.println("Table File already exists.");
+            if(!tableFile.createNewFile()){
+                logger.fine("Table file already existed: " + tableFile.getName());
             }
+
             String[] columnNames = schema.getNames();
             boolean[] isIndexed = schema.isIndexed();
-            for (int i = 0;i<columnNames.length;i++) {
-                if(isIndexed[i]){
-                    SchemaManager.createIndex(path+databaseName+"."+tableName+"."+columnNames[i]+".index");
+
+            for (int i = 0; i < columnNames.length; i++) {
+                if (isIndexed[i]) {
+                    SchemaManager.createIndex(path + databaseName + "." + tableName + "." + columnNames[i] + ".index");
                 }
             }
+            logger.fine("Table and Index Files created: " + tableFile.getName());
         } catch (IOException e) {
-            System.out.println("An error occurred while creating the table.");
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Failed to create table file at path: " + tableFile.getPath(), e);
         }
     }
 
     public static void createIndex(String path) {
+        File indexFile = new File(path);
         try {
-            File indexFile = new File(path);
-            if (indexFile.createNewFile()) {
-                System.out.println("Index File created: " + indexFile.getName());
-            } else {
-                System.out.println("Index File already exists.");
+            if(!indexFile.createNewFile()){
+                logger.fine("Index file already existed: " + indexFile.getName());
             }
         } catch (IOException e) {
-            System.out.println("An error occurred while creating the index.");
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Failed to create index file at path: " + indexFile.getPath(), e);
         }
     }
 
@@ -59,17 +59,16 @@ public class SchemaManager {
         boolean[] isIndexed = table.getSchema().isIndexed();
         try {
             Files.delete(tablePath);
-            System.out.println("Table File deleted successfully.");
-            for (int i = 0;i<isIndexed.length;i++) {
-                if(isIndexed[i]){
+            
+            for (int i = 0; i < isIndexed.length; i++) {
+                if (isIndexed[i]) {
                     Path secondaryKeyPath = Paths.get(table.getIndexPath(i));
                     Files.delete(secondaryKeyPath);
-                    System.out.println("Secondary Key File deleted successfully.");
                 }
             }
+            logger.fine("Table and Index Files deleted successfully: " + tablePath);
         } catch (IOException e) {
-            System.out.println("An error occurred while deleting a Table or Index file.");
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "An error occurred while deleting a Table or Index file.", e);
         }
     }
 
