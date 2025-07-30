@@ -154,7 +154,7 @@ public class Entry {
         return new Entry(entry, table);
     }
 
-    public static Entry prepareEntry(Object[] entry, Table table) throws Exception{
+    public static Entry prepareEntry(Object[] entry, Table table) {
         Schema schema = table.getSchema();
         int primaryKeyIndex = schema.getPrimaryKeyIndex();
         boolean[] notNullable = schema.getNotNull();
@@ -164,7 +164,7 @@ public class Entry {
             boolean isPrimaryKey = (i == primaryKeyIndex);
             boolean isUnique = (hasUniqueIndex[i] || isPrimaryKey);
             if (notNullable[i] && !AutoIncrementing[i] && entry[i] == null)
-                throw new Exception("Gave null value for NOT_NULL field: "+schema.getNames()[i]);
+                throw new IllegalArgumentException("Gave null value for NOT_NULL field: "+schema.getNames()[i]);
             if (AutoIncrementing[i] && entry[i] == null) 
                 entry[i] = table.getAutoIncrementing(i).getNextKey();
             else if (AutoIncrementing[i] && entry[i] != null)
@@ -172,7 +172,7 @@ public class Entry {
             else if (entry[i] == null) 
                 entry[i] = schema.getDefaults()[i];
             if(isUnique && table.isKeyFound(entry[i], i))
-                throw new Exception("Already Existing value for Primary Key column: "+schema.getNames()[i]);
+                throw new IllegalArgumentException("Already Existing value for Primary Key column: "+schema.getNames()[i]);
         }
         return new Entry(entry, table);
     }

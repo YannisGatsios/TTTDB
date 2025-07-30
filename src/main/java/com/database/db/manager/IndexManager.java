@@ -42,7 +42,6 @@ public class IndexManager {
             }
         }
     }
-
     private PrimaryKey<?> newPrimaryKey(int pkIndex) throws InterruptedException, ExecutionException{
         DataType pkType = schema.getTypes()[pkIndex];
         PrimaryKey<?> primaryKey = switch (pkType) {
@@ -57,7 +56,6 @@ public class IndexManager {
         };
         return primaryKey;
     }
-
     private Unique<?> newUnique(int uqIndex) throws InterruptedException, ExecutionException{
         DataType type = schema.getTypes()[uqIndex];
         return switch (type) {
@@ -71,7 +69,6 @@ public class IndexManager {
             default -> throw new IllegalArgumentException("Unsupported type: " + type.name());
         };
     }
-
     private Index<?> newIndex(int skIndex) throws InterruptedException, ExecutionException{
         DataType type = schema.getTypes()[skIndex];
         return switch (type) {
@@ -85,32 +82,28 @@ public class IndexManager {
             default -> throw new IllegalArgumentException("Unsupported type: " + type);
         };
     }
+
     public boolean isIndexed(int columnIndex){
         if(this.indexes.length == 0) return false;
         return this.indexes[columnIndex] != null;
     }
-
     public Object getMax(int columnIndex){
         if(this.indexes[columnIndex] == null)return null;
         return this.indexes[columnIndex].getMax();
     }
-    
+    @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> List<BlockPointer> findRangeIndex(K upper, K lower, int columnIndex){
-        return this.rangeSearch(upper, lower, this.indexes[columnIndex]);
+        if(this.indexes[columnIndex] == null) return null;
+        return ((BTreeSerialization<K>) this.indexes[columnIndex]).rangeSearch(upper, lower);
     }
     @SuppressWarnings("unchecked")
-    private <K extends Comparable<? super K>> List<BlockPointer> rangeSearch(K upper, K lower,BTreeSerialization<?> index){
-        return ((BTreeSerialization<K>) index).rangeSearch(upper, lower);
-    }
     public <K extends Comparable<? super K>> List<BlockPointer> findBlock(K key, int columnIndex){
-        return this.search(key, this.indexes[columnIndex]);
-    }
-    @SuppressWarnings("unchecked")
-    private <K extends Comparable<? super K>> List<BlockPointer> search(K key, BTreeSerialization<?> index){
-        return ((BTreeSerialization<K>)index).search(key);
+        if(this.indexes[columnIndex] == null) return null;
+        return ((BTreeSerialization<K>)this.indexes[columnIndex]).search(key);
     }
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> boolean isKeyFound(K key, int columnIndex){
+        if(this.indexes[columnIndex] == null) return false;
         return ((BTreeSerialization<K>)this.indexes[columnIndex]).isKey(key);
     }
 

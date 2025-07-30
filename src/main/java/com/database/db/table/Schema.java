@@ -13,7 +13,7 @@ public class Schema {
 
     public record Column(String name, DataType type, int size, List<Constraint> constraints, Object Default) {}
 
-    public Schema(String[] schema) throws Exception{
+    public Schema(String[] schema) {
         this.columns = this.getColumns(schema);
     }
 
