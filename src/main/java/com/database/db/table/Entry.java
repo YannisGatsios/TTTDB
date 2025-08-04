@@ -2,6 +2,8 @@ package com.database.db.table;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Objects;
 
@@ -18,27 +20,25 @@ public class Entry {
     public Entry(){}
 
     //Constructor
-    public Entry(Object[] data, Table table){
+    public Entry(Object[] data, int numOfNullColumns){
         this.entryData = data;
-        this.nullsBitMap = this.setBitMap(table);
+        this.numberOfNullableColumns = numOfNullColumns;
         this.sizeOfElementsOfEntry = this.setSizeOfElementsOfEntry(data);
         this.indexOfElementsOfEntry = this.setIndexOfElementsOfEntry(this.sizeOfElementsOfEntry);
         this.sizeInBytes = this.setEntrySizeInBytes();
+        this.nullsBitMap = new BitSet(this.numberOfNullableColumns);
     }
 
-    private BitSet setBitMap(Table table){
-        boolean[] notNullables = table.getSchema().getNotNull();
-        this.numberOfNullableColumns = table.getSchema().numNullables(); 
-        BitSet bitMap = new BitSet(this.numberOfNullableColumns);
+    public Entry setBitMap(boolean[] notNullables){
         int bitSetIndex = 0;
         for (int i = 0; i < entryData.length; i++) {
             if (!notNullables[i]) { // column is nullable
-                if (entryData[i] == null) bitMap.set(bitSetIndex,true);
-                else bitMap.set(bitSetIndex,false);
+                if (entryData[i] == null) this.nullsBitMap.set(bitSetIndex,true);
+                else this.nullsBitMap.set(bitSetIndex,false);
                 bitSetIndex++;
             }
         }
-        return bitMap;
+        return this;
     }
     
     //the following returns an [] of the size for each value of the entry.
@@ -132,7 +132,8 @@ public class Entry {
         Object[] entry = new Object[table.getSchema().getNumOfColumns()];
         DataType[] types = schema.getTypes();
 
-        int bitmapSize = (schema.numNullables() + 7) / 8;
+        int numOfNullColumns = schema.numNullables();
+        int bitmapSize = (numOfNullColumns + 7) / 8;
         byte[] nullBitmapBytes = new byte[bitmapSize];
         buffer.get(nullBitmapBytes); // advances position
         BitSet nullBitmap = BitSet.valueOf(nullBitmapBytes);
@@ -151,15 +152,17 @@ public class Entry {
             throw new IllegalStateException("Entry deserialization consumed " + bytesRead +
                     " bytes, expected " + expectedSize);
         }
-        return new Entry(entry, table);
+        return new Entry(entry, numOfNullColumns).setBitMap(schema.getNotNull());
     }
 
-    public static Entry prepareEntry(Object[] entry, Table table) {
+    public static Entry prepareEntry(String[] columnNames, Object[] entry, Table table) {
+        entry = Entry.setEntry(columnNames, entry, table);
         Schema schema = table.getSchema();
         int primaryKeyIndex = schema.getPrimaryKeyIndex();
         boolean[] notNullable = schema.getNotNull();
         boolean[] AutoIncrementing = schema.getAutoIncrementIndex();
         boolean[] hasUniqueIndex = schema.getUniqueIndex();
+        int numOfNullColumns = schema.getNumOfColumns();
         for (int i = 0;i<notNullable.length;i++) {
             boolean isPrimaryKey = (i == primaryKeyIndex);
             boolean isUnique = (hasUniqueIndex[i] || isPrimaryKey);
@@ -174,7 +177,18 @@ public class Entry {
             if(isUnique && table.isKeyFound(entry[i], i))
                 throw new IllegalArgumentException("Already Existing value for Primary Key column: "+schema.getNames()[i]);
         }
-        return new Entry(entry, table);
+        return new Entry(entry, numOfNullColumns).setBitMap(notNullable);
+    }
+    private static Object[] setEntry(String[] columnNames, Object[] entry, Table table){
+        ArrayList<String> names = new ArrayList<>(Arrays.asList(table.getSchema().getNames()));
+        Object[] result = new Object[names.size()];
+        for (int i = 0;i<columnNames.length;i++) {
+            String name = columnNames[i];
+            int columnIndex = names.indexOf(name);
+            if(columnIndex<0) throw new IllegalArgumentException("Invalid column to insert: "+name);
+            result[columnIndex] = entry[i];
+        }
+        return result;
     }
 
     public static boolean isValidEntry(Object[] entry, Schema schema) {

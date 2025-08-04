@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.time.LocalDateTime;
 
-import com.database.db.CRUD.Functions.*;
+import com.database.db.api.Functions.*;
 import com.database.db.table.Schema;
 
 public class FunctionsTest {

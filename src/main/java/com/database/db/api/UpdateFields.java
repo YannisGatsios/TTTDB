@@ -1,4 +1,4 @@
-package com.database.db.CRUD;
+package com.database.db.api;
 
 import java.time.LocalDateTime;
 import java.util.AbstractMap;
@@ -6,12 +6,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.database.db.CRUD.Functions.*;
+import com.database.db.api.Condition.UpdateCondition;
+import com.database.db.api.Functions.*;
 
-public class updateFields {
+public class UpdateFields {
     private List<Map.Entry<String,InnerFunctions>> functionsList;
-    public updateFields(){
+    private String column;
+    public UpdateFields(String column){
+        this.column = column;
         this.functionsList = new ArrayList<>();
+    }
+
+    public UpdateFields selectColumn(String column){
+        this.column = column;
+        return this;
     }
 
     private void addFunction(String column, InnerFunctions function){
@@ -19,118 +27,121 @@ public class updateFields {
         this.functionsList.add(entry);
     }
 
-    public updateFields set(String column,Object value){
+    public UpdateFields set(Object value){
         InnerFunctions function = new setData(value);
         this.addFunction(column, function);
         return this;
     }
-    public updateFields operation(String column, String expression){
+    public UpdateFields operation( String expression){
         InnerFunctions function = new operationData(expression);
         this.addFunction(column, function);
         return this;
     }
-    public updateFields currentTimestamp(String column){
+    public UpdateFields currentTimestamp(){
         InnerFunctions function = new currentTimestamp();
         this.addFunction(column, function);
         return this;
     }
-    public updateFields dateAdd(String column, String unit, long amount){
+    public UpdateFields dateAdd( String unit, long amount){
         InnerFunctions function = new dateAdd(unit, amount);
         this.addFunction(column, function);
         return this;
     }
-    public updateFields dataSub(String column, String unit, long amount){
+    public UpdateFields dateSubtract( String unit, long amount){
         InnerFunctions function = new dateSub(unit, amount);
         this.addFunction(column, function);
         return this;
     }
-    public updateFields extractPart(String column, String part){
+    public UpdateFields extractPart( String part){
         InnerFunctions function = new extractPart(part);
         this.addFunction(column, function);
         return this;
     }
-    public updateFields formatDate(String column, String pattern){
+    public UpdateFields formatDate( String pattern){
         InnerFunctions function = new formatDate(pattern);
         this.addFunction(column, function);
         return this;
     }
-    public updateFields dateDifference(String column, LocalDateTime from, LocalDateTime to, String unit){
+    public UpdateFields dateDifference( LocalDateTime from, LocalDateTime to, String unit){
         InnerFunctions function = new dateDifference(from, to, unit);
         this.addFunction(column, function);
         return this;
     }
-    public updateFields concat(String column, Object[] parts){
+    public UpdateFields concat( Object[] parts){
         InnerFunctions function = new concat(parts);
         this.addFunction(column, function);
         return this;
     }
-    public updateFields upperCase(String column){
+    public UpdateFields upperCase(){
         InnerFunctions function = new upperCase();
         this.addFunction(column, function);
         return this;
     }
-    public updateFields lowerCase(String column){
+    public UpdateFields lowerCase(){
         InnerFunctions function = new lowerCase();
         this.addFunction(column, function);
         return this;
     }
-    public updateFields trim(String column){
+    public UpdateFields trim(){
         InnerFunctions function =  new trim();
         this.addFunction(column, function);
         return this;
     }
-    public updateFields substring(String column, int start, int length){
+    public UpdateFields substring( int start, int length){
         InnerFunctions function =  new substring(start,length);
         this.addFunction(column, function);
         return this;
     }
-    public updateFields left(String column, int length){
+    public UpdateFields left( int length){
         InnerFunctions function = new left(length);
         this.addFunction(column, function);
         return this;
     }
-    public updateFields right(String column, int length){
+    public UpdateFields right( int length){
         InnerFunctions function = new right(length);
         this.addFunction(column, function);
         return this;
     }
-    public updateFields replace(String column, String target, String replacement){
+    public UpdateFields replace( String target, String replacement){
         InnerFunctions function = new replace(target, replacement);
         this.addFunction(column, function);
         return this;
     }
-    public updateFields regexpReplace(String column, String regex, String replacement){
+    public UpdateFields regexpReplace( String regex, String replacement){
         InnerFunctions function = new regexpReplace(regex, replacement);
         this.addFunction(column, function);
         return this;
     }
-    public updateFields leftPad(String column, int totalWidth, String padStr){
+    public UpdateFields leftPad( int totalWidth, String padStr){
         InnerFunctions function = new leftPad(totalWidth, padStr);
         this.addFunction(column, function);
         return this;
     }
-    public updateFields rightPad(String column,int totalWidth, String padStr){
+    public UpdateFields rightPad(int totalWidth, String padStr){
         InnerFunctions function = new rightPad(totalWidth, padStr);
         this.addFunction(column, function);
         return this;
     }
-    public updateFields reverse(String column){
+    public UpdateFields reverse(){
         InnerFunctions function = new reverse();
         this.addFunction(column, function);
         return this;
     }
-    public updateFields ifNull(String column, Object fallback){
-        InnerFunctions function = new ifNull(fallback);
-        this.addFunction(column, function);
+    public UpdateFields conditional(UpdateCondition conditionalUpdate, UpdateFields updateFields){
+        conditionalUpdate.setUpdateFields(updateFields);
+        this.addFunction(updateFields.getColumn(), conditionalUpdate);
         return this;
     }
-    public updateFields ifNotNull(String column, Object fallback){
-        InnerFunctions function = new ifNotNull(fallback);
-        this.addFunction(column, function);
-        return this;
-    }
-
+    /**
+    * This method is used internally 
+    */
     public List<Map.Entry<String, InnerFunctions>> getFunctionsList() {
         return functionsList;
+    }
+    /**
+    * This method is used internally 
+    */
+    public String getColumn(){
+        return this.column;
     }
 }

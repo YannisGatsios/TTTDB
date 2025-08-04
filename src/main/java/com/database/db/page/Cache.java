@@ -32,7 +32,7 @@ public class Cache {
             protected boolean removeEldestEntry(Map.Entry<Integer, TablePage> eldest) {
                 if (size() > capacity) {
                     try {
-                        evictPage(eldest.getKey(), eldest.getValue());
+                        writePage(eldest.getValue());
                     } catch (IOException e) {
                         logger.log(Level.SEVERE, String.format("Failed to evict page ID %d from table '%s'.", eldest.getKey(), table.getName()), e);
                         throw new RuntimeException("Eviction failed for page ID: " + eldest.getKey(), e);
@@ -45,13 +45,18 @@ public class Cache {
     }
 
     /** Write the given page to disk if needed and remove it from cache. */
-    private void evictPage(int pageID, TablePage page) throws IOException {
+    public void writePage(TablePage page) throws IOException {
         if (page.isDirty()) {
             fileIO.writePage(table.getPath(), page.toBytes(), page.getPagePos());
             counter++;
             if (counter >= capacity) {
-                // If needed, future place for flush/rotation logic
-                counter = 0; // Reset or handle otherwise
+                try {
+                    table.getIndexManager().writeIndexes(table);
+                } catch (ExecutionException | InterruptedException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+                counter = 0;
             }
         }
     }
@@ -69,14 +74,16 @@ public class Cache {
                 }
             }
         }
-        cache.clear();
+        this.cache.clear();
         logger.info(String.format("Cache flushed and cleared for table '%s'.", table.getName()));
     }
 
     /** Load a page into cache, evicting LRU if necessary. */
     public TablePage loadPage(int pageID) {
+        TablePage newPage = new TablePage(pageID, table);
         try {
-            TablePage newPage = new TablePage(pageID, table);
+            byte[] pageBuffer = fileIO.readPage(table.getPath(), newPage.getPagePos(),newPage.sizeInBytes());
+            if(pageBuffer != null) newPage.fromBytes(pageBuffer);
             cache.put(pageID, newPage);
             return newPage;
         } catch (InterruptedException e) {
@@ -84,8 +91,6 @@ public class Cache {
             logger.log(Level.SEVERE, String.format("Interrupted while loading page ID %d for table '%s'.", pageID, table.getName()), e);
         } catch (ExecutionException e) {
             logger.log(Level.SEVERE, String.format("Execution failed while loading page ID %d for table '%s'.", pageID, table.getName()), e);
-        } catch (IOException e) {
-            logger.log(Level.SEVERE, String.format("IO error while loading page ID %d for table '%s'.", pageID, table.getName()), e);
         }
         return null;
     }
@@ -106,8 +111,8 @@ public class Cache {
         return this.get(lastPageId);
     }
 
-    public synchronized void put(int pageID, TablePage page) {
-        cache.put(pageID, page);
+    public synchronized void put(TablePage page) {
+        cache.put(page.getPageID(), page);
     }
 
     public synchronized TablePage remove(int pageID) {
@@ -129,5 +134,19 @@ public class Cache {
                     e);
         }
         writeCache();
+    }
+
+    public void deleteLastPage(TablePage page) {
+        this.cache.remove(page.getPageID());
+        FileIO fileIO = new FileIO(table.getFileIOThread());
+        try {
+            fileIO.truncateFile(table.getPath(), page.sizeInBytes());
+        } catch (ExecutionException e) {
+            logger.log(Level.SEVERE, "ExecutionException while truncating file for removing last page.", e);
+        } catch (InterruptedException e) {
+            logger.log(Level.SEVERE, "InterruptedException while truncating file for removing last page.", e);
+            Thread.currentThread().interrupt(); // good practice to reset interrupt status
+        }
+        table.removeOnePage();
     }
 }

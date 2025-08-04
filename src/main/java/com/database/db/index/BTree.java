@@ -41,7 +41,7 @@ public interface BTree<K extends Comparable<? super K>, V> {
      * @param toKey Upper bound (inclusive, null for unbounded)
      * @return List of key-value pairs within the specified range
      */
-    List<V> rangeSearch(K fromKey, K toKey);
+    List<Pair<K,V>> rangeSearch(K fromKey, K toKey);
 
     /**
      * Checks if a key exists in the tree.

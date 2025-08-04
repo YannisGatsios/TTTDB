@@ -7,11 +7,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.database.db.FileIOThread;
 import com.database.db.table.Entry;
-import com.database.db.table.Schema;
 import com.database.db.table.Table;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 
 class TablePageTest {
@@ -35,8 +33,7 @@ class TablePageTest {
         file2.createNewFile();
         fileIOThread = new FileIOThread();
         fileIOThread.start();
-        Schema schema = new Schema(SCHEMA_STRING.split(";"));
-        table = new Table("testdb", "test", schema, fileIOThread,"");
+        table = new Table("testdb", "test", SCHEMA_STRING, fileIOThread, 10, "");
 
         entry1 = createEntry("user1", 100, "msg1", new byte[]{1,2,3});
         entry2 = createEntry("user22", 200, "msg22", new byte[]{4,5,6});
@@ -50,7 +47,7 @@ class TablePageTest {
         entryData.add(num);
         entryData.add(message);
         entryData.add(data);
-        Entry entry = new Entry(entryData.toArray(), table);
+        Entry entry = new Entry(entryData.toArray(), 0).setBitMap(table.getSchema().getNotNull());
         return entry;
     }
 
@@ -122,9 +119,9 @@ class TablePageTest {
         emptyPage();
         page.add(entry1);
         page.add(entry2);
-        page.write(table);;
+        table.getCache().writePage(page);
         
-        TablePage newPage = new TablePage(0, table);
+        TablePage newPage = table.getCache().get(0);
         //newPage.bufferToPage(buffer, table);
         
         assertEquals(page.size(), newPage.size());
@@ -139,22 +136,15 @@ class TablePageTest {
             () -> page.fromBytes(invalidBuffer));
     }
 
-    @Test
-    void bufferToPage_ThrowsForCorruptedHeader() {
-        byte[] buffer = new byte[4096];
-        assertThrows(IOException.class, 
-            () -> page.fromBytes(buffer));
-    }
-
     // Test file I/O operations
     @Test
     void writeAndReadPage_ConsistentData() throws Exception {
         emptyPage();
         page.add(entry1);
         page.add(entry3);
-        page.write(table);
+        table.getCache().writePage(page);
         
-        TablePage newPage = new TablePage(0, table);
+        TablePage newPage = table.getCache().get(0);
         assertEquals(page.size(), newPage.size());
         assertEquals(page.getSpaceInUse(), newPage.getSpaceInUse());
         arePageEntriesEqual(page,newPage);

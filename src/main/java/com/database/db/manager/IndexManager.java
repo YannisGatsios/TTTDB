@@ -1,6 +1,5 @@
 package com.database.db.manager;
 
-import java.io.File;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.Date;
@@ -11,6 +10,7 @@ import com.database.db.FileIO;
 import com.database.db.index.BPlusTree;
 import com.database.db.index.BTreeSerialization;
 import com.database.db.index.Index;
+import com.database.db.index.Pair;
 import com.database.db.index.PrimaryKey;
 import com.database.db.index.BTreeSerialization.BlockPointer;
 import com.database.db.table.Entry;
@@ -92,7 +92,7 @@ public class IndexManager {
         return this.indexes[columnIndex].getMax();
     }
     @SuppressWarnings("unchecked")
-    public <K extends Comparable<? super K>> List<BlockPointer> findRangeIndex(K upper, K lower, int columnIndex){
+    public <K extends Comparable<? super K>> List<Pair<K,BlockPointer>> findRangeIndex(K upper, K lower, int columnIndex){
         if(this.indexes[columnIndex] == null) return null;
         return ((BTreeSerialization<K>) this.indexes[columnIndex]).rangeSearch(upper, lower);
     }
@@ -166,10 +166,7 @@ public class IndexManager {
         FileIO fileIO = new FileIO(table.getFileIOThread());
         for (BTreeSerialization<?> index : indexes) {
             if(index != null){
-                File file = new File(table.getIndexPath(index.getColumnIndex()));
-                long fileSize = file.length();
                 byte[] treeBytes = index.toBytes(table);
-                if(fileSize > treeBytes.length) fileIO.truncateFile(table.getIndexPath(index.getColumnIndex()), (int)(fileSize-treeBytes.length));
                 fileIO.writeTree(table.getIndexPath(index.getColumnIndex()), treeBytes);
             }
         }
@@ -184,5 +181,8 @@ public class IndexManager {
         //this.tableSchema.update TODO
         this.indexes[columnIndex] = this.newIndex(columnIndex);
         ((Index<?>)this.indexes[columnIndex]).initialize(table);
+    }
+    public BTreeSerialization<?>[] getIndexes(){
+        return this.indexes;
     }
 }

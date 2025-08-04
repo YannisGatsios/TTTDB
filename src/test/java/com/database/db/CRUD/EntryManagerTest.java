@@ -1,7 +1,6 @@
 package com.database.db.CRUD;
 
 import static org.junit.jupiter.api.Assertions.fail;
-
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileReader;
@@ -20,11 +19,11 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import com.database.db.App.TableConfig;
+import com.database.db.api.Condition.*;
+import com.database.db.api.DBMS.*;
 import com.database.db.manager.EntryManager;
 import com.database.db.Database;
 import com.database.db.table.Entry;
-import com.database.db.table.Schema;
 import com.database.db.table.Table;
 
 
@@ -45,7 +44,6 @@ public class EntryManagerTest {
     private Database database;
     private Table table;
     private TableConfig config;
-    private Schema schema;
     private EntryManager CRUD;
     private Random random;
     private String[] keysList;
@@ -53,12 +51,11 @@ public class EntryManagerTest {
     @BeforeAll
     void setup() throws ExecutionException, InterruptedException, IOException, Exception {
         database = new Database("test_database");
-        schema = new Schema(("username:VARCHAR:100:PRIMARY_KEY:NULL;"+
+        String schemaConfig = "username:VARCHAR:100:PRIMARY_KEY:NULL;"+
             "num:INT:NON:INDEX:NULL;"+
             "message:VARCHAR:10:NO_CONSTRAINT:NULL;"+
-            "data:BINARY:10:NOT_NULL:NON")
-            .split(";"));
-        config = new TableConfig("test_table", schema, 10);
+            "data:BINARY:10:NOT_NULL:NON";
+        config = new TableConfig("test_table", schemaConfig, 100);
         database.createTable(config);
         table = database.getTable("test_table");
         
@@ -79,13 +76,15 @@ public class EntryManagerTest {
         entryData.add("HELLO");
         byte[] data = new byte[10];
         entryData.add(data);
-        Entry entry = new Entry(entryData.toArray(), table);
+        Entry entry = new Entry(entryData.toArray(), table.getSchema().getNumOfColumns()).setBitMap(table.getSchema().getNotNull());
         CRUD.insertEntry(entry);
     }
     @Test
     @Order(2)
     void testDeleteLastEntry() throws ExecutionException, InterruptedException, IOException {
-        CRUD.deleteEntry("firstEntry", "firstEntry", 0,-1);
+        WhereClause clause = new WhereClause("username")
+            .isEqual("firstEntry");
+        CRUD.deleteEntry(clause,-1);
     }
 
     @Test
@@ -112,7 +111,7 @@ public class EntryManagerTest {
                     data[y] = (byte) random.nextInt(127);
                 }
                 entryData.add(data);
-                Entry entry = new Entry(entryData.toArray(), table);
+                Entry entry = new Entry(entryData.toArray(), table.getSchema().getNumOfColumns()).setBitMap(table.getSchema().getNotNull());
                 CRUD.insertEntry(entry);
                 ind++;
             }
@@ -154,7 +153,9 @@ public class EntryManagerTest {
             int randInd = random.nextInt(400);
             if(table.isKeyFound(keysList[randInd],0)){
                 String key = keysList[randInd];
-                CRUD.deleteEntry(key, key, 0,-1);
+                WhereClause clause = new WhereClause("username")
+                    .isEqual(key);
+                CRUD.deleteEntry(clause,-1);
                 ind++;
             }
         }
@@ -172,7 +173,7 @@ public class EntryManagerTest {
             entryData.add(ind);
             entryData.add("TEST");
             entryData.add(new byte[] {(byte)ind});
-            Entry entry = new Entry(entryData.toArray(), table);
+            Entry entry = new Entry(entryData.toArray(), table.getSchema().getNumOfColumns()).setBitMap(table.getSchema().getNotNull());
             CRUD.insertEntry(entry);
             ind++;
         }

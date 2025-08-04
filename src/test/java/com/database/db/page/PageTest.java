@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test;
 
 import com.database.db.table.Entry;
 import com.database.db.table.Table;
-import com.database.db.table.Schema;
 import com.database.db.FileIOThread;
 
 import java.io.File;
@@ -59,8 +58,8 @@ class PageTest {
      * for size calculations, but without file I/O or index initialization.
      */
     private static class MockTable extends Table {
-        public MockTable(Schema schema) throws IOException, ExecutionException, InterruptedException,Exception {
-            super("mockDB", "mockTable", schema, new MockFileIOThread(), "storage/");
+        public MockTable(String schemaConfig) throws IOException, ExecutionException, InterruptedException,Exception {
+            super("mockDB", "mockTable", schemaConfig, new MockFileIOThread(), 10, "storage/");
         }
 
         // Mock FileIOThread to avoid actual file operations during tests
@@ -78,7 +77,8 @@ class PageTest {
      */
     private static class MockEntry extends Entry {
         public MockEntry(Table table, Object... values) {
-            super(values, table); // Call the Entry constructor with data and table
+            super(values, table.getSchema().getNumOfColumns());
+            this.setBitMap(table.getSchema().getNotNull()); // Call the Entry constructor with data and table
         }
         // Rely on Entry's sizeInBytes(), equals(), hashCode() implementations.
     }
@@ -87,12 +87,11 @@ class PageTest {
     void setUp() throws IOException, ExecutionException, InterruptedException, Exception {
         File file = new File("./mockDB.mockTable.table");
         file.createNewFile();
-        Schema mockSchema = new Schema((
+        String schemaConfig = 
     "id:INTEGER:NON:NO_CONSTRAINT:NULL;" +
-    "name:VARCHAR:50:NO_CONSTRAINT:NULL")
-    .split(";"));
+    "name:VARCHAR:50:NO_CONSTRAINT:NULL";
 
-        mockTable = new MockTable(mockSchema);
+        mockTable = new MockTable(schemaConfig);
         page = new ConcretePage(PAGE_ID, mockTable);
 
         entry1 = new MockEntry(mockTable, 100, "Alice");
@@ -171,18 +170,6 @@ class PageTest {
     }
 
     @Test
-    void testRemoveEntryByKey() {
-        page.add(entry1);
-        page.add(entry2);
-
-        Entry removedEntry = page.remove(200, 0);
-
-        assertSame(entry2, removedEntry);
-        assertEquals(1, page.size());
-        assertFalse(page.contains(entry2), "Page should no longer contain the removed entry.");
-    }
-
-    @Test
     void testRemoveLastEntry() {
         page.add(entry1);
         page.add(entry2);
@@ -199,22 +186,6 @@ class PageTest {
         page.add(entry1);
         assertThrows(IllegalArgumentException.class, () -> page.remove(1));
         assertThrows(IllegalArgumentException.class, () -> page.remove(-1));
-    }
-
-    @Test
-    void testGetEntryByKey() {
-        page.add(entry1);
-        page.add(entry2);
-
-        Entry foundEntry = page.get(200, 0);
-        assertSame(entry2, foundEntry);
-    }
-
-    @Test
-    void testGetEntry_ThrowsExceptionForNonExistentKey() {
-        page.add(entry1);
-        Exception e = assertThrows(IllegalArgumentException.class, () -> page.get(999, 0));
-        assertEquals("Entry with key :999 can not be found.", e.getMessage());
     }
 
     @Test

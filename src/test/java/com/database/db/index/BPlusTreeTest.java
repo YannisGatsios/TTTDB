@@ -146,10 +146,12 @@ class BPlusTreeTest {
         validateTreeStructure(tree);
 
         // Test range search
-        List<String> range = tree.rangeSearch(200, 800);
+        List<Pair<Integer, String>> range = tree.rangeSearch(200, 800);
         assertEquals(6, range.size(), "Range search count mismatch");
         List<String> expected = Arrays.asList("Value200", "Value300", "Value400", "Value600", "Value700", "Value800");
-        assertTrue(range.containsAll(expected) && expected.containsAll(range), "Range search content mismatch");
+        ArrayList<String> result = new ArrayList<>();
+        for(int i = 0;i<range.size();i++) result.add(range.get(i).value);
+        assertTrue(result.containsAll(expected) && expected.containsAll(result), "Range search content mismatch");
     }
 
     @Test
@@ -178,10 +180,12 @@ class BPlusTreeTest {
         validateTreeStructure(tree);
 
         // Test range search
-        List<Integer> range = tree.rangeSearch("a", "d");
+        List<Pair<String,Integer>> range = tree.rangeSearch("a", "d");
         assertEquals(2, range.size(), "Range search count mismatch");
         List<Integer> expected = Arrays.asList(0, 2); // Values for "apple", "cherry"
-        assertTrue(range.containsAll(expected) && expected.containsAll(range));
+        ArrayList<Integer> result = new ArrayList<>();
+        for(int i = 0;i<range.size();i++) result.add(range.get(i).value);
+        assertTrue(result.containsAll(expected) && expected.containsAll(result));
     }
 
     // ================ NON-UNIQUE KEY TESTS ================
@@ -405,28 +409,28 @@ class BPlusTreeTest {
         }
         
         // Full range
-        List<String> all = tree.rangeSearch(null, null);
+        List<Pair<Integer,String>> all = tree.rangeSearch(null, null);
         assertEquals(100, all.size());
         for (int i = 0; i < 100; i++) {
-            assertEquals("Val" + i, all.get(i));
+            assertEquals("Val" + i, all.get(i).value);
         }
 
         // Single entry only
-        List<String> singleEntry = tree.rangeSearch(50, 50);
+        List<Pair<Integer,String>> singleEntry = tree.rangeSearch(50, 50);
         assertEquals(1, singleEntry.size());
-        assertEquals("Val50", singleEntry.get(0));
+        assertEquals("Val50", singleEntry.get(0).value);
         
         // Lower bound only
-        List<String> upperHalf = tree.rangeSearch(50, null);
+        List<Pair<Integer,String>> upperHalf = tree.rangeSearch(50, null);
         assertEquals(50, upperHalf.size());
-        assertEquals("Val50", upperHalf.get(0));
-        assertEquals("Val99", upperHalf.get(49));
+        assertEquals("Val50", upperHalf.get(0).value);
+        assertEquals("Val99", upperHalf.get(49).value);
         
         // Upper bound only
-        List<String> lowerHalf = tree.rangeSearch(null, 49);
+        List<Pair<Integer,String>> lowerHalf = tree.rangeSearch(null, 49);
         assertEquals(50, lowerHalf.size());
-        assertEquals("Val0", lowerHalf.get(0));
-        assertEquals("Val49", lowerHalf.get(49));
+        assertEquals("Val0", lowerHalf.get(0).value);
+        assertEquals("Val49", lowerHalf.get(49).value);
     }
 
     @Test
@@ -441,21 +445,21 @@ class BPlusTreeTest {
         }
         
         // Full range
-        List<Integer> all = tree.rangeSearch(null, null);
+        List<Pair<String,Integer>> all = tree.rangeSearch(null, null);
         assertEquals(6, all.size());
         for (int i = 0; i < 6; i++) {
-            assertEquals(i, (int)all.get(i));
+            assertEquals(i, (int)all.get(i).value);
         }
         
         // Lower bound only ("cherry", "date", "elderberry", "fig")
-        List<Integer> upperHalf = tree.rangeSearch("cherry", null);
+        List<Pair<String,Integer>> upperHalf = tree.rangeSearch("cherry", null);
         assertEquals(4, upperHalf.size());
-        assertEquals(2, (int)upperHalf.get(0)); // Value for "cherry"
+        assertEquals(2, (int)upperHalf.get(0).value); // Value for "cherry"
         
         // Upper bound only ("apple", "banana", "cherry", "date")
-        List<Integer> lowerHalf = tree.rangeSearch(null, "date");
+        List<Pair<String,Integer>> lowerHalf = tree.rangeSearch(null, "date");
         assertEquals(4, lowerHalf.size());
-        assertEquals(3, (int)lowerHalf.get(3)); // Value for "date"
+        assertEquals(3, (int)lowerHalf.get(3).value); // Value for "date"
     }
 
     @Test
@@ -469,18 +473,20 @@ class BPlusTreeTest {
         tree.insert(40, "D");
         
         // Range with no results
-        List<String> empty = tree.rangeSearch(50, 60);
+        List<Pair<Integer,String>> empty = tree.rangeSearch(50, 60);
         assertTrue(empty.isEmpty());
         
         // Single element range
-        List<String> single = tree.rangeSearch(20, 20);
+        List<Pair<Integer,String>> single = tree.rangeSearch(20, 20);
         assertEquals(1, single.size());
-        assertEquals("B", single.get(0));
+        assertEquals("B", single.get(0).value);
         
         // Range covering all elements
-        List<String> all = tree.rangeSearch(10, 40);
+        List<Pair<Integer,String>> all = tree.rangeSearch(10, 40);
         assertEquals(4, all.size());
-        assertTrue(all.containsAll(Arrays.asList("A", "B", "C", "D")));
+        ArrayList<String> result = new ArrayList<>();
+        for (int i = 0;i<all.size();i++) result.add(all.get(i).value);
+        assertTrue(result.containsAll(Arrays.asList("A", "B", "C", "D")));
     }
 
     @Test
@@ -493,19 +499,19 @@ class BPlusTreeTest {
         tree.insert(35, "C");
         
         // Lower bound between keys
-        List<String> range1 = tree.rangeSearch(20, 30);
+        List<Pair<Integer,String>> range1 = tree.rangeSearch(20, 30);
         assertEquals(1, range1.size());
-        assertEquals("B", range1.get(0));
+        assertEquals("B", range1.get(0).value);
         
         // Upper bound between keys
-        List<String> range2 = tree.rangeSearch(10, 20);
+        List<Pair<Integer,String>> range2 = tree.rangeSearch(10, 20);
         assertEquals(1, range2.size());
-        assertEquals("A", range2.get(0));
+        assertEquals("A", range2.get(0).value);
         
         // Both bounds between keys
-        List<String> range3 = tree.rangeSearch(16, 26);
+        List<Pair<Integer,String>> range3 = tree.rangeSearch(16, 26);
         assertEquals(1, range3.size());
-        assertEquals("B", range3.get(0));
+        assertEquals("B", range3.get(0).value);
     }
     
     @Test
@@ -663,21 +669,23 @@ class BPlusTreeTest {
         tree.insert(10, "Value10");
         
         // 1. Full range search (null to null)
-        List<String> allValues = tree.rangeSearch(null, null);
+        List<Pair<Integer,String>> allValues = tree.rangeSearch(null, null);
         assertEquals(3, allValues.size());
-        assertEquals("NullValue", allValues.get(0), "Null-keyed value should be first in a full range scan.");
-        assertEquals("Value10", allValues.get(1));
-        assertEquals("Value20", allValues.get(2));
+        assertEquals("NullValue", allValues.get(0).value, "Null-keyed value should be first in a full range scan.");
+        assertEquals("Value10", allValues.get(1).value);
+        assertEquals("Value20", allValues.get(2).value);
 
         // 2. Upper-bounded range search (null to some key)
-        List<String> lowerRange = tree.rangeSearch(null, 15);
+        List<Pair<Integer,String>> lowerRange = tree.rangeSearch(null, 15);
+        ArrayList<String> result = new ArrayList<>();
+        for(int i = 0;i<lowerRange.size();i++) result.add(lowerRange.get(i).value);
         assertEquals(2, lowerRange.size());
-        assertTrue(lowerRange.contains("NullValue") && lowerRange.contains("Value10"), "Should include null and values up to the end key.");
+        assertTrue(result.contains("NullValue") && result.contains("Value10"), "Should include null and values up to the end key.");
 
         // 3. Lower-bounded range search (some key to null)
-        List<String> upperRange = tree.rangeSearch(15, null);
+        List<Pair<Integer,String>> upperRange = tree.rangeSearch(15, null);
         assertEquals(1, upperRange.size());
-        assertEquals("Value20", upperRange.get(0), "Should not include the null-keyed value when start key is specified.");
+        assertEquals("Value20", upperRange.get(0).value, "Should not include the null-keyed value when start key is specified.");
     }
 
     @Test

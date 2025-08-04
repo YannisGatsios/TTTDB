@@ -2,11 +2,22 @@ package com.database.db.table;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 import com.database.db.FileIOThread;
+import com.database.db.api.Condition;
+import com.database.db.api.Condition.WhereClause;
+import com.database.db.api.Condition.Clause;
+import com.database.db.api.Condition.Conditions;
 import com.database.db.index.BTreeSerialization.BlockPointer;
+import com.database.db.index.Pair;
 import com.database.db.manager.IndexManager;
 import com.database.db.page.Cache;
 import com.database.db.page.TablePage;
@@ -26,20 +37,16 @@ public class Table {
     private AutoIncrementing[] autoIncrementing;
 
     public int CACHE_CAPACITY = 10;
-    private String path = "storage/";
+    private String path = "";
     private FileIOThread fileIOThread;
 
-    public Table(String databaseName, String tableName,Schema schema, FileIOThread fileIOThread,int CACHE_CAPACITY,String path) throws ExecutionException, InterruptedException, IOException, Exception {
-        this(databaseName,tableName,schema,fileIOThread,path);
-        this.CACHE_CAPACITY = CACHE_CAPACITY;
-    }
-
-    public Table(String databaseName, String tableName,Schema schema, FileIOThread fileIOThread, String path) throws ExecutionException, InterruptedException, IOException, Exception {
+    public Table(String databaseName, String tableName,String schemaConfig, FileIOThread fileIOThread, int CACHE_CAPACITY, String path) throws InterruptedException, ExecutionException, IOException {
         this.databaseName = databaseName;
         this.tableName = tableName;
-        this.schema = schema;
+        this.schema = new Schema(schemaConfig.split(";"));
         this.path = path;
         this.fileIOThread = fileIOThread;
+        this.CACHE_CAPACITY = CACHE_CAPACITY;
         this.cache = new Cache(this);
         this.sizeOfEntry = this.setSizeOfEntry();
         this.indexes = this.initIndex();
@@ -49,10 +56,8 @@ public class Table {
 
     private int setNumOfPages(){
         File file = new File(this.getPath());
-        long fileSize = file.length(); // size in bytes
-        int pageSize = pageSizeInBytes(); // int
-
-        // ceiling division for long / int:
+        long fileSize = file.length();
+        int pageSize = pageSizeInBytes();
         return (int) ((fileSize + pageSize - 1) / pageSize);
     }
 
@@ -114,11 +119,47 @@ public class Table {
         return indexes;
     }
 
-    public <K extends Comparable<? super K>> List<BlockPointer> findRangeIndex(Object start, Object end, int columnIndex){
-        return this.indexes.findRangeIndex((K)start, (K)end, columnIndex);
-    }
-    public <K extends Comparable<? super K>> List<BlockPointer> findEntry(Object key, int columnIndex){
-        return this.indexes.findBlock((K)key, columnIndex);
+    public <K extends Comparable<? super K>> List<BlockPointer> findRangeIndex(WhereClause whereClause){
+        Object start = null;
+        Object end  = null;
+        ArrayList<String> columnNames = new ArrayList<>(Arrays.asList(this.schema.getNames()));
+        List<Map.Entry<Clause, WhereClause>> clauses = whereClause.getClauseList();
+        List<BlockPointer> previousPointerList = new ArrayList<>();
+        for (Map.Entry<Clause, WhereClause> condition : clauses) {
+            WhereClause queryCondition = condition.getValue();
+            EnumMap<Conditions, Object> conditionList = queryCondition.getConditionElementsList();
+            if(conditionList.containsKey(Condition.Conditions.IS_BIGGER))
+                start = conditionList.get(Condition.Conditions.IS_BIGGER);
+            if(conditionList.containsKey(Condition.Conditions.IS_SMALLER))
+                end = conditionList.get(Condition.Conditions.IS_SMALLER);
+            if(!conditionList.containsKey(Condition.Conditions.IS_BIGGER) &&
+            !conditionList.containsKey(Condition.Conditions.IS_SMALLER) &&
+            conditionList.containsKey(Condition.Conditions.IS_EQUAL)){
+                start = conditionList.get(Condition.Conditions.IS_EQUAL);
+                end = conditionList.get(Condition.Conditions.IS_EQUAL);
+            }
+            int columnIndex = columnNames.indexOf(queryCondition.getColumnName());
+            List<Pair<K,BlockPointer>> indexResult = this.indexes.findRangeIndex((K)start, (K)end, columnIndex);
+            List<BlockPointer> resultInner = new ArrayList<>();
+            for (Pair<K,BlockPointer> pair : indexResult) {
+                if(!queryCondition.isApplicable(pair.key)) continue;
+                resultInner.add(pair.value);
+            }
+            switch (condition.getKey()) {
+                case FIRST:
+                    previousPointerList = resultInner;
+                    break;
+                case OR:
+                    Set<BlockPointer> orSet = new HashSet<>(previousPointerList);
+                    orSet.addAll(resultInner);
+                    previousPointerList = new ArrayList<>(orSet);
+                    break;
+                case AND:
+                    previousPointerList.retainAll(resultInner);
+                    break;
+            }
+        }
+        return previousPointerList;
     }
     public <K extends Comparable<? super K>> boolean isKeyFound(Object key, int columnIndex){
         return this.indexes.isKeyFound((K)key, columnIndex);

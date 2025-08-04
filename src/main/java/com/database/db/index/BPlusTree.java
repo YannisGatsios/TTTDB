@@ -155,10 +155,12 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
         int pos = Collections.binarySearch(leaf.pairs, pair, keyComparator);
         if (pos >= 0 && isUnique) {
             return; // Key exists and tree is unique
-        } else if (pos >= 0) {
+        } else if (pos >= 0 && !isUnique) {
             // Handle duplicates by adding to the existing pair's duplicates
-            if (!leaf.pairs.get(pos).value.equals(pair.value)) leaf.pairs.get(pos).addDup(pair.value);
-            this.size++;
+            if (!leaf.pairs.get(pos).value.equals(pair.value)) {
+                leaf.pairs.get(pos).addDup(pair.value);
+                this.size++;
+            }
         } else {
             pos = -(pos + 1);
             leaf.pairs.add(pos, pair);
@@ -244,7 +246,7 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
     private boolean nullRemoval(K key, V value) {
         if (!this.isNullable) return false;
         if (key == null) {
-            if (this.nullPair.value == value) {
+            if (this.nullPair.value.equals(value)) {
                 if (this.nullPair.getDuplicates() != null) {
                     V dupValue = this.nullPair.getDuplicates().iterator().next();
                     this.nullPair.value = dupValue;
@@ -290,12 +292,11 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
                     V dupValue = pair.getDuplicates().iterator().next();
                     pair.value = dupValue;
                     pair.removeDup(dupValue);
-                    this.size--;
                 } else {
                     // This was the last value for this key. Remove the pair.
                     node.pairs.remove(index);
-                    this.size--;
                 }
+                this.size--;
             } else if (pair.getDuplicates() != null && pair.getDuplicates().contains(value)) {
                 // The value to remove is in the duplicate set.
                 pair.removeDup(value);
@@ -310,7 +311,10 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
         if (keyWasFirst && node.parent != null && !node.pairs.isEmpty()) {
             int childIndex = parentChildIndex(node);
             if (childIndex > 0) {
-                node.parent.pairs.get(childIndex - 1).key = node.pairs.getFirst().key;
+                K newFirstKey = node.pairs.getFirst().key;
+                if (newFirstKey != null) {
+                    node.parent.pairs.get(childIndex - 1).key = newFirstKey;
+                }
             }
         }
         return true;
@@ -418,14 +422,14 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
     // ==========! SEARCHING !===========
     // Core Operation (see interface docs for details)
     public List<V> search(K key) {
-        if(key == null && this.isNullable && this.nullPair != null) return this.nullPair.getAll();
+        if(key == null && this.isNullable && this.nullPair != null) return this.nullPair.getValues();
         if(key == null && this.isNullable && this.nullPair == null) return new ArrayList<>();
         Node<K, V> node = this.findNode(key);
         if (node == null)
             return null;
         int idx = Collections.binarySearch(node.pairs, new Pair<>(key, null), keyComparator);
         if (idx >= 0) {
-            return node.pairs.get(idx).getAll();
+            return node.pairs.get(idx).getValues();
         }
         return new ArrayList<>();
     }
@@ -458,7 +462,7 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
         return current;
     }
     // Core Operation (see interface docs for details)
-    public List<V> rangeSearch(K start, K end) {
+    public List<Pair<K,V>> rangeSearch(K start, K end) {
         Node<K, V> current;
         int idx = 0;
         if (start != null) {
@@ -473,11 +477,11 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
         } else {
             current = this.start;
         }
-        List<V> result = new ArrayList<>();
+        List<Pair<K,V>> result = new ArrayList<>();
         while (current != null) {
             int i = idx;
             while (i < current.pairs.size() && (end == null || current.pairs.get(i).key.compareTo(end) <= 0)) {
-                result.addAll(current.pairs.get(i).getAll());
+                result.addAll(current.pairs.get(i).getAllPairs());
                 i++;
             }
             if (i == current.pairs.size() && (end == null || (!current.pairs.isEmpty() && current.pairs.getLast().key.compareTo(end) <= 0))) {
@@ -487,7 +491,7 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
                 break;
             }
         }
-        if(start == null && this.isNullable) result.addAll(0,this.nullPair.getAll());
+        if(start == null && this.isNullable && this.nullPair != null && this.nullPair.value != null) result.addAll(0,this.nullPair.getAllPairs());
         return result;
     }
 

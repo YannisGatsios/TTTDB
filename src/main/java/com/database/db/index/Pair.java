@@ -31,11 +31,20 @@ public class Pair<K, V> {
         this.duplicate = null;
     }
 
-    public List<V> getAll(){
+    public List<V> getValues(){
         List<V> result = new ArrayList<>();
         result.add(this.value);
         if (duplicate != null) {
             result.addAll(duplicate);
+        }
+        return result;
+    }
+
+    public List<Pair<K,V>> getAllPairs(){
+        List<V> values = this.getValues();
+        List<Pair<K,V>> result = new ArrayList<>();
+        for (V value : values) {
+            result.add(new Pair<>(this.key,value));
         }
         return result;
     }
@@ -54,11 +63,12 @@ public class Pair<K, V> {
      *
      * @param pair Duplicate value to remove
      */
-    public void removeDup(V pair){
-        this.duplicate.remove(pair);
+    public boolean removeDup(V pair){
+        boolean removed = this.duplicate.remove(pair);
         if(this.duplicate.isEmpty()){
             this.duplicate = null;
         }
+        return removed;
     }
     /**
      * @return Set of duplicate values (null if none exist)

@@ -5,7 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import com.database.db.App.TableConfig;
+import com.database.db.api.DBMS.*;
 import com.database.db.manager.EntryManager;
 import com.database.db.Database;
 import com.database.db.FileIOThread;
@@ -23,7 +23,7 @@ public class TableTest {
 
     private Table table;
     private String testPath;
-    private Schema schema;
+    private String schemaDef;
     private Database database;
 
     @BeforeEach
@@ -31,9 +31,8 @@ public class TableTest {
         testPath = tempDir.toString() + File.separator;
         String databaseName = "testDB";
         String tableName = "testTable";
-        String schemaDef = "username:VARCHAR:10:PRIMARY_KEY:NULL;num:INT:4:INDEX:NULL";
-        schema = new Schema(schemaDef.split(";"));
-        TableConfig tableConf = new TableConfig(tableName, schema, 10);
+        schemaDef = "username:VARCHAR:10:PRIMARY_KEY:NULL;num:INT:4:INDEX:NULL";
+        TableConfig tableConf = new TableConfig(tableName, schemaDef, 10);
         database = new Database(databaseName);
         database.setPath(testPath);
         database.createTable(tableConf);
@@ -53,7 +52,6 @@ public class TableTest {
     void tableInitialization_SetsCorrectProperties() {
         assertEquals("testDB", table.getDatabaseName());
         assertEquals("testTable", table.getName());
-        assertEquals(schema, table.getSchema());
         assertEquals(testPath + "testDB.testTable.table", table.getPath());
     }
 
@@ -82,8 +80,7 @@ public class TableTest {
         Files.write(tablePath, new byte[12288]);
         FileIOThread file = new FileIOThread();
         file.start();
-        
-        Table diskTable = new Table("testDB", "testTable", schema, file, 10, testPath);
+        Table diskTable = new Table("testDB", "testTable", schemaDef, file, 10, testPath);
         assertEquals(3, diskTable.getPages());
         file.shutdown();
     }
@@ -100,9 +97,8 @@ public class TableTest {
     void autoIncrementing_InitializesCorrectly() throws Exception {
         // Create schema with auto-increment column
         String aiSchemaDef = "id:LONG:4:AUTO_INCREMENT:NULL;name:VARCHAR:20:NO_CONSTRAINT:NULL";
-        Schema aiSchema = new Schema(aiSchemaDef.split(";"));
         //Files.createFile(tempDir.resolve("testDB.aiTable.table"));
-        TableConfig tableConf = new TableConfig("aiTable", aiSchema, 10);
+        TableConfig tableConf = new TableConfig("aiTable", aiSchemaDef, 10);
         database.createTable(tableConf);
 
         // Create table with auto-increment
@@ -114,7 +110,7 @@ public class TableTest {
         crud.selectTable("aiTable");
         for (long i = 1; i <= 100; i++) {
             Object[] entryData = {i, "Name" + i};
-            Entry entry = Entry.prepareEntry(entryData, aiTable);
+            Entry entry = Entry.prepareEntry(new String[]{"id","name"}, entryData, aiTable);
             crud.insertEntry(entry);
         }
         
@@ -123,8 +119,8 @@ public class TableTest {
         assertEquals(101L, ai.getNextKey());
 
         for (long i = 1; i <= 100; i++) {
-            Object[] entryData = {null, "Name" + i};
-            Entry entry = Entry.prepareEntry(entryData, aiTable);
+            Object[] entryData = {"Name" + i};
+            Entry entry = Entry.prepareEntry(new String[]{"name"}, entryData, aiTable);
             crud.insertEntry(entry);
         }
         

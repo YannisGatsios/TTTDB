@@ -39,10 +39,6 @@ public abstract class Page {
     }
 
     // ===========REMOVING_ENTRIES===============
-    public <K extends Comparable<? super K>> Entry remove(K key, int columnIndex){
-        int index = this.getIndex(key, columnIndex);
-        return this.remove(index);
-    }
     public Entry remove(int index) {
         if (index >= this.numOfEntries || index < 0)
             throw new IllegalArgumentException("Out of bounds Index you gave: " + index+" Maximum: "+this.numOfEntries);
@@ -66,11 +62,6 @@ public abstract class Page {
     }
 
     // ===========SEARCHING_ENTRIES===============
-    public <K extends Comparable<? super K>> Entry get(K key, int columnIndex){
-        int index = this.getIndex(key, columnIndex);
-        if(index<0) throw new IllegalArgumentException("Entry with key :"+key+" can not be found.");
-        return this.get(index);
-    }
     public Entry get(int index) {
         if (index < 0 || index >= this.numOfEntries) throw new IndexOutOfBoundsException("invalid index You gave :" + index+" Size :"+this.numOfEntries);
         return this.entries[index];
@@ -88,15 +79,6 @@ public abstract class Page {
     public int indexOf(Entry entry){
         for (int i = 0;i<this.numOfEntries;i++) {
             if(entry.equals(this.entries[i])) return i;
-        }
-        return -1;
-    }
-
-    @SuppressWarnings("Unchecked")
-    private <K extends Comparable<? super K>> int getIndex(K key, int columnIndex){
-        for (int i = 0;i < this.numOfEntries;i++){
-            Comparable<K> value = (Comparable<K>) this.entries[i].get(columnIndex);
-            if(value.compareTo(key) == 0) return i;
         }
         return -1;
     }

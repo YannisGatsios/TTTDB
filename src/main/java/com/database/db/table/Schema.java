@@ -3,6 +3,7 @@ package com.database.db.table;
 import java.util.ArrayList;
 import java.util.List;
 
+
 public class Schema {
 
     private Column[] columns;
@@ -54,6 +55,14 @@ public class Schema {
             names[i] = columns[i].name();
         }
         return names;
+    }
+    public int getNameIndex(String columnName){
+        int result = 0;
+        for (Column column : this.columns) {
+            if(column.name.equals(columnName)) return result;
+            result++;
+        }
+        throw new IllegalArgumentException("Invalid column name identifier");
     }
     public DataType[] getTypes() {
     DataType[] types = new DataType[columns.length];
