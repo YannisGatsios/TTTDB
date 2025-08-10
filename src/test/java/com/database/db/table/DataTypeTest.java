@@ -32,24 +32,21 @@ class DataTypeTest {
     @CsvSource({
         "INT, INT",
         "int, INT",
-        "integer, INT",
-        "INT4, INT",
         "SHORT, SHORT",
         "short, SHORT",
         "FLOAT, FLOAT",
         "float, FLOAT",
         "DOUBLE, DOUBLE",
         "double, DOUBLE",
+        "CHAR, CHAR",
+        "char, CHAR",
         "VARCHAR, VARCHAR",
         "varchar, VARCHAR",
-        "text, VARCHAR",
         "BOOLEAN, BOOLEAN",
         "boolean, BOOLEAN",
         "bool, BOOLEAN",
         "LONG, LONG",
         "long, LONG",
-        "bigint, LONG",
-        "INT8, LONG",
         "DATE, DATE",
         "date, DATE",
         "TIME, TIME",
@@ -64,10 +61,10 @@ class DataTypeTest {
         "duration, INTERVAL",
         "UUID, UUID",
         "uuid, UUID",
-        "BINARY, BINARY",
-        "binary, BINARY",
-        "blob, BINARY",
-        "byte, BINARY"
+        "BYTE, BYTE",
+        "byte, BYTE",
+        "VARBYTE, VARBYTE",
+        "varbyte, VARBYTE"
     })
     void testFromStringValid(String input, DataType expected) {
         assertEquals(expected, DataType.fromString(input));
@@ -89,7 +86,7 @@ class DataTypeTest {
         assertEquals(16, DataType.INTERVAL.getSize());
         assertEquals(16, DataType.UUID.getSize());
         assertEquals(-1, DataType.CHAR.getSize());
-        assertEquals(-1, DataType.BINARY.getSize());
+        assertEquals(-1, DataType.BYTE.getSize());
     }
 
     // ======================= validateValue() Tests =======================
@@ -170,7 +167,7 @@ class DataTypeTest {
     @Test
     void testParseBinary() {
         String base64 = Base64.getEncoder().encodeToString(TEST_BINARY);
-        assertArrayEquals(TEST_BINARY, (byte[]) DataType.BINARY.parseValue(base64));
+        assertArrayEquals(TEST_BINARY, (byte[]) DataType.BYTE.parseValue(base64));
     }
 
     @Test
@@ -214,7 +211,7 @@ class DataTypeTest {
     @Test
     void testBinaryToString() {
         String expected = Base64.getEncoder().encodeToString(TEST_BINARY);
-        assertEquals(expected, DataType.BINARY.toString(TEST_BINARY));
+        assertEquals(expected, DataType.BYTE.toString(TEST_BINARY));
     }
 
     // ======================= toBytes() Tests =======================
@@ -339,21 +336,20 @@ class DataTypeTest {
     // ======================= detect() Tests =======================
     @Test
     void testDetectTypes() {
-        assertEquals(DataType.INT, DataType.detect(42, false));
-        assertEquals(DataType.SHORT, DataType.detect((short) 10, false));
-        assertEquals(DataType.FLOAT, DataType.detect(3.14f, false));
-        assertEquals(DataType.DOUBLE, DataType.detect(3.14, false));
-        assertEquals(DataType.BOOLEAN, DataType.detect(true, false));
-        assertEquals(DataType.LONG, DataType.detect(123L, false));
-        assertEquals(DataType.DATE, DataType.detect(LocalDate.now(), false));
-        assertEquals(DataType.TIME, DataType.detect(LocalTime.now(), false));
-        assertEquals(DataType.TIMESTAMP, DataType.detect(LocalDateTime.now(), false));
-        assertEquals(DataType.TIMESTAMP_WITH_TIME_ZONE, DataType.detect(ZonedDateTime.now(), false));
-        assertEquals(DataType.INTERVAL, DataType.detect(Duration.ofHours(2), false));
-        assertEquals(DataType.CHAR, DataType.detect("test", false));
-        assertEquals(DataType.VARCHAR, DataType.detect("test", true));
-        assertEquals(DataType.UUID, DataType.detect(UUID.randomUUID(), false));
-        assertEquals(DataType.BINARY, DataType.detect(new byte[10], true));
+        assertEquals(DataType.INT, DataType.detectFixedSizeType(42));
+        assertEquals(DataType.SHORT, DataType.detectFixedSizeType((short) 10));
+        assertEquals(DataType.FLOAT, DataType.detectFixedSizeType(3.14f));
+        assertEquals(DataType.DOUBLE, DataType.detectFixedSizeType(3.14));
+        assertEquals(DataType.BOOLEAN, DataType.detectFixedSizeType(true));
+        assertEquals(DataType.LONG, DataType.detectFixedSizeType(123L));
+        assertEquals(DataType.DATE, DataType.detectFixedSizeType(LocalDate.now()));
+        assertEquals(DataType.TIME, DataType.detectFixedSizeType(LocalTime.now()));
+        assertEquals(DataType.TIMESTAMP, DataType.detectFixedSizeType(LocalDateTime.now()));
+        assertEquals(DataType.TIMESTAMP_WITH_TIME_ZONE, DataType.detectFixedSizeType(ZonedDateTime.now()));
+        assertEquals(DataType.INTERVAL, DataType.detectFixedSizeType(Duration.ofHours(2)));
+        assertEquals(DataType.CHAR, DataType.detectFixedSizeType("test"));
+        assertEquals(DataType.UUID, DataType.detectFixedSizeType(UUID.randomUUID()));
+        assertEquals(DataType.BYTE, DataType.detectFixedSizeType(new byte[10]));
     }
 
     // ======================= Edge Cases =======================
@@ -361,9 +357,9 @@ class DataTypeTest {
     @Test
     void testBinaryEmpty() {
         byte[] empty = new byte[0];
-        DataType.BINARY.validateValue(empty, 0);
+        DataType.BYTE.validateValue(empty, 0);
         
-        byte[] bytes = DataType.BINARY.toBytes(empty);
+        byte[] bytes = DataType.BYTE.toBytes(empty);
         ByteBuffer buffer = ByteBuffer.wrap(bytes);
         assertEquals(0, buffer.getShort());
     }
@@ -372,7 +368,7 @@ class DataTypeTest {
     void testBinarySizeExceeded() {
         byte[] data = new byte[1025]; // Exceeds max size
         assertThrows(IllegalArgumentException.class,
-            () -> DataType.BINARY.validateValue(data, 1024));
+            () -> DataType.BYTE.validateValue(data, 1024));
     }
 
     @Test
@@ -482,7 +478,7 @@ class DataTypeTest {
                 .putShort((short) data.length)
                 .put(data);
         buf.flip();
-        Object result = DataType.BINARY.fromBytes(buf);
+        Object result = DataType.BYTE.fromBytes(buf);
         assertArrayEquals(data, (byte[]) result);
     }
 
@@ -490,7 +486,7 @@ class DataTypeTest {
     void testEmptyBinaryFromBytes() {
         ByteBuffer buf = ByteBuffer.allocate(2).putShort((short) 0);
         buf.flip();
-        Object result = DataType.BINARY.fromBytes(buf);
+        Object result = DataType.BYTE.fromBytes(buf);
         assertArrayEquals(new byte[0], (byte[]) result);
     }
 
@@ -551,8 +547,8 @@ class DataTypeTest {
     @Test
     void testBinaryRoundTrip() {
         byte[] data = {0,1,2,3,4,5,6,7,8,9};
-        byte[] b = DataType.BINARY.toBytes(data);
-        Object r = DataType.BINARY.fromBytes(ByteBuffer.wrap(b));
+        byte[] b = DataType.BYTE.toBytes(data);
+        Object r = DataType.BYTE.fromBytes(ByteBuffer.wrap(b));
         assertArrayEquals(data, (byte[]) r);
     }
 

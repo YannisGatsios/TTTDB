@@ -87,8 +87,8 @@ class PageTest {
         File file = new File("./mockDB.mockTable.table");
         file.createNewFile();
         String schemaConfig = 
-    "id:INTEGER:NON:NO_CONSTRAINT:NULL;" +
-    "name:VARCHAR:50:NO_CONSTRAINT:NULL";
+    "id:INT:NON:NO_CONSTRAINT:NULL;" +
+    "name:CHAR:50:NO_CONSTRAINT:NULL";
 
         mockTable = new MockTable(schemaConfig);
         page = new ConcretePage(PAGE_ID, mockTable);

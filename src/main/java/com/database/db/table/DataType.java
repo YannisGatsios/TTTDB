@@ -9,22 +9,24 @@ import java.util.Base64;
 import java.util.Objects;
 import java.util.UUID;
 
+
 public enum DataType {
-    INT(Integer.class,false),        // 4-byte integer
-    SHORT(Short.class,false),        // 2-byte short
-    FLOAT(Float.class,false),      // 4-byte floating point
-    DOUBLE(Double.class,false),     // 8-byte floating point
-    CHAR(String.class,false),     // Fixed-length string
-    VARCHAR(String.class,true),     // Variable-length string
-    BOOLEAN(Boolean.class,false),    // 1-byte boolean
-    LONG(Long.class,false),       // 8-byte integer
-    DATE(LocalDate.class,false),       // Date without time
-    TIME(LocalTime.class,false),      // Time without date
-    TIMESTAMP(LocalDateTime.class,false),  // Date and time without timezone
-    TIMESTAMP_WITH_TIME_ZONE(ZonedDateTime.class,false), // Date and time with timezone
-    INTERVAL(Duration.class,false),    // Time interval
-    UUID(UUID.class,false),
-    BINARY(byte[].class, true);     // Binary data
+    INT(Integer.class, false),        // 4-byte integer
+    SHORT(Short.class, false),        // 2-byte short
+    FLOAT(Float.class, false),      // 4-byte floating point
+    DOUBLE(Double.class, false),     // 8-byte floating point
+    CHAR(String.class, false),     // Fixed-length string
+    VARCHAR(String.class, true),     // Variable-length string
+    BOOLEAN(Boolean.class, false),    // 1-byte boolean
+    LONG(Long.class, false),       // 8-byte integer
+    DATE(LocalDate.class, false),       // Date without time
+    TIME(LocalTime.class, false),      // Time without date
+    TIMESTAMP(LocalDateTime.class, false),  // Date and time without timezone
+    TIMESTAMP_WITH_TIME_ZONE(ZonedDateTime.class, false), // Date and time with timezone
+    INTERVAL(Duration.class, false),    // Time interval
+    UUID(UUID.class, false),
+    BYTE(byte[].class, false),     // Binary data
+    VARBYTE(byte[].class, true);     // Binary data
 
     private final Class<?> javaClass;
     private final boolean isVariable;
@@ -34,12 +36,12 @@ public enum DataType {
         this.isVariable = isVariable;
     }
 
-    public boolean isVariable(){
-        return this.isVariable;
-    }
-
     public Class<?> getJavaClass() {
         return javaClass;
+    }
+
+    public boolean isVariable(){
+        return this.isVariable;
     }
 
     // UTC formatters for consistent date/time handling
@@ -65,7 +67,7 @@ public enum DataType {
             case TIMESTAMP -> 16;
             case INTERVAL -> 16;
             case UUID -> 16;
-            case CHAR, VARCHAR, BINARY, TIMESTAMP_WITH_TIME_ZONE -> -1;  // Variable size
+            case CHAR, VARCHAR, BYTE, VARBYTE, TIMESTAMP_WITH_TIME_ZONE -> -1;  // Variable size
         };
     }
     /**
@@ -83,34 +85,38 @@ public enum DataType {
         String normalized = typeName.trim().toUpperCase();
         // Handle common aliases
         switch (normalized) {
-            case "INTEGER":
-            case "INT4":
-            case "SIGNED INTEGER":
+            case "INT":
                 return INT;
             case "SHORT":
                 return SHORT;
+            case "FLOAT":
+                return FLOAT;
+            case "DOUBLE":
+                return DOUBLE;
+            case "BOOL":
+                return BOOLEAN;
+            case "LONG":
+                return LONG;
             case "CHAR":
                 return CHAR;
             case "VARCHAR":
                 return VARCHAR;
-            case "BOOL":
-                return BOOLEAN;
-            case "BIGINT":
-            case "INT8":
-                return LONG;
             case "DATETIME":
                 return TIMESTAMP;
-            case "UUID":
-                return UUID;
-            case "BLOB":
             case "BYTE":
-                return BINARY;
+                return BYTE;
+            case "VARBYTE":
+                return VARBYTE;
             case "TIME":
                 return TIME;
+            case "DATE":
+                return DATE;
             case "TIMESTAMPTZ":
                 return TIMESTAMP_WITH_TIME_ZONE;
             case "DURATION":
                 return INTERVAL;
+            case "UUID":
+                return UUID;
         }
         // Try exact enum name match
         try {
@@ -147,7 +153,8 @@ public enum DataType {
                 if (!(value instanceof Double)) 
                     throw new IllegalArgumentException("Expected Double");
                 break;
-            case CHAR, VARCHAR:
+            case VARCHAR:
+            case CHAR:
                 if (!(value instanceof String))
                     throw new IllegalArgumentException("Expected String");
                 if (size >= 0 && ((String) value).length() > size)
@@ -185,7 +192,8 @@ public enum DataType {
                 if (!(value instanceof java.util.UUID))
                     throw new IllegalArgumentException("Expected UUID");
                 break;
-            case BINARY:
+            case VARBYTE:
+            case BYTE:
                 if (!(value instanceof byte[]))
                     throw new IllegalArgumentException("Expected byte array");
                 byte[] data = (byte[]) value;
@@ -211,7 +219,7 @@ public enum DataType {
             case SHORT -> Short.parseShort(s);
             case FLOAT -> Float.parseFloat(s);
             case DOUBLE -> Double.parseDouble(s);
-            case CHAR, VARCHAR -> s;
+            case CHAR,VARCHAR -> s;
             case BOOLEAN -> {
                 if (!s.equalsIgnoreCase("true") && !s.equalsIgnoreCase("false")) {
                     throw new IllegalArgumentException("Invalid boolean value: " + s);
@@ -225,7 +233,7 @@ public enum DataType {
             case TIMESTAMP_WITH_TIME_ZONE -> ZonedDateTime.parse(s, TIMESTAMP_WITH_TZ_FORMATTER);
             case INTERVAL -> Duration.parse(s);
             case UUID -> java.util.UUID.fromString(s);
-            case BINARY -> Base64.getDecoder().decode(s);
+            case BYTE,VARBYTE -> Base64.getDecoder().decode(s);
         };
     }
     /**
@@ -288,7 +296,8 @@ public enum DataType {
                     long lsb = buffer.getLong();
                     return new UUID(msb, lsb);
                 }
-                case CHAR, VARCHAR: {
+                case VARCHAR:
+                case CHAR: {
                     short len = buffer.getShort();
                     if (buffer.remaining() < len)
                         throw new IllegalArgumentException("Buffer underflow: expected " + len + " bytes for VARCHAR");
@@ -296,7 +305,8 @@ public enum DataType {
                     buffer.get(bytes);
                     return new String(bytes, StandardCharsets.UTF_8);
                 }
-                case BINARY: {
+                case VARBYTE:
+                case BYTE: {
                     short len = buffer.getShort();
                     if (buffer.remaining() < len)
                         throw new IllegalArgumentException("Buffer underflow: expected " + len + " bytes for BINARY");
@@ -394,14 +404,16 @@ public enum DataType {
                 uuidBuffer.putLong(uuid.getLeastSignificantBits());
                 return uuidBuffer.array();
             }
-            case CHAR, VARCHAR: {
+            case VARCHAR:
+            case CHAR: {
                 byte[] strBytes = ((String) value).getBytes(StandardCharsets.UTF_8);
                 ByteBuffer strBuffer = ByteBuffer.allocate(2 + strBytes.length);
                 strBuffer.putShort((short) strBytes.length);
                 strBuffer.put(strBytes);
                 return strBuffer.array();
             }
-            case BINARY: {
+            case VARBYTE:
+            case BYTE: {
                 byte[] binData = (byte[]) value;
                 ByteBuffer binBuffer = ByteBuffer.allocate(2 + binData.length);
                 binBuffer.putShort((short) binData.length);
@@ -426,12 +438,12 @@ public enum DataType {
             case TIMESTAMP -> TIMESTAMP_FORMATTER.format((LocalDateTime) value);
             case TIMESTAMP_WITH_TIME_ZONE -> TIMESTAMP_WITH_TZ_FORMATTER.format((ZonedDateTime) value);
             case INTERVAL -> value.toString();
-            case BINARY -> Base64.getEncoder().encodeToString((byte[]) value);
+            case BYTE,VARBYTE -> Base64.getEncoder().encodeToString((byte[]) value);
             default -> value.toString();
         };
     }
 
-    public static DataType detect(Object value, boolean variableSize) {
+    public static DataType detectFixedSizeType(Object value) {
         if (value instanceof Integer) return DataType.INT;
         if (value instanceof Short) return DataType.SHORT;
         if (value instanceof Float) return DataType.FLOAT;
@@ -443,11 +455,17 @@ public enum DataType {
         if (value instanceof LocalDateTime) return DataType.TIMESTAMP;
         if (value instanceof ZonedDateTime) return DataType.TIMESTAMP_WITH_TIME_ZONE;
         if (value instanceof Duration) return DataType.INTERVAL;
-        if (value instanceof String && !variableSize) return DataType.CHAR;
-        if (value instanceof String && variableSize) return DataType.VARCHAR;
+        if (value instanceof String) return DataType.CHAR;
         if (value instanceof java.util.UUID) return DataType.UUID;
-        if (value instanceof byte[]) return DataType.BINARY;
+        if (value instanceof byte[]) return DataType.BYTE;
 
-        throw new IllegalArgumentException("Unsupported type: " + value.getClass());
+        throw new IllegalArgumentException("Unsupported Fixed size type: " + value.getClass());
+    }
+
+    public static DataType detectVariableSizeType(Object value){
+        if (value instanceof String) return DataType.VARCHAR;
+        if (value instanceof byte[]) return DataType.VARBYTE;
+
+        throw new IllegalArgumentException("Unsupported Variable size type: " + value.getClass());
     }
 }

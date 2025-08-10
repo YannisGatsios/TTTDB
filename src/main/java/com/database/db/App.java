@@ -33,7 +33,7 @@ public class App {
             "username:CHAR:10:PRIMARY_KEY:NULL;"+
             "num:INT:NON:INDEX:NULL;"+
             "message:CHAR:10:NO_CONSTRAINT:NULL;"+
-            "data:BINARY:10:NOT_NULL:NON;"+
+            "data:BYTE:10:NOT_NULL:NON;"+
             "id:LONG:NON:AUTO_INCREMENT,UNIQUE:NULL";
         TableConfig tableConf = new TableConfig("users", schemaConfig, 10);
         DBMS db = new DBMS("test_database","")

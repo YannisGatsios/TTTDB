@@ -17,10 +17,10 @@ class TablePageTest {
     private TablePage page;
     private Entry entry1, entry2, entry3;
     private static final String SCHEMA_STRING = (
-            "username:VARCHAR:10:PRIMARY_KEY:NULL;"+
+            "username:CHAR:10:PRIMARY_KEY:NULL;"+
             "num:INT:NON:INDEX:NULL;"+
-            "message:VARCHAR:10:NO_CONSTRAINT:NULL;"+
-            "data:BINARY:10:NOT_NULL:NON");
+            "message:CHAR:10:NO_CONSTRAINT:NULL;"+
+            "data:BYTE:10:NOT_NULL:NON");
 
     @BeforeEach
     void setUp() throws Exception {

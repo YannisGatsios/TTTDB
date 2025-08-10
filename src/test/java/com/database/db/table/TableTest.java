@@ -34,7 +34,7 @@ public class TableTest {
         testPath = tempDir.toString() + File.separator;
         String databaseName = "testDB";
         String tableName = "testTable";
-        schemaDef = "username:VARCHAR:10:PRIMARY_KEY:NULL;num:INT:4:INDEX:NULL";
+        schemaDef = "username:CHAR:10:PRIMARY_KEY:NULL;num:INT:4:INDEX:NULL";
         TableConfig tableConf = new TableConfig(tableName, schemaDef, 10);
         database = new Database(databaseName);
         database.setPath(testPath);
@@ -90,7 +90,7 @@ public class TableTest {
     
     @Test
     void pageSizeCalculations_AreConsistent() {
-        int calculatedPageSize = TablePage.sizeOfEntry(table);
+        int calculatedPageSize = Page.pageSizeInBytes(TablePage.sizeOfEntry(table));
         // Should be multiple of block size (4096)
         assertEquals(0, calculatedPageSize % 4096);
         assertTrue(calculatedPageSize > 0);
@@ -99,7 +99,7 @@ public class TableTest {
     @Test
     void autoIncrementing_InitializesCorrectly() throws Exception {
         // Create schema with auto-increment column
-        String aiSchemaDef = "id:LONG:4:AUTO_INCREMENT:NULL;name:VARCHAR:20:NO_CONSTRAINT:NULL";
+        String aiSchemaDef = "id:LONG:4:AUTO_INCREMENT:NULL;name:CHAR:20:NO_CONSTRAINT:NULL";
         //Files.createFile(tempDir.resolve("testDB.aiTable.table"));
         TableConfig tableConf = new TableConfig("aiTable", aiSchemaDef, 10);
         database.createTable(tableConf);

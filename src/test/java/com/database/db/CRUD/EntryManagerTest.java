@@ -51,10 +51,10 @@ public class EntryManagerTest {
     @BeforeAll
     void setup() throws ExecutionException, InterruptedException, IOException, Exception {
         database = new Database("test_database");
-        String schemaConfig = "username:VARCHAR:100:PRIMARY_KEY:NULL;"+
+        String schemaConfig = "username:CHAR:100:PRIMARY_KEY:NULL;"+
             "num:INT:NON:INDEX:NULL;"+
-            "message:VARCHAR:10:NO_CONSTRAINT:NULL;"+
-            "data:BINARY:10:NOT_NULL:NON";
+            "message:CHAR:10:NO_CONSTRAINT:NULL;"+
+            "data:BYTE:10:NOT_NULL:NON";
         config = new TableConfig("test_table", schemaConfig, 100);
         database.createTable(config);
         table = database.getTable("test_table");
