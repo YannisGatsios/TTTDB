@@ -3,11 +3,13 @@ package com.database.db.index;
 import java.util.concurrent.ExecutionException;
 
 import com.database.db.FileIO;
+import com.database.db.page.Page;
+import com.database.db.page.TablePage;
 import com.database.db.table.Table;
 
 public class PrimaryKey<K extends Comparable<? super K>> extends BTreeSerialization<K> {
     public PrimaryKey(Table table, int columnIndex) throws InterruptedException, ExecutionException {
-        super(table.getPageCapacity());
+        super(Page.getPageCapacity(TablePage.sizeOfEntry(table)));
         this.columnIndex = columnIndex;
         FileIO fileIO = new FileIO(table.getFileIOThread());
         byte[] treeBuffer = fileIO.readTree(table.getIndexPath(this.columnIndex));

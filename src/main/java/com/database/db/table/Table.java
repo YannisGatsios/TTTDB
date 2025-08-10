@@ -21,6 +21,7 @@ import com.database.db.index.Pair;
 import com.database.db.manager.IndexManager;
 import com.database.db.page.Cache;
 import com.database.db.page.Entry;
+import com.database.db.page.Page;
 import com.database.db.page.TablePage;
 
 public class Table {
@@ -30,9 +31,6 @@ public class Table {
     private Cache cache;
     private IndexManager indexes;
 
-    private int sizeOfEntry;
-    public static int SIZE_OF_HEADER = 2 * (Integer.BYTES) + Short.BYTES;
-    public final int BLOCK_SIZE = 4096;
     private int numberOfPages;
 
     private AutoIncrementing[] autoIncrementing;
@@ -49,7 +47,6 @@ public class Table {
         this.fileIOThread = fileIOThread;
         this.CACHE_CAPACITY = CACHE_CAPACITY;
         this.cache = new Cache(this);
-        this.sizeOfEntry = this.setSizeOfEntry();
         this.indexes = this.initIndex();
         this.numberOfPages = this.setNumOfPages();
         this.autoIncrementing = this.getAutoIncrementing();
@@ -58,20 +55,8 @@ public class Table {
     private int setNumOfPages(){
         File file = new File(this.getPath());
         long fileSize = file.length();
-        int pageSize = pageSizeInBytes();
+        int pageSize = Page.pageSizeInBytes(TablePage.sizeOfEntry(this));
         return (int) ((fileSize + pageSize - 1) / pageSize);
-    }
-
-    private int setSizeOfEntry(){
-        int result = (this.schema.numNullables()+7)/8;
-        DataType[] columnTypes = this.schema.getTypes();
-        int[] columnSizes = this.schema.getSizes();
-        for (int i = 0;i<columnTypes.length;i++) {
-            int size = columnTypes[i].getSize();
-            if(size == -1) size = columnSizes[i]+2;
-            result += size;
-        }
-        return result;
     }
 
     private AutoIncrementing[] getAutoIncrementing(){
@@ -185,7 +170,6 @@ public class Table {
 
     public String getDatabaseName(){return this.databaseName;}
     public String getName(){return this.tableName;}
-
     public Schema getSchema(){return this.schema;}
     public Cache getCache(){return this.cache;}
     public FileIOThread getFileIOThread() {return this.fileIOThread;}
@@ -195,14 +179,7 @@ public class Table {
     public String getPath(){return this.path+this.getDatabaseName()+"."+this.getName()+".table";}
     public String getIndexPath(int columnIndex){return this.path+this.getDatabaseName()+"."+this.getName()+"."+this.schema.getNames()[columnIndex]+".index";}
 
-    public int getSizeOfEntry(){return this.sizeOfEntry;}
-    public short getPageCapacity(){
-        if ((SIZE_OF_HEADER + this.sizeOfEntry) > BLOCK_SIZE) return 1;
-        return (short) ((BLOCK_SIZE - SIZE_OF_HEADER) / this.sizeOfEntry);
-    }
     public int getPages(){return this.numberOfPages;}
     public void addOnePage(){this.numberOfPages++;}
     public void removeOnePage(){this.numberOfPages--;}
-    public int pageSizeInBytes() {return (pageSizeOfEntries() + SIZE_OF_HEADER)+ (BLOCK_SIZE - ((pageSizeOfEntries() + SIZE_OF_HEADER) % BLOCK_SIZE));}
-    private int pageSizeOfEntries() {return (this.sizeOfEntry * this.getPageCapacity());}
 }

@@ -3,6 +3,7 @@ package com.database.db.page;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import com.database.db.table.DataType;
 import com.database.db.table.Table;
 
 public class TablePage extends Page{
@@ -10,8 +11,20 @@ public class TablePage extends Page{
     private Table table;
 
     public TablePage(int PageID, Table table) {
-        super(PageID, table);
+        super(PageID, TablePage.sizeOfEntry(table));
         this.table = table;
+    }
+
+    public static int sizeOfEntry(Table table){
+        int result = (table.getSchema().numNullables()+7)/8;
+        DataType[] columnTypes = table.getSchema().getTypes();
+        int[] columnSizes = table.getSchema().getSizes();
+        for (int i = 0;i<columnTypes.length;i++) {
+            int size = columnTypes[i].getSize();
+            if(size == -1) size = columnSizes[i]+2;
+            result += size;
+        }
+        return result;
     }
 
     public byte[] toBytes() throws IOException {
@@ -51,7 +64,7 @@ public class TablePage extends Page{
         int spaceInUse = buffer.getInt();
         this.setPageID(pageID);
         //Reading The Entries
-        int entrySize = table.getSizeOfEntry();
+        int entrySize = TablePage.sizeOfEntry(table);
         for(int i = 0; i < numOfEntries; i++){
             ByteBuffer slice = buffer.slice(); // view starting at current position
             slice.limit(entrySize); // limit to just one entry

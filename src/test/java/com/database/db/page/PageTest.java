@@ -37,7 +37,7 @@ class PageTest {
      */
     private static class ConcretePage extends Page {
         public ConcretePage(int PageID, Table table) {
-            super(PageID, table);
+            super(PageID, TablePage.sizeOfEntry(table));
         }
 
         @Override
@@ -106,12 +106,12 @@ class PageTest {
         assertEquals(0, page.size(), "Initial number of entries should be 0.");
         assertEquals(0, page.getSpaceInUse(), "Initial space in use should be 0.");
         assertFalse(page.isDirty(), "Page should not be dirty on initialization.");
-        assertEquals(mockTable.getPageCapacity(), page.getAll().length, "Entries array should be initialized to page capacity.");
+        assertEquals(Page.getPageCapacity(TablePage.sizeOfEntry(mockTable)), page.getAll().length, "Entries array should be initialized to page capacity.");
     }
 
     @Test
     void testAddEntry() {
-        int entrySize = mockTable.getSizeOfEntry();
+        int entrySize = TablePage.sizeOfEntry(mockTable);
         page.add(entry1);
         assertEquals(1, page.size());
         assertEquals(entrySize, page.getSpaceInUse());
@@ -126,7 +126,7 @@ class PageTest {
 
     @Test
     void testAddEntry_ThrowsExceptionWhenFull() {
-        short pageCapacity = mockTable.getPageCapacity();
+        short pageCapacity = Page.getPageCapacity(TablePage.sizeOfEntry(mockTable));
         for (int i = 0; i < pageCapacity; i++) {
             page.add(new MockEntry(mockTable, i, "name" + i));
         }
@@ -155,7 +155,7 @@ class PageTest {
         page.add(entry3);
         page.setDirty(false);
 
-        int entrySize = mockTable.getSizeOfEntry();
+        int entrySize = TablePage.sizeOfEntry(mockTable);
 
         Entry removedEntry = page.remove(1);
 
@@ -209,10 +209,10 @@ class PageTest {
 
     @Test
     void testSizingCalculations() {
-        int actualEntrySize = mockTable.getSizeOfEntry();
-        short pageCapacity = mockTable.getPageCapacity();
+        int actualEntrySize = TablePage.sizeOfEntry(mockTable);
+        short pageCapacity = Page.getPageCapacity(TablePage.sizeOfEntry(mockTable));
 
-        int expectedHeaderSize = Table.SIZE_OF_HEADER;
+        int expectedHeaderSize = Page.SIZE_OF_HEADER;
         int expectedEntriesSize = actualEntrySize * pageCapacity;
 
         assertEquals(expectedHeaderSize, page.sizeOfHeader());
@@ -221,7 +221,7 @@ class PageTest {
         // Assuming page.sizeInBytes() internally calls table.pageSizeInBytes() or calculates similarly.
         // If Table.pageSizeInBytes() is not public/protected, this specific assertion might need adjustment
         // by making that method accessible for testing or only testing what `Page` directly calculates.
-        assertEquals(mockTable.pageSizeInBytes(), page.sizeInBytes());
+        assertEquals(Page.pageSizeInBytes(TablePage.sizeOfEntry(mockTable)), page.sizeInBytes());
     }
     @AfterAll
     static void end(){

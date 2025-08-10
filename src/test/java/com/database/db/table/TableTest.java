@@ -8,6 +8,8 @@ import org.junit.jupiter.api.io.TempDir;
 import com.database.db.api.DBMS.*;
 import com.database.db.manager.EntryManager;
 import com.database.db.page.Entry;
+import com.database.db.page.Page;
+import com.database.db.page.TablePage;
 import com.database.db.Database;
 import com.database.db.FileIOThread;
 
@@ -65,7 +67,7 @@ public class TableTest {
         // Size of num: INT = 4 bytes
         // Total entry size = 1 + 12 + 4 = 17 bytes
         // Capacity = (4096 - 10) / 17 = 240
-        assertEquals(240, table.getPageCapacity());
+        assertEquals(240, Page.getPageCapacity(TablePage.sizeOfEntry(table)));
     }
 
     @Test
@@ -88,7 +90,7 @@ public class TableTest {
     
     @Test
     void pageSizeCalculations_AreConsistent() {
-        int calculatedPageSize = table.pageSizeInBytes();
+        int calculatedPageSize = TablePage.sizeOfEntry(table);
         // Should be multiple of block size (4096)
         assertEquals(0, calculatedPageSize % 4096);
         assertTrue(calculatedPageSize > 0);

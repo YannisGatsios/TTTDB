@@ -56,7 +56,7 @@ class TablePageTest {
         emptyPage();
         page.add(entry1);
         assertEquals(1, page.size());
-        assertEquals(table.getSizeOfEntry(), page.getSpaceInUse());
+        assertEquals(TablePage.sizeOfEntry(table), page.getSpaceInUse());
         assertTrue(page.contains(entry1));
     }
 
@@ -89,7 +89,7 @@ class TablePageTest {
         
         page.remove(0);
         assertEquals(1, page.size());
-        assertEquals(initialSpace - table.getSizeOfEntry(), page.getSpaceInUse());
+        assertEquals(initialSpace - TablePage.sizeOfEntry(table), page.getSpaceInUse());
         assertEquals(entry2, page.get(0));
     }
 
@@ -177,12 +177,12 @@ class TablePageTest {
         
         assertTrue(stats.contains("Page ID :                 0"));
         assertTrue(stats.contains("Number Of Entries :        1"));
-        assertTrue(stats.contains("Space in Use :            [ " + table.getSizeOfEntry()));
+        assertTrue(stats.contains("Space in Use :            [ " + TablePage.sizeOfEntry(table)));
     }
 
     // Helper method
     private void fillPage() {
-        for (int i = this.page.size(); i < table.getPageCapacity(); i++) {
+        for (int i = this.page.size(); i < Page.getPageCapacity(TablePage.sizeOfEntry(table)); i++) {
             Entry e = createEntry("user" + i, i, "msg", new byte[10]);
             page.add(e);
         }

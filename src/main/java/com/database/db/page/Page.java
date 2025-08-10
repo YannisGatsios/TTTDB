@@ -2,7 +2,6 @@ package com.database.db.page;
 
 import java.io.IOException;
 
-import com.database.db.table.Table;
 
 public abstract class Page {
 
@@ -12,15 +11,16 @@ public abstract class Page {
     private Entry[] entries;
     private int maxSizeOfEntry;
 
-    private int BLOCK_SIZE = 4096;
+    public static final int BLOCK_SIZE = 4096;
+    public static final int SIZE_OF_HEADER = 2*Integer.BYTES + Short.BYTES;
     private boolean dirty = false;
 
-    public Page(int PageID, Table table) {
+    public Page(int PageID, int sizeOfEntry) {
         this.pageID = PageID;
         this.numOfEntries = 0;
         this.spaceInUse = 0;
-        this.entries = new Entry[table.getPageCapacity()];
-        this.maxSizeOfEntry = table.getSizeOfEntry();
+        this.entries = new Entry[Page.getPageCapacity(sizeOfEntry)];
+        this.maxSizeOfEntry = sizeOfEntry;
     }
 
     // ==========ADDING_ENTRIES==========
@@ -92,6 +92,19 @@ public abstract class Page {
                 "\n\tSize Of Page :           [" + this.sizeInBytes() + "]" +
                 "\n\tSize Of Page Header :   [" + this.sizeOfHeader() + "]" +
                 "\n\tSpace in Use :            [ " + this.spaceInUse + "/" + this.sizeOfEntries() + " ]";
+    }
+
+    public static short getPageCapacity(int sizeOfEntry){
+        if ((SIZE_OF_HEADER + sizeOfEntry) > BLOCK_SIZE) return 1;
+        return (short) ((BLOCK_SIZE - SIZE_OF_HEADER) / sizeOfEntry);
+    }
+    public static int pageSizeOfEntries(int sizeOfEntry) {
+        int capacity = Page.getPageCapacity(sizeOfEntry);
+        return (sizeOfEntry * capacity);
+    }
+    public static int pageSizeInBytes(int sizeOfEntry) {
+        int sizeOfEntries = Page.pageSizeOfEntries(sizeOfEntry);
+        return (sizeOfEntries + SIZE_OF_HEADER)+ (BLOCK_SIZE - ((sizeOfEntries + SIZE_OF_HEADER) % BLOCK_SIZE));
     }
 
     public abstract byte[] toBytes() throws IOException;

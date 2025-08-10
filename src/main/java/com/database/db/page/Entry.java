@@ -47,7 +47,7 @@ public class Entry {
         byte[] bitMapBytes = new byte[bitmapSize];
         byte[] bitMapBytesRaw = this.nullsBitMap.toByteArray();
         System.arraycopy(bitMapBytesRaw, 0, bitMapBytes, 0, bitMapBytesRaw.length);
-        ByteBuffer buffer = ByteBuffer.allocate(table.getSizeOfEntry());
+        ByteBuffer buffer = ByteBuffer.allocate(TablePage.sizeOfEntry(table));
         buffer.put(bitMapBytes);
         for (int i = 0;i<this.entryData.length;i++) {
             Object value = this.entryData[i];
@@ -59,7 +59,7 @@ public class Entry {
 
     public static Entry fromBytes(ByteBuffer buffer,Table table){
         int startPos = buffer.position();
-        int expectedSize = table.getSizeOfEntry();
+        int expectedSize = TablePage.sizeOfEntry(table);
         // optional: validate enough bytes remain
         if (buffer.remaining() < expectedSize) {
             throw new IllegalArgumentException(
