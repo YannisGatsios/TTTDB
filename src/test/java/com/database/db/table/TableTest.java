@@ -7,6 +7,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.database.db.api.DBMS.*;
 import com.database.db.manager.EntryManager;
+import com.database.db.page.Entry;
 import com.database.db.Database;
 import com.database.db.FileIOThread;
 

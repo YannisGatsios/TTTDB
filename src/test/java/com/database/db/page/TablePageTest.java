@@ -6,7 +6,6 @@ import org.junit.jupiter.api.AfterAll;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.database.db.FileIOThread;
-import com.database.db.table.Entry;
 import com.database.db.table.Table;
 
 import java.io.File;

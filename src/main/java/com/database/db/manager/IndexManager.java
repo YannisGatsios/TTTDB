@@ -13,7 +13,7 @@ import com.database.db.index.Index;
 import com.database.db.index.Pair;
 import com.database.db.index.PrimaryKey;
 import com.database.db.index.BTreeSerialization.BlockPointer;
-import com.database.db.table.Entry;
+import com.database.db.page.Entry;
 import com.database.db.table.Schema;
 import com.database.db.table.Table;
 import com.database.db.table.DataType;
@@ -49,7 +49,7 @@ public class IndexManager {
             case LONG -> new PrimaryKey<Long>(table, pkIndex);
             case FLOAT -> new PrimaryKey<Float>(table, pkIndex);
             case DOUBLE -> new PrimaryKey<Double>(table, pkIndex);
-            case VARCHAR -> new PrimaryKey<String>(table, pkIndex);
+            case CHAR -> new PrimaryKey<String>(table, pkIndex);
             case DATE -> new PrimaryKey<Date>(table, pkIndex);
             case TIMESTAMP -> new PrimaryKey<Timestamp>(table, pkIndex);
             default -> throw new IllegalArgumentException("Unsupported primary key type: " + pkType);
@@ -63,7 +63,7 @@ public class IndexManager {
             case LONG -> new Unique<Long>(table, uqIndex);
             case FLOAT -> new Unique<Float>(table, uqIndex);
             case DOUBLE -> new Unique<Double>(table, uqIndex);
-            case VARCHAR -> new Unique<String>(table, uqIndex);
+            case CHAR -> new Unique<String>(table, uqIndex);
             case DATE -> new Unique<Date>(table, uqIndex);
             case TIMESTAMP -> new Unique<Timestamp>(table, uqIndex);
             default -> throw new IllegalArgumentException("Unsupported type: " + type.name());
@@ -76,7 +76,7 @@ public class IndexManager {
             case LONG -> new Index<Long>(table, skIndex);
             case FLOAT -> new Index<Float>(table, skIndex);
             case DOUBLE -> new Index<Double>(table, skIndex);
-            case VARCHAR -> new Index<String>(table, skIndex);
+            case CHAR -> new Index<String>(table, skIndex);
             case DATE -> new Index<Date>(table, skIndex);
             case TIMESTAMP -> new Index<Timestamp>(table, skIndex);
             default -> throw new IllegalArgumentException("Unsupported type: " + type);

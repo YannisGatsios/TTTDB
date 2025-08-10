@@ -2,7 +2,6 @@ package com.database.db.page;
 
 import java.io.IOException;
 
-import com.database.db.table.Entry;
 import com.database.db.table.Table;
 
 public abstract class Page {
@@ -25,10 +24,10 @@ public abstract class Page {
     }
 
     // ==========ADDING_ENTRIES==========
-    public void add(Entry entry){
-        this.add(this.numOfEntries, entry);
+    public int add(Entry entry){
+        return this.add(this.numOfEntries, entry);
     }
-    public void add(int index, Entry entry) {
+    public int add(int index, Entry entry) {
         if (entry == null) throw new IllegalArgumentException("Cannot add null Entry.");
         if (index < 0 || index >= this.entries.length) throw new IllegalArgumentException("Index out of bounds: " + index);
         if (this.entries[index] != null) throw new IllegalArgumentException("Entry already exists at index " + index+" can not add a new one");
@@ -36,6 +35,7 @@ public abstract class Page {
         this.entries[index] = entry;
         this.spaceInUse += this.maxSizeOfEntry;
         this.dirty = true;
+        return index;
     }
 
     // ===========REMOVING_ENTRIES===============

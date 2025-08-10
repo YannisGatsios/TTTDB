@@ -13,7 +13,7 @@ import java.util.logging.Logger;
 import com.database.db.Database;
 import com.database.db.api.Condition.WhereClause;
 import com.database.db.manager.EntryManager;
-import com.database.db.table.Entry;
+import com.database.db.page.Entry;
 import com.database.db.table.Schema;
 import com.database.db.table.Table;
 

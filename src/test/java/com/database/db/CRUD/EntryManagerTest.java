@@ -22,8 +22,8 @@ import org.junit.jupiter.api.TestInstance;
 import com.database.db.api.Condition.*;
 import com.database.db.api.DBMS.*;
 import com.database.db.manager.EntryManager;
+import com.database.db.page.Entry;
 import com.database.db.Database;
-import com.database.db.table.Entry;
 import com.database.db.table.Table;
 
 

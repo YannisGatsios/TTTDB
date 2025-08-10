@@ -88,7 +88,7 @@ class DataTypeTest {
         assertEquals(-1, DataType.TIMESTAMP_WITH_TIME_ZONE.getSize());
         assertEquals(16, DataType.INTERVAL.getSize());
         assertEquals(16, DataType.UUID.getSize());
-        assertEquals(-1, DataType.VARCHAR.getSize());
+        assertEquals(-1, DataType.CHAR.getSize());
         assertEquals(-1, DataType.BINARY.getSize());
     }
 
@@ -339,20 +339,21 @@ class DataTypeTest {
     // ======================= detect() Tests =======================
     @Test
     void testDetectTypes() {
-        assertEquals(DataType.INT, DataType.detect(42));
-        assertEquals(DataType.SHORT, DataType.detect((short) 10));
-        assertEquals(DataType.FLOAT, DataType.detect(3.14f));
-        assertEquals(DataType.DOUBLE, DataType.detect(3.14));
-        assertEquals(DataType.BOOLEAN, DataType.detect(true));
-        assertEquals(DataType.LONG, DataType.detect(123L));
-        assertEquals(DataType.DATE, DataType.detect(LocalDate.now()));
-        assertEquals(DataType.TIME, DataType.detect(LocalTime.now()));
-        assertEquals(DataType.TIMESTAMP, DataType.detect(LocalDateTime.now()));
-        assertEquals(DataType.TIMESTAMP_WITH_TIME_ZONE, DataType.detect(ZonedDateTime.now()));
-        assertEquals(DataType.INTERVAL, DataType.detect(Duration.ofHours(2)));
-        assertEquals(DataType.VARCHAR, DataType.detect("test"));
-        assertEquals(DataType.UUID, DataType.detect(UUID.randomUUID()));
-        assertEquals(DataType.BINARY, DataType.detect(new byte[10]));
+        assertEquals(DataType.INT, DataType.detect(42, false));
+        assertEquals(DataType.SHORT, DataType.detect((short) 10, false));
+        assertEquals(DataType.FLOAT, DataType.detect(3.14f, false));
+        assertEquals(DataType.DOUBLE, DataType.detect(3.14, false));
+        assertEquals(DataType.BOOLEAN, DataType.detect(true, false));
+        assertEquals(DataType.LONG, DataType.detect(123L, false));
+        assertEquals(DataType.DATE, DataType.detect(LocalDate.now(), false));
+        assertEquals(DataType.TIME, DataType.detect(LocalTime.now(), false));
+        assertEquals(DataType.TIMESTAMP, DataType.detect(LocalDateTime.now(), false));
+        assertEquals(DataType.TIMESTAMP_WITH_TIME_ZONE, DataType.detect(ZonedDateTime.now(), false));
+        assertEquals(DataType.INTERVAL, DataType.detect(Duration.ofHours(2), false));
+        assertEquals(DataType.CHAR, DataType.detect("test", false));
+        assertEquals(DataType.VARCHAR, DataType.detect("test", true));
+        assertEquals(DataType.UUID, DataType.detect(UUID.randomUUID(), false));
+        assertEquals(DataType.BINARY, DataType.detect(new byte[10], true));
     }
 
     // ======================= Edge Cases =======================
@@ -462,7 +463,7 @@ class DataTypeTest {
                 .putShort((short) bytes.length)
                 .put(bytes);
         buf.flip();
-        Object result = DataType.VARCHAR.fromBytes(buf);
+        Object result = DataType.CHAR.fromBytes(buf);
         assertEquals(s, result);
     }
 
@@ -470,7 +471,7 @@ class DataTypeTest {
     void testEmptyStringFromBytes() {
         ByteBuffer buf = ByteBuffer.allocate(2).putShort((short) 0);
         buf.flip();
-        Object result = DataType.VARCHAR.fromBytes(buf);
+        Object result = DataType.CHAR.fromBytes(buf);
         assertEquals("", result);
     }
 
@@ -579,7 +580,7 @@ class DataTypeTest {
         ByteBuffer.wrap(buffer).position(off).putShort((short) sBytes.length).put(sBytes);
         ByteBuffer bb = ByteBuffer.wrap(buffer);
         bb.position(off);
-        Object r = DataType.VARCHAR.fromBytes(bb);
+        Object r = DataType.CHAR.fromBytes(bb);
         assertEquals(v, r);
     }
 
@@ -595,7 +596,7 @@ class DataTypeTest {
         // VARCHAR needs at least 2-byte length
         ByteBuffer tiny = ByteBuffer.allocate(1);
         tiny.flip();
-        assertThrows(IllegalArgumentException.class, () -> DataType.VARCHAR.fromBytes(tiny));
+        assertThrows(IllegalArgumentException.class, () -> DataType.CHAR.fromBytes(tiny));
     }
 
     @Test
@@ -606,6 +607,6 @@ class DataTypeTest {
     @Test
     void testToBytesInvalid() {
         assertThrows(IllegalArgumentException.class, () -> DataType.INT.toBytes("not int"));
-        assertThrows(IllegalArgumentException.class, () -> DataType.VARCHAR.toBytes(123));
+        assertThrows(IllegalArgumentException.class, () -> DataType.CHAR.toBytes(123));
     }
 }

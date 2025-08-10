@@ -6,7 +6,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.database.db.table.Entry;
 import com.database.db.table.Table;
 import com.database.db.FileIOThread;
 

@@ -1,11 +1,14 @@
-package com.database.db.table;
+package com.database.db.page;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Objects;
+
+import com.database.db.table.DataType;
+import com.database.db.table.Schema;
+import com.database.db.table.Table;
 
 
 public class Entry {
@@ -14,7 +17,6 @@ public class Entry {
     private int[] sizeOfElementsOfEntry;
     private int[] indexOfElementsOfEntry;
     private BitSet nullsBitMap;
-    private int sizeInBytes;
     private int numberOfNullableColumns;
 
     public Entry(){}
@@ -23,9 +25,6 @@ public class Entry {
     public Entry(Object[] data, int numOfNullColumns){
         this.entryData = data;
         this.numberOfNullableColumns = numOfNullColumns;
-        this.sizeOfElementsOfEntry = this.setSizeOfElementsOfEntry(data);
-        this.indexOfElementsOfEntry = this.setIndexOfElementsOfEntry(this.sizeOfElementsOfEntry);
-        this.sizeInBytes = this.setEntrySizeInBytes();
         this.nullsBitMap = new BitSet(this.numberOfNullableColumns);
     }
 
@@ -40,68 +39,6 @@ public class Entry {
         }
         return this;
     }
-    
-    //the following returns an [] of the size for each value of the entry.
-    //the only supported types are Integer,String and for buffers byte[].
-    //[example] row = ["hello",100000,byte[10]]
-    //"hello" size = 5, 10000 size = 4(because size of an Integer in bytes is 4), byte[10] size = 10.
-    //output = [5,6,10]
-    private int[] setSizeOfElementsOfEntry(Object[] newEntry){
-        int[] sizes = new int[newEntry.length];
-        int ind = 0;
-        for (Object value : newEntry) {
-            if(value == null){
-                sizes[ind] = 0;
-                continue;
-            }
-            DataType type = DataType.detect(value);
-            int size = type.getSize(); 
-            if(size != -1){
-                sizes[ind] = size;
-            }else{
-                if (type == DataType.VARCHAR) {
-                    // optionally use UTF-8 byte length if needed
-                    sizes[ind] = ((String) value).getBytes(StandardCharsets.UTF_8).length;
-                } else if (type == DataType.BINARY) {
-                    sizes[ind] = ((byte[]) value).length;
-                }
-            }
-            ind++;
-        }
-        return sizes;
-    }
-    
-    //the following gives the index of the end of each value the row has.
-    //[example] size of first element of row is 5, for second is 6 and third is 10 ["hello",100000,byte[10]]
-    //"hello" size = 5, 10000 size = 4(because size of an Integer in bytes is 4), byte[10] size = 10.
-    //the output will be [5,5+4,5+4+10] = [5,9,19]
-    //        5     9         19
-    //        |     |         |
-    //    hello1000000000000000
-    private int[] setIndexOfElementsOfEntry(int[] sizeOfElementsOfEntry) {
-        int[] indexes = new int[sizeOfElementsOfEntry.length];
-        int ind = 0;
-        int sum = 0;
-        for (int i : sizeOfElementsOfEntry) {
-            sum = sum+i;
-            indexes[ind] = sum;
-            ind++;
-        }
-        return indexes;
-    }
-
-    // the following gives the size the entry would take when stored
-    private int setEntrySizeInBytes() {
-        int sum = 0;
-        for (int element : this.sizeOfElementsOfEntry) {
-            sum += element;
-        }
-        int bitmapBytes = (this.numberOfNullableColumns + 7) / 8; 
-        sum += bitmapBytes;
-        return sum;
-    }
-
-    public int sizeInBytes(){return this.sizeInBytes;}
 
     public int size(){return this.entryData.length;}
 

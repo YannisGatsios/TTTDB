@@ -207,7 +207,7 @@ public class Functions {
     private static Object set(Schema schema, Object value, int columnIndex){
         DataType type = schema.getTypes()[columnIndex];
         if(!type.getJavaClass().isInstance(value))
-            throw new IllegalArgumentException("Type mismatch to set current: "+DataType.detect(value).name()+" expected: "+type.name());
+            throw new IllegalArgumentException("Type mismatch to set expected: "+type.name());
         return value;
     }
 

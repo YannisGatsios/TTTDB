@@ -11,8 +11,8 @@ import com.database.db.api.Condition.WhereClause;
 import com.database.db.api.Functions.InnerFunctions;
 import com.database.db.api.UpdateFields;
 import com.database.db.index.BTreeSerialization.BlockPointer;
+import com.database.db.page.Entry;
 import com.database.db.page.TablePage;
-import com.database.db.table.Entry;
 import com.database.db.table.Schema;
 import com.database.db.table.Table;
 

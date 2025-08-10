@@ -9,14 +9,26 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 import com.database.db.FileIO;
+import com.database.db.page.Entry;
 import com.database.db.page.TablePage;
-import com.database.db.table.Entry;
 import com.database.db.table.Table;
 import com.database.db.table.DataType;
 
 public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTree<K,BTreeSerialization.BlockPointer>{
     protected int columnIndex;
-    public record BlockPointer(int BlockID, short RowOffset){}
+    public record BlockPointer(int BlockID, short RowOffset){
+        public byte[] toBytes(){
+            ByteBuffer buffer = ByteBuffer.allocate(6);
+            buffer.putInt(BlockID);
+            buffer.putShort(RowOffset);
+            return buffer.array();
+        }
+        public static BlockPointer fromBytes(ByteBuffer buffer) {
+            int BlockID = buffer.getInt();
+            short RowOffset = buffer.getShort();
+            return new BlockPointer(BlockID, RowOffset);
+        }
+    }
 
     public BTreeSerialization(int order){
         super(order);
@@ -70,13 +82,6 @@ public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTr
         }
     }
 
-    private byte[] blockPointerToBytes(BlockPointer blockPointer){
-        ByteBuffer buffer = ByteBuffer.allocate(6);
-        buffer.putInt(blockPointer.BlockID());
-        buffer.putShort(blockPointer.RowOffset());
-        return buffer.array();
-    }
-
     private int nullsToBytes(DataOutputStream out) throws IOException {
         Pair<K, BlockPointer> pair = this.getNullPair();
         if(pair == null) {
@@ -86,7 +91,7 @@ public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTr
         List<BlockPointer> nullEntries = pair.getValues();
         out.writeInt(nullEntries.size());
         for (BlockPointer value : nullEntries) {
-            out.write(this.blockPointerToBytes(value));
+            out.write(value.toBytes());
         }
         return nullEntries.size();
     }
@@ -96,12 +101,12 @@ public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTr
         byte[] keyBytes = keyType.toBytes(pair.key);
         dataStream.write(keyBytes);
         // Serialize value
-        dataStream.write(this.blockPointerToBytes(pair.value));
+        dataStream.write(pair.value.toBytes());
         // Serialize duplicates if any
         if (!this.isUnique() && pair.getDuplicates() != null) {
             for (BlockPointer dup : pair.getDuplicates()) {
                 dataStream.write(keyBytes);
-                dataStream.write(this.blockPointerToBytes(dup));
+                dataStream.write(dup.toBytes());
             }
         }
     }
@@ -122,23 +127,18 @@ public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTr
         }
         if(this.size() != size) throw new IndexOutOfBoundsException("Corrupt Index file sizes don't much Expected:"+size+" Actual:"+this.size());
     }
-    private BlockPointer blockPointerFromBytes(ByteBuffer buffer) {
-        int BlockID = buffer.getInt();
-        short RowOffset = buffer.getShort();
-        return new BlockPointer(BlockID, RowOffset);
-    }
     private int nullFromBytes(ByteBuffer buffer){
         int numOfNulls = buffer.getInt();
         for(int i = 0;i<numOfNulls;i++){
             K key = null;
-            BlockPointer value = this.blockPointerFromBytes(buffer);
+            BlockPointer value = BlockPointer.fromBytes(buffer);
             this.insert(key, value);
         }
         return numOfNulls;
     }
     private Pair<K, BlockPointer> pairFromBytes(ByteBuffer buffer, DataType keyType) {
         K key = (K) keyType.fromBytes(buffer);
-        BlockPointer value = this.blockPointerFromBytes(buffer);
+        BlockPointer value = BlockPointer.fromBytes(buffer);
         return new Pair<>(key, value);
     }
 

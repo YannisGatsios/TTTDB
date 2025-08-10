@@ -3,7 +3,6 @@ package com.database.db.page;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-import com.database.db.table.Entry;
 import com.database.db.table.Table;
 
 public class TablePage extends Page{

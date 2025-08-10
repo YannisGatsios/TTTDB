@@ -30,9 +30,9 @@ public class App {
     public static void main(String[] args) throws IOException,InterruptedException, ExecutionException, Exception{
         //DataBase INIT.
         String schemaConfig = 
-            "username:VARCHAR:10:PRIMARY_KEY:NULL;"+
+            "username:CHAR:10:PRIMARY_KEY:NULL;"+
             "num:INT:NON:INDEX:NULL;"+
-            "message:VARCHAR:10:NO_CONSTRAINT:NULL;"+
+            "message:CHAR:10:NO_CONSTRAINT:NULL;"+
             "data:BINARY:10:NOT_NULL:NON;"+
             "id:LONG:NON:AUTO_INCREMENT,UNIQUE:NULL";
         TableConfig tableConf = new TableConfig("users", schemaConfig, 10);

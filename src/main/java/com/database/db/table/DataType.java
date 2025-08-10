@@ -10,25 +10,32 @@ import java.util.Objects;
 import java.util.UUID;
 
 public enum DataType {
-    INT(Integer.class),        // 4-byte integer
-    SHORT(Short.class),        // 2-byte short
-    FLOAT(Float.class),      // 4-byte floating point
-    DOUBLE(Double.class),     // 8-byte floating point
-    VARCHAR(String.class),     // Variable-length string
-    BOOLEAN(Boolean.class),    // 1-byte boolean
-    LONG(Long.class),       // 8-byte integer
-    DATE(LocalDate.class),       // Date without time
-    TIME(LocalTime.class),      // Time without date
-    TIMESTAMP(LocalDateTime.class),  // Date and time without timezone
-    TIMESTAMP_WITH_TIME_ZONE(ZonedDateTime.class), // Date and time with timezone
-    INTERVAL(Duration.class),    // Time interval
-    UUID(UUID.class),
-    BINARY(byte[].class);     // Binary data
+    INT(Integer.class,false),        // 4-byte integer
+    SHORT(Short.class,false),        // 2-byte short
+    FLOAT(Float.class,false),      // 4-byte floating point
+    DOUBLE(Double.class,false),     // 8-byte floating point
+    CHAR(String.class,false),     // Fixed-length string
+    VARCHAR(String.class,true),     // Variable-length string
+    BOOLEAN(Boolean.class,false),    // 1-byte boolean
+    LONG(Long.class,false),       // 8-byte integer
+    DATE(LocalDate.class,false),       // Date without time
+    TIME(LocalTime.class,false),      // Time without date
+    TIMESTAMP(LocalDateTime.class,false),  // Date and time without timezone
+    TIMESTAMP_WITH_TIME_ZONE(ZonedDateTime.class,false), // Date and time with timezone
+    INTERVAL(Duration.class,false),    // Time interval
+    UUID(UUID.class,false),
+    BINARY(byte[].class, true);     // Binary data
 
     private final Class<?> javaClass;
+    private final boolean isVariable;
 
-    DataType(Class<?> javaClass) {
+    DataType(Class<?> javaClass, boolean isVariable) {
         this.javaClass = javaClass;
+        this.isVariable = isVariable;
+    }
+
+    public boolean isVariable(){
+        return this.isVariable;
     }
 
     public Class<?> getJavaClass() {
@@ -58,7 +65,7 @@ public enum DataType {
             case TIMESTAMP -> 16;
             case INTERVAL -> 16;
             case UUID -> 16;
-            case VARCHAR, BINARY, TIMESTAMP_WITH_TIME_ZONE -> -1;  // Variable size
+            case CHAR, VARCHAR, BINARY, TIMESTAMP_WITH_TIME_ZONE -> -1;  // Variable size
         };
     }
     /**
@@ -83,8 +90,8 @@ public enum DataType {
             case "SHORT":
                 return SHORT;
             case "CHAR":
+                return CHAR;
             case "VARCHAR":
-            case "TEXT":
                 return VARCHAR;
             case "BOOL":
                 return BOOLEAN;
@@ -140,7 +147,7 @@ public enum DataType {
                 if (!(value instanceof Double)) 
                     throw new IllegalArgumentException("Expected Double");
                 break;
-            case VARCHAR:
+            case CHAR, VARCHAR:
                 if (!(value instanceof String))
                     throw new IllegalArgumentException("Expected String");
                 if (size >= 0 && ((String) value).length() > size)
@@ -204,7 +211,7 @@ public enum DataType {
             case SHORT -> Short.parseShort(s);
             case FLOAT -> Float.parseFloat(s);
             case DOUBLE -> Double.parseDouble(s);
-            case VARCHAR -> s;
+            case CHAR, VARCHAR -> s;
             case BOOLEAN -> {
                 if (!s.equalsIgnoreCase("true") && !s.equalsIgnoreCase("false")) {
                     throw new IllegalArgumentException("Invalid boolean value: " + s);
@@ -281,7 +288,7 @@ public enum DataType {
                     long lsb = buffer.getLong();
                     return new UUID(msb, lsb);
                 }
-                case VARCHAR: {
+                case CHAR, VARCHAR: {
                     short len = buffer.getShort();
                     if (buffer.remaining() < len)
                         throw new IllegalArgumentException("Buffer underflow: expected " + len + " bytes for VARCHAR");
@@ -387,7 +394,7 @@ public enum DataType {
                 uuidBuffer.putLong(uuid.getLeastSignificantBits());
                 return uuidBuffer.array();
             }
-            case VARCHAR: {
+            case CHAR, VARCHAR: {
                 byte[] strBytes = ((String) value).getBytes(StandardCharsets.UTF_8);
                 ByteBuffer strBuffer = ByteBuffer.allocate(2 + strBytes.length);
                 strBuffer.putShort((short) strBytes.length);
@@ -424,7 +431,7 @@ public enum DataType {
         };
     }
 
-    public static DataType detect(Object value) {
+    public static DataType detect(Object value, boolean variableSize) {
         if (value instanceof Integer) return DataType.INT;
         if (value instanceof Short) return DataType.SHORT;
         if (value instanceof Float) return DataType.FLOAT;
@@ -436,7 +443,8 @@ public enum DataType {
         if (value instanceof LocalDateTime) return DataType.TIMESTAMP;
         if (value instanceof ZonedDateTime) return DataType.TIMESTAMP_WITH_TIME_ZONE;
         if (value instanceof Duration) return DataType.INTERVAL;
-        if (value instanceof String) return DataType.VARCHAR;
+        if (value instanceof String && !variableSize) return DataType.CHAR;
+        if (value instanceof String && variableSize) return DataType.VARCHAR;
         if (value instanceof java.util.UUID) return DataType.UUID;
         if (value instanceof byte[]) return DataType.BINARY;
 
