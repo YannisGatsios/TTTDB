@@ -47,7 +47,7 @@ public class DBMS {
         }
     }
 
-    public record SelectQuery(String tableName, String[] resultColumns, String columnName, WhereClause whereClause, int begin, int limit){}
+    public record SelectQuery(String tableName, String[] resultColumns, WhereClause whereClause, int begin, int limit){}
     public record InsertQuery(String tableName, String[] columns, Object[] values){}
     public record DeleteQuery(String tableName, WhereClause whereClause, int limit){}
     public record UpdateQuery(String tableName, WhereClause whereClause, int limit, UpdateFields updateFields){}

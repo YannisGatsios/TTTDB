@@ -12,7 +12,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 import com.database.db.FileIOThread;
-import com.database.db.api.Condition;
 import com.database.db.api.Condition.WhereClause;
 import com.database.db.api.Condition.Clause;
 import com.database.db.api.Condition.Conditions;
@@ -104,8 +103,9 @@ public class Table {
         IndexManager indexes = new IndexManager(this);
         return indexes;
     }
-
+    @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> List<BlockPointer> findRangeIndex(WhereClause whereClause){
+        if(whereClause == null) return this.noCondition();
         Object start = null;
         Object end  = null;
         ArrayList<String> columnNames = new ArrayList<>(Arrays.asList(this.schema.getNames()));
@@ -114,15 +114,15 @@ public class Table {
         for (Map.Entry<Clause, WhereClause> condition : clauses) {
             WhereClause queryCondition = condition.getValue();
             EnumMap<Conditions, Object> conditionList = queryCondition.getConditionElementsList();
-            if(conditionList.containsKey(Condition.Conditions.IS_BIGGER))
-                start = conditionList.get(Condition.Conditions.IS_BIGGER);
-            if(conditionList.containsKey(Condition.Conditions.IS_SMALLER))
-                end = conditionList.get(Condition.Conditions.IS_SMALLER);
-            if(!conditionList.containsKey(Condition.Conditions.IS_BIGGER) &&
-            !conditionList.containsKey(Condition.Conditions.IS_SMALLER) &&
-            conditionList.containsKey(Condition.Conditions.IS_EQUAL)){
-                start = conditionList.get(Condition.Conditions.IS_EQUAL);
-                end = conditionList.get(Condition.Conditions.IS_EQUAL);
+            if(conditionList.containsKey(Conditions.IS_BIGGER))
+                start = conditionList.get(Conditions.IS_BIGGER);
+            if(conditionList.containsKey(Conditions.IS_SMALLER))
+                end = conditionList.get(Conditions.IS_SMALLER);
+            if(!conditionList.containsKey(Conditions.IS_BIGGER) &&
+            !conditionList.containsKey(Conditions.IS_SMALLER) &&
+            conditionList.containsKey(Conditions.IS_EQUAL)){
+                start = conditionList.get(Conditions.IS_EQUAL);
+                end = conditionList.get(Conditions.IS_EQUAL);
             }
             int columnIndex = columnNames.indexOf(queryCondition.getColumnName());
             List<Pair<K,BlockPointer>> indexResult = this.indexes.findRangeIndex((K)start, (K)end, columnIndex);
@@ -147,6 +147,35 @@ public class Table {
         }
         return previousPointerList;
     }
+    private <K extends Comparable<? super K>> List<BlockPointer> noCondition(){
+        int columnIndex = this.schema.getPrimaryKeyIndex();
+        if(columnIndex == -1){
+            boolean[] unique = this.schema.getUniqueIndex();
+            for (int i = 0;i<unique.length;i++) {
+                if(unique[i]){
+                    columnIndex = i;
+                    break;
+                }
+            }
+        }
+        if(columnIndex == -1){
+            boolean[] Index = this.schema.getIndexIndex();
+            for (int i = 0;i<Index.length;i++) {
+                if(Index[i]){
+                    columnIndex = i;
+                    break;
+                }
+            }
+        }
+        if(columnIndex == -1) columnIndex = 0;
+        List<Pair<K,BlockPointer>> indexResult = this.indexes.findRangeIndex(null, null, columnIndex);
+        List<BlockPointer> result = new ArrayList<>();
+        for (Pair<K,BlockPointer> pair : indexResult) {
+            result.add(pair.value);
+        }
+        return result;
+    }
+    @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> boolean isKeyFound(Object key, int columnIndex){
         return this.indexes.isKeyFound((K)key, columnIndex);
     }

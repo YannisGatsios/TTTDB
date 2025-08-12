@@ -6,11 +6,14 @@ import java.util.concurrent.ExecutionException;
 import java.io.IOException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.List;
 
 import com.database.db.api.DBMS.TableConfig;
 import com.database.db.api.DBMS.DeleteQuery;
 import com.database.db.api.DBMS.InsertQuery;
+import com.database.db.api.DBMS.SelectQuery;
 import com.database.db.api.DBMS.UpdateQuery;
+import com.database.db.api.DBMS.Record;
 import com.database.db.api.DBMS;
 import com.database.db.api.UpdateFields;
 import com.database.db.api.Condition.WhereClause;
@@ -93,7 +96,9 @@ public class App {
                 ind++;
             }
         }
+        SelectQuery query = new SelectQuery("users",new String[]{"id","username"},new WhereClause("message").isEqual("_HELLO_"),0,-1);
         db.commit();
+        List<Record> result = db.select(query);
         //database.removeTable("users");
         db.close();
     }

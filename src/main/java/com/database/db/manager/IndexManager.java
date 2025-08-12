@@ -2,6 +2,7 @@ package com.database.db.manager;
 
 import java.io.IOException;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -14,6 +15,7 @@ import com.database.db.index.Pair;
 import com.database.db.index.PrimaryKey;
 import com.database.db.index.BTreeSerialization.BlockPointer;
 import com.database.db.page.Entry;
+import com.database.db.page.TablePage;
 import com.database.db.table.Schema;
 import com.database.db.table.Table;
 import com.database.db.table.DataType;
@@ -93,8 +95,20 @@ public class IndexManager {
     }
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> List<Pair<K,BlockPointer>> findRangeIndex(K upper, K lower, int columnIndex){
-        if(this.indexes[columnIndex] == null) return null;
+        if(this.indexes[columnIndex] == null) return this.sequentialRangeSearch(upper, lower, columnIndex);
         return ((BTreeSerialization<K>) this.indexes[columnIndex]).rangeSearch(upper, lower);
+    }
+    private <K extends Comparable<? super K>> List<Pair<K,BlockPointer>> sequentialRangeSearch(K upper, K lower, int columnIndex){
+        List<Pair<K,BlockPointer>> result = new ArrayList<>();
+        for(int i = 0;i<table.getPages();i++){
+            TablePage page = table.getCache().get(i);
+            for(int y = 0;y<page.size();y++){
+                Entry entry = page.get(y);
+                Pair<K,BlockPointer> pair = new Pair<>((K)entry.get(columnIndex),new BlockPointer(i,(short)y));
+                result.add(pair);
+            }
+        }
+        return result;
     }
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> List<BlockPointer> findBlock(K key, int columnIndex){

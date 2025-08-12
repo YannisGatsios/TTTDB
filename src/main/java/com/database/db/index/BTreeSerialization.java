@@ -33,7 +33,7 @@ public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTr
     public BTreeSerialization(int order){
         super(order);
     }
-
+    @SuppressWarnings("unchecked")
     public void initialize(Table table) throws InterruptedException, ExecutionException, IOException {
         int numberOfPages = table.getPages();
         if(numberOfPages == 0) return;
@@ -136,6 +136,7 @@ public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTr
         }
         return numOfNulls;
     }
+    @SuppressWarnings("unchecked")
     private Pair<K, BlockPointer> pairFromBytes(ByteBuffer buffer, DataType keyType) {
         K key = (K) keyType.fromBytes(buffer);
         BlockPointer value = BlockPointer.fromBytes(buffer);
