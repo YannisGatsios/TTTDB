@@ -17,6 +17,7 @@ import com.database.db.table.DataType;
 public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTree<K,BTreeSerialization.BlockPointer>{
     protected int columnIndex;
     public record BlockPointer(int BlockID, short RowOffset){
+        public static final int BYTES = 6;
         public byte[] toBytes(){
             ByteBuffer buffer = ByteBuffer.allocate(6);
             buffer.putInt(BlockID);
