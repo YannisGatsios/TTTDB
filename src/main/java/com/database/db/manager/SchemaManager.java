@@ -13,11 +13,7 @@ import com.database.db.table.Table;
 
 public class SchemaManager {
     private static final Logger logger = Logger.getLogger(SchemaManager.class.getName());
-
-    public static void createDatabase() {
-        // TODO: implement creating a database folder or similar
-    }
-
+    
     public static void createTable(Schema schema, String path, String databaseName, String tableName) {
         File tableFile = new File(path + databaseName + "." + tableName + ".table");
         try {
@@ -50,10 +46,6 @@ public class SchemaManager {
         }
     }
 
-    public static void dropDatabase() {
-        // TODO: implement dropping the database
-    }
-
     public static void dropTable(Table table) {
         Path tablePath = Paths.get(table.getPath());
         boolean[] isIndexed = table.getSchema().isIndexed();
@@ -70,9 +62,5 @@ public class SchemaManager {
         } catch (IOException e) {
             logger.log(Level.SEVERE, "An error occurred while deleting a Table or Index file.", e);
         }
-    }
-
-    public static void dropIndex() {
-        // TODO: implement drop index
     }
 }

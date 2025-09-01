@@ -32,7 +32,7 @@ class TablePageTest {
         file2.createNewFile();
         fileIOThread = new FileIOThread();
         fileIOThread.start();
-        table = new Table("testdb", "test", SCHEMA_STRING, fileIOThread, 10, "");
+        table = new Table("testdb", "test", SCHEMA_STRING, fileIOThread, null, "");
 
         entry1 = createEntry("user1", 100, "msg1", new byte[]{1,2,3});
         entry2 = createEntry("user22", 200, "msg22", new byte[]{4,5,6});

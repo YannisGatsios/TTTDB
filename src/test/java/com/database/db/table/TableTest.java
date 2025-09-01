@@ -35,7 +35,7 @@ public class TableTest {
         String databaseName = "testDB";
         String tableName = "testTable";
         schemaDef = "username:CHAR:10:PRIMARY_KEY:NULL;num:INT:4:INDEX:NULL";
-        TableConfig tableConf = new TableConfig(tableName, schemaDef, 10);
+        TableConfig tableConf = new TableConfig(tableName, schemaDef, null);
         database = new Database(databaseName);
         database.setPath(testPath);
         database.createTable(tableConf);
@@ -83,7 +83,7 @@ public class TableTest {
         Files.write(tablePath, new byte[12288]);
         FileIOThread file = new FileIOThread();
         file.start();
-        Table diskTable = new Table("testDB", "testTable", schemaDef, file, 10, testPath);
+        Table diskTable = new Table("testDB", "testTable", schemaDef, file, null, testPath);
         assertEquals(3, diskTable.getPages());
         file.shutdown();
     }
@@ -101,7 +101,7 @@ public class TableTest {
         // Create schema with auto-increment column
         String aiSchemaDef = "id:LONG:4:AUTO_INCREMENT:NULL;name:CHAR:20:NO_CONSTRAINT:NULL";
         //Files.createFile(tempDir.resolve("testDB.aiTable.table"));
-        TableConfig tableConf = new TableConfig("aiTable", aiSchemaDef, 10);
+        TableConfig tableConf = new TableConfig("aiTable", aiSchemaDef, null);
         database.createTable(tableConf);
 
         // Create table with auto-increment

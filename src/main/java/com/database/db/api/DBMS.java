@@ -30,7 +30,8 @@ public class DBMS {
     private String path = "";
     private EntryManager entryManager;
 
-    public record TableConfig(String tableName, String schemaConfig, int cacheCapacity){}
+    public record TableConfig(String tableName, String schemaConfig, CacheCapacity cacheCapacity){}
+    public record CacheCapacity(int tableCapacity, int indexCapacity){}
 
     public record Record(String[] columnNames, Object[] values){
         public Object get(String columnName){
@@ -69,7 +70,6 @@ public class DBMS {
     public DBMS createDatabase(String databaseName){
         Database database = new Database(databaseName);
         database.setPath(this.path);
-        database.create();
         this.databases.put(databaseName, database);
         return this;
     }
@@ -129,6 +129,10 @@ public class DBMS {
         this.entryManager.selectDatabase(selected);
         this.entryManager.selectTable(query.tableName);
         return this.entryManager.updateEntry(query.whereClause, query.limit, query.updateFields);
+    }
+    public void startTransaction(){
+        if(this.selected == null) throw new IllegalArgumentException("Can not commit when no Database selected.");
+        this.selected.startTransaction();
     }
     public void commit(){
         if(this.selected == null) throw new IllegalArgumentException("Can not commit when no Database selected.");

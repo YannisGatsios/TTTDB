@@ -1,13 +1,14 @@
 package com.database.db.page;
 
 import com.database.db.FileIO;
+import com.database.db.api.DBMS.CacheCapacity;
 import com.database.db.table.Table;
 
 public class Cache {
 
     private final Table table;
     private final FileIO fileIO;
-    private final int capacity;
+    private final CacheCapacity capacity;
 
     public TableCache tableCache;
     public IndexCache[] indexCaches;
@@ -15,8 +16,8 @@ public class Cache {
     public Cache(Table table) {
         this.table = table;
         this.fileIO = new FileIO(table.getFileIOThread());
-        this.capacity = table.CACHE_CAPACITY;
-        this.tableCache = new TableCache(table, table.CACHE_CAPACITY, fileIO);
+        this.capacity = table.cacheCapacity;
+        this.tableCache = new TableCache(table, capacity.tableCapacity(), fileIO);
         this.indexCaches = this.initializeIndexCaches();
     }
 
@@ -24,7 +25,7 @@ public class Cache {
         boolean[] indexedColumns = table.getSchema().isIndexed();
         IndexCache indexedCache[] = new IndexCache[indexedColumns.length];
         for (int i = 0;i<indexedCache.length;i++) {
-            if(indexedColumns[i]) indexedCache[i] = new IndexCache(table, capacity, fileIO, i);
+            if(indexedColumns[i]) indexedCache[i] = new IndexCache(table, capacity.indexCapacity(), fileIO, i);
         }
         return indexedCache;
     }
@@ -35,4 +36,6 @@ public class Cache {
             if(indexCache!=null) indexCache.writeCache();
         }
     }
+
+    public CacheCapacity getCacheCapacity(){return this.capacity;}
 }

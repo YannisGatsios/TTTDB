@@ -4,11 +4,9 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -22,36 +20,6 @@ public class FileIO {
 
     public FileIO(FileIOThread thread) {
         this.fileIOThread = thread;
-    }
-    public void writeTree(String filePath, byte[] treeBuffer) {
-        fileIOThread.submit(() -> {
-            try {
-                Files.write(Path.of(filePath), treeBuffer, StandardOpenOption.CREATE,
-                        StandardOpenOption.TRUNCATE_EXISTING);
-                logger.fine("Index File successfully written to: " + filePath);
-            } catch (IOException e) {
-                logger.log(Level.SEVERE, "Error writing to Index file: " + filePath, e);
-            }
-        });
-    }
-
-    public byte[] readTree(String indexPath) throws InterruptedException, ExecutionException {
-        return readTreeAsync(indexPath).get();
-    }
-
-    private Future<byte[]> readTreeAsync(String indexPath) {
-        FutureTask<byte[]> readTask = new FutureTask<>(() -> {
-            try {
-                byte[] data = Files.readAllBytes(Path.of(indexPath));
-                logger.fine("Index File successfully read into byte array from: " + indexPath);
-                return data;
-            } catch (IOException e) {
-                logger.log(Level.SEVERE, "Error reading Index file: " + indexPath, e);
-                return null;
-            }
-        });
-        fileIOThread.submit(readTask);
-        return readTask;
     }
 
     public void writePage(String path, byte[] pageBuffer, int pagePosition) {

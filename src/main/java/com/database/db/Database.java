@@ -14,8 +14,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.database.db.api.DBMS.TableConfig;
-import com.database.db.manager.DatabaseConfigManager;
-import com.database.db.manager.DatabaseConfigManager.TableXML;
 import com.database.db.manager.SchemaManager;
 import com.database.db.table.Schema;
 import com.database.db.table.Table;
@@ -32,28 +30,6 @@ public class Database {
         this.tables = new HashMap<>();
     }
 
-    public void create(){
-        Path path = Paths.get(this.path+this.name+".db");
-        DatabaseConfigManager config = new DatabaseConfigManager(this.path, this.name);
-        if (Files.exists(path)) {
-            config.load();
-            List<TableXML> tableList = config.getTables();
-            for (TableXML tableXML : tableList) {
-                TableConfig tableConfig = new TableConfig(tableXML.tableName,tableXML.schemaConfig,tableXML.cacheCapacity);
-                try {
-                    this.addTable(tableConfig);
-                } catch (Exception e) {
-                    logger.log(Level.SEVERE, 
-                        String.format("Unexpected error while reading table '%s' in database '%s'.", tableConfig.tableName(), this.name), e);
-                }
-            }
-            logger.info(String.format("Read from Database config file '%s'.", path));
-        } else {
-            config.create();
-            logger.info(String.format("Database config file '%s' created.", path));
-        }
-    }
-
     public void createTable(TableConfig tableConfig) {
         if (this.tables.containsKey(tableConfig.tableName())) {
             logger.info(String.format("Table '%s' already exists in database '%s'. Skipping creation.", tableConfig.tableName(), this.name));
@@ -62,7 +38,6 @@ public class Database {
         Schema schema = new Schema(tableConfig.schemaConfig().split(";"));
         SchemaManager.createTable(schema, this.path, this.name, tableConfig.tableName());
         this.addTable(tableConfig);
-        this.addTableToConfig(tableConfig);
         logger.info(
             String.format("Table '%s' created successfully in database '%s'.", tableConfig.tableName(), this.name));
     }
@@ -88,15 +63,6 @@ public class Database {
                 String.format("Unexpected error while creating table '%s' in database '%s'.", tableConfig.tableName(), this.name), e);
         }
     }
-    private void addTableToConfig(TableConfig tableConfig){
-        DatabaseConfigManager config = new DatabaseConfigManager(this.path, this.name);
-        config.load();
-        config.addTable(
-            tableConfig.tableName(),
-            tableConfig.schemaConfig(),
-            tableConfig.cacheCapacity());
-        config.create(); 
-    }
     
     public void dropTable(String tableName){
         Table table = this.getTable(tableName);
@@ -108,8 +74,6 @@ public class Database {
             table.getFileIOThread().shutdown();
             SchemaManager.dropTable(table);
             this.tables.remove(tableName);
-            DatabaseConfigManager config = new DatabaseConfigManager(path, name);
-            config.removeTable(tableName);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             logger.log(Level.WARNING,
@@ -135,14 +99,7 @@ public class Database {
     }
 
     public void dropDatabase(){
-        Path path = Paths.get(this.path+this.name+".db");
         this.removeAllTables();
-        try {
-            Files.delete(path);
-        } catch (IOException e) {
-            logger.log(Level.SEVERE,
-                String.format("IOException: Failed dropping database '%s' file Path: %s.", name,path),e);
-        }
     }
 
     public void removeAllTables(){
@@ -153,10 +110,17 @@ public class Database {
         logger.info(String.format("Removed %d table(s) from database '%s'.", tableNames.size(), this.name));
     }
 
+    public void startTransaction(){
+        Set<String> tableNames = new HashSet<>(this.tables.keySet());
+        for (String tableName : tableNames) {
+            this.tables.get(tableName).startTransaction();
+        }
+    }
+
     public Database commit(){
         Set<String> tableNames = new HashSet<>(this.tables.keySet());
         for (String tableName : tableNames) {
-            this.tables.get(tableName).getCache().clear();
+            this.tables.get(tableName).commit();
         }
         return this;
     }

@@ -1,6 +1,7 @@
 package com.database.db.page;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -23,21 +24,24 @@ public class TableCache {
     public TableCache(Table table, int capacity, FileIO fileIO){
         this.fileIO = fileIO;
         this.table = table;
-        this.cache = new LinkedHashMap<>(capacity, 0.75f, true) {
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<Integer, TablePage> eldest) {
-                if (size() > capacity) {
-                    try {
-                        writePage(eldest.getValue());
-                    } catch (IOException e) {
-                        logger.log(Level.SEVERE, String.format("Failed to evict page ID %d from table '%s'.", eldest.getKey(), table.getName()), e);
-                        throw new RuntimeException("Eviction failed for page ID: " + eldest.getKey(), e);
+        if(capacity == -1) this.cache = new HashMap<>();
+        else{
+            this.cache = new LinkedHashMap<>(capacity, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<Integer, TablePage> eldest) {
+                    if (size() > capacity) {
+                        try {
+                            writePage(eldest.getValue());
+                        } catch (IOException e) {
+                            logger.log(Level.SEVERE, String.format("Failed to evict page ID %d from table '%s'.", eldest.getKey(), table.getName()), e);
+                            throw new RuntimeException("Eviction failed for page ID: " + eldest.getKey(), e);
+                        }
+                        return true;
                     }
-                    return true;
+                    return false;
                 }
-                return false;
-            }
-        };
+            };
+        }
     }
 
     /** Write the given page to disk if needed and remove it from cache. */

@@ -58,7 +58,7 @@ class PageTest {
      */
     private static class MockTable extends Table {
         public MockTable(String schemaConfig) throws IOException, ExecutionException, InterruptedException,Exception {
-            super("mockDB", "mockTable", schemaConfig, new MockFileIOThread(), 10, "storage/");
+            super("mockDB", "mockTable", schemaConfig, new MockFileIOThread(), null, "storage/");
         }
 
         // Mock FileIOThread to avoid actual file operations during tests

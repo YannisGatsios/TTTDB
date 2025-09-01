@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.database.db.api.DBMS.TableConfig;
+import com.database.db.api.DBMS.CacheCapacity;
 import com.database.db.api.DBMS.DeleteQuery;
 import com.database.db.api.DBMS.InsertQuery;
 import com.database.db.api.DBMS.SelectQuery;
@@ -38,7 +39,7 @@ public class App {
             "message:CHAR:10:NO_CONSTRAINT:NULL;"+
             "data:BYTE:10:NOT_NULL:NON;"+
             "id:LONG:NON:AUTO_INCREMENT,UNIQUE:NULL";
-        TableConfig tableConf = new TableConfig("users", schemaConfig, 2);
+        TableConfig tableConf = new TableConfig("users", schemaConfig, new CacheCapacity(5,2));
         DBMS db = new DBMS("test_database","")
             .createTable(tableConf)
             .selectDatabase("test_database");
@@ -81,7 +82,7 @@ public class App {
                 ind++;
             }
         }
-        db.commit();
+        db.startTransaction();
         ind = 0;
         while (ind < 100) {
             int randInd = random.nextInt(300-ind);
@@ -101,7 +102,7 @@ public class App {
         SelectQuery query = new SelectQuery("users",new String[]{"id","username"},new WhereClause("username"),0,-1);
         db.commit();
         List<Record> result = db.select(query);
-        db.dropDatabase();
+        //db.dropDatabase();
         db.close();
     }
 }

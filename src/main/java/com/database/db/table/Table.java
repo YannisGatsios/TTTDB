@@ -13,6 +13,7 @@ import java.util.concurrent.ExecutionException;
 
 import com.database.db.FileIOThread;
 import com.database.db.api.Condition.WhereClause;
+import com.database.db.api.DBMS.CacheCapacity;
 import com.database.db.api.Condition.Clause;
 import com.database.db.api.Condition.Conditions;
 import com.database.db.index.BTreeSerialization.BlockPointer;
@@ -29,26 +30,27 @@ public class Table {
     private String tableName;
     private Schema schema;
     private Cache cache;
+    private Cache tmpCache;//Used for transatctions.
     private IndexManager indexes;
 
     private int numberOfPages;
 
     private AutoIncrementing[] autoIncrementing;
 
-    public int CACHE_CAPACITY = 10;
+    public CacheCapacity cacheCapacity = new CacheCapacity(2,2);
     private String path = "";
     private FileIOThread fileIOThread;
 
-    public Table(String databaseName, String tableName,String schemaConfig, FileIOThread fileIOThread, int CACHE_CAPACITY, String path) throws InterruptedException, ExecutionException, IOException {
+    public Table(String databaseName, String tableName,String schemaConfig, FileIOThread fileIOThread, CacheCapacity cacheCapacity, String path) throws InterruptedException, ExecutionException, IOException {
         this.databaseName = databaseName;
         this.tableName = tableName;
         this.schema = new Schema(schemaConfig.split(";"));
         this.path = path;
         this.fileIOThread = fileIOThread;
-        this.CACHE_CAPACITY = CACHE_CAPACITY;
+        if(cacheCapacity != null) this.cacheCapacity = cacheCapacity;
         this.cache = new Cache(this);
         this.numberOfPages = Table.getNumOfPages(this.getPath(),TablePage.sizeOfEntry(this));
-        this.indexes = this.initIndex();
+        this.indexes = new IndexManager(this);
         this.autoIncrementing = this.getAutoIncrementing();
     }
     public static int getNumOfPages(String path, int sizeOfEntry){
@@ -99,10 +101,21 @@ public class Table {
         return result;
     }
 
-    private IndexManager initIndex() throws InterruptedException, ExecutionException, IOException {
-        IndexManager indexes = new IndexManager(this);
-        return indexes;
+    public void startTransaction(){
+        this.commit();
+        if(this.tmpCache == null)this.tmpCache = this.cache;
+        this.cacheCapacity = new CacheCapacity(-1,-1);
+        this.cache = new Cache(this);
     }
+    public void commit(){
+        this.cache.clear();
+        if(this.tmpCache != null){
+            this.cache = this.tmpCache;
+            this.tmpCache = null;
+            this.cacheCapacity = this.cache.getCacheCapacity();
+        }
+    }
+    
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> List<PointerPair> findRangeIndex(WhereClause whereClause){
         if(whereClause == null) return this.noCondition();
