@@ -38,7 +38,7 @@ public class App {
             "message:CHAR:10:NO_CONSTRAINT:NULL;"+
             "data:BYTE:10:NOT_NULL:NON;"+
             "id:LONG:NON:AUTO_INCREMENT,UNIQUE:NULL";
-        TableConfig tableConf = new TableConfig("users", schemaConfig, 10);
+        TableConfig tableConf = new TableConfig("users", schemaConfig, 2);
         DBMS db = new DBMS("test_database","")
             .createTable(tableConf)
             .selectDatabase("test_database");
@@ -62,6 +62,7 @@ public class App {
                 entryData.add((intNum%25)==0 ? null : intNum);
                 entryData.add((ind%25)==0 ? null : "_HELLO_");
                 entryData.add(data);
+                System.out.println("Insertion : "+ind);
                 InsertQuery query = new InsertQuery("users", new String[]{"username","num","message","data"},entryData.toArray());
                 db.insert(query);
                 ind++;
@@ -73,6 +74,7 @@ public class App {
             int randInd = random.nextInt(400-ind);
             if(db.containsValue("users", "username", keysList.get(randInd))){
                 String key = keysList.get(randInd);
+                System.out.println("Deletion : "+ind);
                 DeleteQuery query = new DeleteQuery("users", new WhereClause("username").isEqual(key),-1);
                 db.delete(query);
                 keysList.remove(randInd);
@@ -96,10 +98,10 @@ public class App {
                 ind++;
             }
         }
-        SelectQuery query = new SelectQuery("users",new String[]{"id","username"},new WhereClause("message").isEqual("_HELLO_"),0,-1);
+        SelectQuery query = new SelectQuery("users",new String[]{"id","username"},new WhereClause("username"),0,-1);
         db.commit();
         List<Record> result = db.select(query);
-        //database.removeTable("users");
+        db.dropDatabase();
         db.close();
     }
 }

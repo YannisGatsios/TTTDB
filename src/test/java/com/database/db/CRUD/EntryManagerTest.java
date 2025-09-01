@@ -55,7 +55,7 @@ public class EntryManagerTest {
             "num:INT:NON:INDEX:NULL;"+
             "message:CHAR:10:NO_CONSTRAINT:NULL;"+
             "data:BYTE:10:NOT_NULL:NON";
-        config = new TableConfig("test_table", schemaConfig, 100);
+        config = new TableConfig("test_table", schemaConfig, 2);
         database.createTable(config);
         table = database.getTable("test_table");
         

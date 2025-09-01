@@ -16,6 +16,7 @@ import com.database.db.api.Condition.WhereClause;
 import com.database.db.api.Condition.Clause;
 import com.database.db.api.Condition.Conditions;
 import com.database.db.index.BTreeSerialization.BlockPointer;
+import com.database.db.index.BTreeSerialization.PointerPair;
 import com.database.db.index.Pair;
 import com.database.db.manager.IndexManager;
 import com.database.db.page.Cache;
@@ -46,15 +47,14 @@ public class Table {
         this.fileIOThread = fileIOThread;
         this.CACHE_CAPACITY = CACHE_CAPACITY;
         this.cache = new Cache(this);
+        this.numberOfPages = Table.getNumOfPages(this.getPath(),TablePage.sizeOfEntry(this));
         this.indexes = this.initIndex();
-        this.numberOfPages = this.setNumOfPages();
         this.autoIncrementing = this.getAutoIncrementing();
     }
-
-    private int setNumOfPages(){
-        File file = new File(this.getPath());
+    public static int getNumOfPages(String path, int sizeOfEntry){
+        File file = new File(path);
         long fileSize = file.length();
-        int pageSize = Page.pageSizeInBytes(TablePage.sizeOfEntry(this));
+        int pageSize = Page.pageSizeInBytes(sizeOfEntry);
         return (int) ((fileSize + pageSize - 1) / pageSize);
     }
 
@@ -79,7 +79,7 @@ public class Table {
     private long getMaxSequential(int columnIndex){
         long max = 0;
         for (int i = 0;i<this.numberOfPages;i++){
-            TablePage page = this.cache.get(i);
+            TablePage page = this.cache.tableCache.get(i);
             Entry[] entries = page.getAll();
             for (Entry entry : entries) {
                 if(max < (long)entry.get(columnIndex)) max = (long)entry.get(columnIndex);
@@ -104,13 +104,13 @@ public class Table {
         return indexes;
     }
     @SuppressWarnings("unchecked")
-    public <K extends Comparable<? super K>> List<BlockPointer> findRangeIndex(WhereClause whereClause){
+    public <K extends Comparable<? super K>> List<PointerPair> findRangeIndex(WhereClause whereClause){
         if(whereClause == null) return this.noCondition();
         Object start = null;
         Object end  = null;
         ArrayList<String> columnNames = new ArrayList<>(Arrays.asList(this.schema.getNames()));
         List<Map.Entry<Clause, WhereClause>> clauses = whereClause.getClauseList();
-        List<BlockPointer> previousPointerList = new ArrayList<>();
+        List<PointerPair> previousPointerList = new ArrayList<>();
         for (Map.Entry<Clause, WhereClause> condition : clauses) {
             WhereClause queryCondition = condition.getValue();
             EnumMap<Conditions, Object> conditionList = queryCondition.getConditionElementsList();
@@ -125,9 +125,9 @@ public class Table {
                 end = conditionList.get(Conditions.IS_EQUAL);
             }
             int columnIndex = columnNames.indexOf(queryCondition.getColumnName());
-            List<Pair<K,BlockPointer>> indexResult = this.indexes.findRangeIndex((K)start, (K)end, columnIndex);
-            List<BlockPointer> resultInner = new ArrayList<>();
-            for (Pair<K,BlockPointer> pair : indexResult) {
+            List<Pair<K,PointerPair>> indexResult = this.indexes.findRangeIndex((K)start, (K)end, columnIndex);
+            List<PointerPair> resultInner = new ArrayList<>();
+            for (Pair<K,PointerPair> pair : indexResult) {
                 if(!queryCondition.isApplicable(pair.key)) continue;
                 resultInner.add(pair.value);
             }
@@ -136,7 +136,7 @@ public class Table {
                     previousPointerList = resultInner;
                     break;
                 case OR:
-                    Set<BlockPointer> orSet = new HashSet<>(previousPointerList);
+                    Set<PointerPair> orSet = new HashSet<>(previousPointerList);
                     orSet.addAll(resultInner);
                     previousPointerList = new ArrayList<>(orSet);
                     break;
@@ -147,7 +147,7 @@ public class Table {
         }
         return previousPointerList;
     }
-    private <K extends Comparable<? super K>> List<BlockPointer> noCondition(){
+    private <K extends Comparable<? super K>> List<PointerPair> noCondition(){
         int columnIndex = this.schema.getPrimaryKeyIndex();
         if(columnIndex == -1){
             boolean[] unique = this.schema.getUniqueIndex();
@@ -168,9 +168,9 @@ public class Table {
             }
         }
         if(columnIndex == -1) columnIndex = 0;
-        List<Pair<K,BlockPointer>> indexResult = this.indexes.findRangeIndex(null, null, columnIndex);
-        List<BlockPointer> result = new ArrayList<>();
-        for (Pair<K,BlockPointer> pair : indexResult) {
+        List<Pair<K,PointerPair>> indexResult = this.indexes.findRangeIndex(null, null, columnIndex);
+        List<PointerPair> result = new ArrayList<>();
+        for (Pair<K,PointerPair> pair : indexResult) {
             result.add(pair.value);
         }
         return result;
@@ -179,22 +179,14 @@ public class Table {
     public <K extends Comparable<? super K>> boolean isKeyFound(Object key, int columnIndex){
         return this.indexes.isKeyFound((K)key, columnIndex);
     }
-
     public void insertIndex(Entry entry, BlockPointer blockPointer){
         this.indexes.insertIndex(entry, blockPointer);
     }
     public void removeIndex(Entry entry, BlockPointer blockPointer){
         this.indexes.removeIndex(entry, blockPointer);
     }
-
-    public void updateIndex(Entry entry, BlockPointer newValue, BlockPointer odlValue){
-        this.indexes.updateIndex(entry, newValue, odlValue);
-    }
-    public void initPrimaryKey(int columnIndex) throws InterruptedException, ExecutionException, IOException{
-        this.indexes.initPrimaryKey(columnIndex);
-    }
-    public void initSecondaryKey(int columnIndex) throws InterruptedException, ExecutionException, IOException{
-        this.indexes.initIndex(columnIndex);
+    public void updateIndex(Entry entry, BlockPointer newValue, BlockPointer oldValue){
+        this.indexes.updateIndex(entry, newValue, oldValue);
     }
 
     public String getDatabaseName(){return this.databaseName;}

@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Objects;
 
+import com.database.db.index.BTreeSerialization.BlockPointer;
 import com.database.db.table.DataType;
 import com.database.db.table.Schema;
 import com.database.db.table.Table;
@@ -13,7 +14,7 @@ import com.database.db.table.Table;
 
 public class Entry {
     
-    private Object[] entryData;
+    private Object[] values;
     private int[] sizeOfElementsOfEntry;
     private int[] indexOfElementsOfEntry;
     private BitSet nullsBitMap;
@@ -23,16 +24,16 @@ public class Entry {
 
     //Constructor
     public Entry(Object[] data, int numOfNullColumns){
-        this.entryData = data;
+        this.values = data;
         this.numberOfNullableColumns = numOfNullColumns;
         this.nullsBitMap = new BitSet(this.numberOfNullableColumns);
     }
 
     public Entry setBitMap(boolean[] notNullables){
         int bitSetIndex = 0;
-        for (int i = 0; i < entryData.length; i++) {
+        for (int i = 0; i < values.length; i++) {
             if (!notNullables[i]) { // column is nullable
-                if (entryData[i] == null) this.nullsBitMap.set(bitSetIndex,true);
+                if (values[i] == null) this.nullsBitMap.set(bitSetIndex,true);
                 else this.nullsBitMap.set(bitSetIndex,false);
                 bitSetIndex++;
             }
@@ -40,7 +41,7 @@ public class Entry {
         return this;
     }
 
-    public int size(){return this.entryData.length;}
+    public int size(){return this.values.length;}
 
     public byte[] toBytes(Table table) {
         int bitmapSize = (table.getSchema().numNullables()+7)/8;
@@ -49,8 +50,8 @@ public class Entry {
         System.arraycopy(bitMapBytesRaw, 0, bitMapBytes, 0, bitMapBytesRaw.length);
         ByteBuffer buffer = ByteBuffer.allocate(TablePage.sizeOfEntry(table));
         buffer.put(bitMapBytes);
-        for (int i = 0;i<this.entryData.length;i++) {
-            Object value = this.entryData[i];
+        for (int i = 0;i<this.values.length;i++) {
+            Object value = this.values[i];
             DataType elem = table.getSchema().getTypes()[i];
             buffer.put(elem.toBytes(value));
         }
@@ -61,10 +62,8 @@ public class Entry {
         int startPos = buffer.position();
         int expectedSize = TablePage.sizeOfEntry(table);
         // optional: validate enough bytes remain
-        if (buffer.remaining() < expectedSize) {
-            throw new IllegalArgumentException(
-                    "Not enough bytes in buffer for one entry: " + buffer.remaining() + " < " + expectedSize);
-        }
+        if (buffer.remaining() < expectedSize)
+            throw new IllegalArgumentException("Not enough bytes in buffer for one entry: "+buffer.remaining()+" < "+expectedSize);
         Schema schema = table.getSchema();
         Object[] entry = new Object[table.getSchema().getNumOfColumns()];
         DataType[] types = schema.getTypes();
@@ -85,11 +84,51 @@ public class Entry {
             entry[i] = types[i].fromBytes(buffer);
         }
         int bytesRead = buffer.position() - startPos;
-        if (bytesRead >= expectedSize) {
-            throw new IllegalStateException("Entry deserialization consumed " + bytesRead +
-                    " bytes, expected " + expectedSize);
-        }
+        if (bytesRead > expectedSize)
+            throw new IllegalStateException("Entry deserialization consumed "+bytesRead+" bytes, expected "+expectedSize);
         return new Entry(entry, numOfNullColumns).setBitMap(schema.getNotNull());
+    }
+
+    public byte[] toBytes(Table table, int columnIndex) {
+        boolean  isNullable = !table.getSchema().getNotNull()[columnIndex];
+        byte[] bitMapBytes = new byte[isNullable? 1:0];
+        byte[] bitMapBytesRaw = this.nullsBitMap.toByteArray();
+        int copyLen = Math.min(bitMapBytesRaw.length, bitMapBytes.length);
+        System.arraycopy(bitMapBytesRaw, 0, bitMapBytes, 0, copyLen);
+        ByteBuffer buffer = ByteBuffer.allocate(IndexPage.sizeOfEntry(table, columnIndex));
+        buffer.put(bitMapBytes);
+        buffer.put(((BlockPointer)this.values[0]).toBytes());
+        DataType type = table.getSchema().getTypes()[columnIndex];
+        buffer.put(type.toBytes(this.values[1]));
+        return buffer.array();
+    }
+
+    public static Entry fromBytes(ByteBuffer buffer,Table table, int columnIndex){
+        int startPos = buffer.position();
+        int expectedSize = IndexPage.sizeOfEntry(table, columnIndex);
+        // optional: validate enough bytes remain
+        if (buffer.remaining() < expectedSize)
+            throw new IllegalArgumentException("Not enough bytes in buffer for one entry: "+buffer.remaining()+" < "+expectedSize);
+        Schema schema = table.getSchema();
+        Object[] values = new Object[2];
+        DataType type = schema.getTypes()[columnIndex];
+
+        boolean isNullable = !schema.getNotNull()[columnIndex];
+        int bitmapSize = isNullable? 1:0;
+        byte[] nullBitmapBytes = new byte[bitmapSize];
+        buffer.get(nullBitmapBytes); // advances position
+        BitSet nullBitmap = BitSet.valueOf(nullBitmapBytes);
+
+        boolean isNotNullable = schema.getNotNull()[columnIndex];
+        values[0] = BlockPointer.fromBytes(buffer);
+        if (!isNotNullable && nullBitmap.get(0)) values[1] = null;
+        else values[1] = type.fromBytes(buffer);
+        
+        int bytesRead = buffer.position() - startPos;
+        if (bytesRead > expectedSize)
+            throw new IllegalStateException("Entry deserialization consumed "+bytesRead +" bytes, expected "+expectedSize);
+        int numOfNullColumns = !isNotNullable? 1 : 0;
+        return new Entry(values, numOfNullColumns).setBitMap(new boolean[]{true,isNotNullable});
     }
 
     public static Entry prepareEntry(String[] columnNames, Object[] entry, Table table) {
@@ -149,16 +188,17 @@ public class Entry {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Entry other = (Entry) o;
-        return Objects.equals(this.entryData, other.entryData);
+        return Objects.equals(this.values, other.values);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(entryData);
+        return Objects.hash(values);
     }
 
-    public Object get(int index){return this.entryData[index];}
-    public Object[] getEntry(){return this.entryData;}
+    public Object get(int index){return this.values[index];}
+    public void set(int index, Object value){this.values[index] = value;}
+    public Object[] getEntry(){return this.values;}
     public int[] getElementSizes(){return this.sizeOfElementsOfEntry;}
     public int[] getElementIndexes(){return this.indexOfElementsOfEntry;}
     public int getNumOfElements(){return this.indexOfElementsOfEntry[this.indexOfElementsOfEntry.length - 1];}

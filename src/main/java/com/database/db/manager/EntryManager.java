@@ -11,6 +11,7 @@ import com.database.db.api.Condition.WhereClause;
 import com.database.db.api.Functions.InnerFunctions;
 import com.database.db.api.UpdateFields;
 import com.database.db.index.BTreeSerialization.BlockPointer;
+import com.database.db.index.BTreeSerialization.PointerPair;
 import com.database.db.page.Entry;
 import com.database.db.page.TablePage;
 import com.database.db.table.Schema;
@@ -44,7 +45,7 @@ public class EntryManager {
      * @return a list of entries matching the criteria, ordered in ascending fashion
      */
     public List<Entry> selectEntriesAscending(WhereClause whereClause, int begin, int limit) {
-        List<BlockPointer> blockPointerList = table.findRangeIndex(whereClause);
+        List<PointerPair> blockPointerList = table.findRangeIndex(whereClause);
         return this.selectionProcess(blockPointerList, begin, limit);
     }
     /**
@@ -59,18 +60,19 @@ public class EntryManager {
      * @return a list of entries matching the criteria, ordered in descending fashion
      */
     public List<Entry> selectEntriesDescending(WhereClause whereClause, int begin, int limit) {
-        List<BlockPointer> reversed = table.findRangeIndex(whereClause);
+        List<PointerPair> reversed = table.findRangeIndex(whereClause);
         Collections.reverse(reversed);
         return this.selectionProcess(reversed, begin, limit);
     }
-    private List<Entry> selectionProcess(List<BlockPointer> blockPointerList, int begin, int limit){
+    private List<Entry> selectionProcess(List<PointerPair> blockPointerList, int begin, int limit){
         List<Entry> result = new ArrayList<>();
         int index = 0;
         boolean selectAll = limit < 0;
-        for (BlockPointer blockPointer : blockPointerList) {
+        for (PointerPair pointerPair : blockPointerList) {
+            BlockPointer blockPointer = pointerPair.tablePointer();
             if(index++ < begin) continue;
             if(!selectAll && index>=limit+begin) break;
-            TablePage page = table.getCache().get(blockPointer.BlockID());
+            TablePage page = table.getCache().tableCache.get(blockPointer.BlockID());
             result.add(page.get(blockPointer.RowOffset()));
         }
         return result;
@@ -95,19 +97,19 @@ public class EntryManager {
     public void insertEntry(Entry entry) {
         if(!Entry.isValidEntry(entry.getEntry(),this.table.getSchema())) throw new IllegalArgumentException("Invalid Entry");
         if(table.getPages()==0) table.addOnePage();
-        TablePage page = table.getCache().getLast();
+        TablePage page = table.getCache().tableCache.getLast();
         if(page.size() < page.getCapacity()){
             this.insertionProcess(entry, page);
             return;
         }
         table.addOnePage();
-        page = table.getCache().getLast();
+        page = table.getCache().tableCache.getLast();
         this.insertionProcess(entry, page);
     }
     private void insertionProcess(Entry entry, TablePage page) {
         page.add(entry);
         table.insertIndex(entry, new BlockPointer(page.getPageID(), (short)(page.size()-1)));
-        table.getCache().put(page);
+        table.getCache().tableCache.put(page);
     }
     //==DELETION==
     /**
@@ -124,27 +126,27 @@ public class EntryManager {
     * @return the number of entries successfully deleted
     */
     public int deleteEntry(WhereClause whereClause, int limit){
-        List<BlockPointer> blockPointerList = table.findRangeIndex(whereClause);
+        List<PointerPair> blockPointerList = table.findRangeIndex(whereClause);
         boolean deleteAll = limit < 0;
         int deletedCount = 0;
-        for (BlockPointer blockPointer : blockPointerList) {
+        for (PointerPair pointerPair : blockPointerList) {
             if(!deleteAll && deletedCount>=limit)return deletedCount;
-            TablePage page = this.deletionProcess(blockPointer);
+            TablePage page = this.deletionProcess(pointerPair.tablePointer());
             if(page == null) continue;
             deletedCount++;
             if (page.isLastPage()) {
                 if (page.size() == 0) {
-                    table.getCache().deleteLastPage(page);
+                    table.getCache().tableCache.deleteLastPage(page);
                 }
-                table.getCache().put(page);
+                table.getCache().tableCache.put(page);
                 continue;
             }
-            this.replaceLastEntry(page, blockPointer);
+            this.replaceLastEntry(page, pointerPair.tablePointer());
         }
         return deletedCount;
     }
     private TablePage deletionProcess(BlockPointer blockPointer) {
-        TablePage page = table.getCache().get(blockPointer.BlockID());
+        TablePage page = table.getCache().tableCache.get(blockPointer.BlockID());
         if(page == null) return null;
         Entry removed = page.remove(blockPointer.RowOffset());
         table.removeIndex(removed, blockPointer);
@@ -156,17 +158,17 @@ public class EntryManager {
         return page;
     }
     private void replaceLastEntry(TablePage page,  BlockPointer blockPointer){
-        TablePage lastPage = table.getCache().getLast();
+        TablePage lastPage = table.getCache().tableCache.getLast();
         Entry lastEntry = lastPage.removeLast();
         page.add(lastEntry);
         BlockPointer oldPointer = new BlockPointer(lastPage.getPageID(), (short)(lastPage.size()));
         BlockPointer newPointer = new BlockPointer(page.getPageID(),(short)(page.size()-1));
         table.updateIndex(lastEntry, newPointer, oldPointer);
-        table.getCache().put(page);
+        table.getCache().tableCache.put(page);
         if (lastPage.size() == 0) {
-            table.getCache().deleteLastPage(lastPage);
+            table.getCache().tableCache.deleteLastPage(lastPage);
         }else{
-            table.getCache().put(lastPage);
+            table.getCache().tableCache.put(lastPage);
         }
     }
 
@@ -194,26 +196,26 @@ public class EntryManager {
      */
     public int updateEntry(WhereClause whereClause, int limit, UpdateFields updates) {
         int result = 0;
-        List<BlockPointer> blockPointerList = table.findRangeIndex(whereClause);
+        List<PointerPair> blockPointerList = table.findRangeIndex(whereClause);
         boolean updateAll = limit < 0;
         int index = -1;
-        for (BlockPointer blockPointer : blockPointerList) {
+        for (PointerPair pointerPair : blockPointerList) {
             index++;
             if(!updateAll && index>=limit)return result;
-            TablePage page = table.getCache().get(blockPointer.BlockID());
+            TablePage page = table.getCache().tableCache.get(pointerPair.tablePointer().BlockID());
             if (page == null) continue;
-            this.updateProcess(page, blockPointer, updates.getFunctionsList());
-            table.getCache().put(page);
+            this.updateProcess(page, pointerPair.tablePointer(), updates.getFunctionsList());
+            table.getCache().tableCache.put(page);
             result++;
         }
         return result;
     }
-    private void updateProcess(TablePage page, BlockPointer blockPointer,  List<Map.Entry<String,InnerFunctions>> updates) {
+    private void updateProcess(TablePage page, BlockPointer tablePointer,  List<Map.Entry<String,InnerFunctions>> updates) {
         BlockPointer oldBlockPointer = new BlockPointer(page.getPageID(), (short)(page.size()-1));
-        Entry removed = page.remove(blockPointer.RowOffset());
-        table.removeIndex(removed, blockPointer);
-        if(blockPointer.RowOffset() != page.size())
-            table.updateIndex(page.get(blockPointer.RowOffset()), blockPointer, oldBlockPointer);
+        Entry removed = page.remove(tablePointer.RowOffset());
+        table.removeIndex(removed, tablePointer);
+        if(tablePointer.RowOffset() != page.size())
+            table.updateIndex(page.get(tablePointer.RowOffset()), tablePointer, oldBlockPointer);
         Object[] values = removed.getEntry();
         values = this.applyUpdates(values, updates);
         if(!Entry.isValidEntry(values, this.table.getSchema()))

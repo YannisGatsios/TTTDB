@@ -118,9 +118,9 @@ class TablePageTest {
         emptyPage();
         page.add(entry1);
         page.add(entry2);
-        table.getCache().writePage(page);
+        table.getCache().tableCache.writePage(page);
         
-        TablePage newPage = table.getCache().get(0);
+        TablePage newPage = table.getCache().tableCache.get(0);
         //newPage.bufferToPage(buffer, table);
         
         assertEquals(page.size(), newPage.size());
@@ -141,9 +141,9 @@ class TablePageTest {
         emptyPage();
         page.add(entry1);
         page.add(entry3);
-        table.getCache().writePage(page);
+        table.getCache().tableCache.writePage(page);
         
-        TablePage newPage = table.getCache().get(0);
+        TablePage newPage = table.getCache().tableCache.get(0);
         assertEquals(page.size(), newPage.size());
         assertEquals(page.getSpaceInUse(), newPage.getSpaceInUse());
         arePageEntriesEqual(page,newPage);

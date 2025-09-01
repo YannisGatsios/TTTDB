@@ -7,14 +7,17 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
-import com.database.db.FileIO;
 import com.database.db.index.BPlusTree;
 import com.database.db.index.BTreeSerialization;
 import com.database.db.index.Index;
 import com.database.db.index.Pair;
 import com.database.db.index.PrimaryKey;
 import com.database.db.index.BTreeSerialization.BlockPointer;
+import com.database.db.index.BTreeSerialization.PointerPair;
+import com.database.db.manager.IndexPageManager.RemoveResult;
 import com.database.db.page.Entry;
+import com.database.db.page.IndexPage;
+import com.database.db.page.Page;
 import com.database.db.page.TablePage;
 import com.database.db.table.Schema;
 import com.database.db.table.Table;
@@ -26,23 +29,33 @@ public class IndexManager {
     private Table table;
     Schema schema;
     private BTreeSerialization<?>[] indexes;
+    private int[] numOfPages;
+    public IndexPageManager pageManager;
 
     public IndexManager(Table table) throws InterruptedException, ExecutionException, IOException {
         this.table = table;
         this.schema = table.getSchema();
         this.indexes = new BTreeSerialization<?>[schema.getNumOfColumns()];
-        // Checking if primary key is set and then setting it
-        boolean[] isIndexed = schema.isIndexed();
+        this.numOfPages = this.prepareNumOfPages();
+        this.pageManager = new IndexPageManager(table);
         int PrimaryKeyIndex = schema.getPrimaryKeyIndex();
         boolean[] unIndexes = schema.getUniqueIndex();
         boolean[] inIndexes = schema.getIndexIndex();
-        for (int i = 0;i<isIndexed.length;i++) {
+        for (int i = 0;i<this.indexes.length;i++) {
+            if(PrimaryKeyIndex == i) this.indexes[i] = this.newPrimaryKey(i).initialize(table);
+            else if (unIndexes[i]) this.indexes[i] = this.newUnique(i).initialize(table);
+            else if (inIndexes[i]) this.indexes[i] = this.newIndex(i).initialize(table);
+        }
+    }
+    private int[] prepareNumOfPages(){
+        boolean[] isIndexed = table.getSchema().isIndexed();
+        int[] result = new int[this.indexes.length];
+        for (int i = 0;i<this.indexes.length;i++) {
             if(isIndexed[i]){
-                if(PrimaryKeyIndex == i) this.indexes[i] = this.newPrimaryKey(i);
-                else if (unIndexes[i]) this.indexes[i] = this.newUnique(i);
-                else if (inIndexes[i]) this.indexes[i] = this.newIndex(i);
+                result[i] = Table.getNumOfPages(table.getIndexPath(i), IndexPage.sizeOfEntry(table, i));
             }
         }
+        return result;
     }
     private PrimaryKey<?> newPrimaryKey(int pkIndex) throws InterruptedException, ExecutionException{
         DataType pkType = schema.getTypes()[pkIndex];
@@ -94,24 +107,25 @@ public class IndexManager {
         return this.indexes[columnIndex].getMax();
     }
     @SuppressWarnings("unchecked")
-    public <K extends Comparable<? super K>> List<Pair<K,BlockPointer>> findRangeIndex(K upper, K lower, int columnIndex){
+    public <K extends Comparable<? super K>> List<Pair<K,PointerPair>> findRangeIndex(K upper, K lower, int columnIndex){
         if(this.indexes[columnIndex] == null) return this.sequentialRangeSearch(upper, lower, columnIndex);
         return ((BTreeSerialization<K>) this.indexes[columnIndex]).rangeSearch(upper, lower);
     }
-    private <K extends Comparable<? super K>> List<Pair<K,BlockPointer>> sequentialRangeSearch(K upper, K lower, int columnIndex){
-        List<Pair<K,BlockPointer>> result = new ArrayList<>();
+    private <K extends Comparable<? super K>> List<Pair<K,PointerPair>> sequentialRangeSearch(K upper, K lower, int columnIndex){
+        List<Pair<K,PointerPair>> result = new ArrayList<>();
         for(int i = 0;i<table.getPages();i++){
-            TablePage page = table.getCache().get(i);
+            TablePage page = table.getCache().tableCache.get(i);
             for(int y = 0;y<page.size();y++){
                 Entry entry = page.get(y);
-                Pair<K,BlockPointer> pair = new Pair<>((K)entry.get(columnIndex),new BlockPointer(i,(short)y));
+                PointerPair value = new PointerPair(new BlockPointer(i,(short)y),null);
+                Pair<K,PointerPair> pair = new Pair<>((K)entry.get(columnIndex),value);
                 result.add(pair);
             }
         }
         return result;
     }
     @SuppressWarnings("unchecked")
-    public <K extends Comparable<? super K>> List<BlockPointer> findBlock(K key, int columnIndex){
+    public <K extends Comparable<? super K>> List<PointerPair> findBlock(K key, int columnIndex){
         if(this.indexes[columnIndex] == null) return null;
         return ((BTreeSerialization<K>)this.indexes[columnIndex]).search(key);
     }
@@ -122,7 +136,7 @@ public class IndexManager {
     }
 
     @SuppressWarnings("unchecked")
-    public <K extends Comparable<? super K>> void insertIndex(Entry entry, BlockPointer blockPointer){
+    public <K extends Comparable<? super K>> void insertIndex(Entry entry, BlockPointer tablePointer){
         for (BTreeSerialization<?> index : this.indexes) {
             if(index == null) continue;
             int columnIndex = index.getColumnIndex();
@@ -135,7 +149,9 @@ public class IndexManager {
                 "Invalid secondary key type at column " + columnIndex + 
                 ": expected " + expectedClass.getName() + 
                 ", but got " + key.getClass().getName());
-            ((BPlusTree<K,BlockPointer>) index).insert((K) key, blockPointer);
+            BlockPointer indexpointer = this.pageManager.insert(tablePointer, key, index.getColumnIndex());
+            PointerPair value = new PointerPair(tablePointer,indexpointer);
+            ((BPlusTree<K,PointerPair>) index).insert((K) key, value);
         }
     }
 
@@ -153,7 +169,31 @@ public class IndexManager {
                 "Invalid secondary key type at column " + columnIndex + 
                 ": expected " + expectedClass.getName() + 
                 ", but got " + key.getClass().getName());
-            ((BTreeSerialization<K>) index).remove((K) key, blockPointer);
+            BlockPointer indexPointer = pageManager.findIndexPointer(index, (K)key, blockPointer);
+            PointerPair value = new PointerPair(blockPointer, indexPointer);
+            RemoveResult result = pageManager.remove(value, index.getColumnIndex());
+            ((BTreeSerialization<K>) index).remove((K) key, value);
+            if (result.swapedEntry() != null && result.previusPosition() != indexPointer.RowOffset()) {
+                Entry swapped = result.swapedEntry();
+                K keyOfSwapped = (K) swapped.get(1);
+                PointerPair oldValue = new PointerPair(
+                    (BlockPointer) swapped.get(0),
+                    new BlockPointer(value.IndexPointer().BlockID(), result.previusPosition())
+                );
+                PointerPair newValue = new PointerPair((BlockPointer) swapped.get(0), indexPointer);
+                if (index.isUnique()) ((BTreeSerialization<K>) index).update(keyOfSwapped, newValue);
+                else ((BTreeSerialization<K>) index).update(keyOfSwapped, newValue, oldValue);
+            }
+            if(result.replacedEntry() != null){
+                K keyOfReplaced = (K)result.replacedEntry().get(1);
+                short pageCapacity = Page.getPageCapacity(IndexPage.sizeOfEntry(table, columnIndex));
+                PointerPair newValue = new  PointerPair((BlockPointer)result.replacedEntry().get(0),
+                    new BlockPointer(value.IndexPointer().BlockID(),(short)(pageCapacity-1)));
+                PointerPair oldValue = new PointerPair((BlockPointer)result.replacedEntry().get(0),
+                    result.lasteEntryPoionter());
+                if(index.isUnique()) ((BTreeSerialization<K>) index).update( keyOfReplaced, newValue);
+                else ((BTreeSerialization<K>) index).update( keyOfReplaced, newValue, oldValue);
+            }
         }
     }
 
@@ -171,32 +211,17 @@ public class IndexManager {
                 "Invalid secondary key type at column " + columnIndex + 
                 ": expected " + expectedClass.getName() + 
                 ", but got " + key.getClass().getName());
-            if(index.isUnique())((BTreeSerialization<K>) index).update((K) key, newBlockPointer);
-            else ((BTreeSerialization<K>) index).update((K) key, newBlockPointer, oldBlockPointer);
+            BlockPointer indexPointer = pageManager.findIndexPointer(index, (K) key, oldBlockPointer);
+            pageManager.update(indexPointer , newBlockPointer, key, columnIndex);
+            PointerPair newValue = new PointerPair(newBlockPointer, indexPointer);
+            PointerPair oldValue = new PointerPair(oldBlockPointer, indexPointer);
+            if(index.isUnique())((BTreeSerialization<K>) index).update((K) key, newValue);
+            else ((BTreeSerialization<K>) index).update((K) key, newValue, oldValue);
         }
     }
 
-    public void writeIndexes(Table table) throws ExecutionException, InterruptedException{
-        FileIO fileIO = new FileIO(table.getFileIOThread());
-        for (BTreeSerialization<?> index : indexes) {
-            if(index != null){
-                byte[] treeBytes = index.toBytes(table);
-                fileIO.writeTree(table.getIndexPath(index.getColumnIndex()), treeBytes);
-            }
-        }
-    }
-
-    public void initPrimaryKey(int columnIndex) throws InterruptedException, ExecutionException, IOException{
-        //this.tableSchema.update TODO
-        this.indexes[columnIndex] = this.newPrimaryKey(columnIndex);
-        ((PrimaryKey<?>)this.indexes[columnIndex]).initialize(table);
-    }
-    public void initIndex(int columnIndex) throws InterruptedException, ExecutionException, IOException{
-        //this.tableSchema.update TODO
-        this.indexes[columnIndex] = this.newIndex(columnIndex);
-        ((Index<?>)this.indexes[columnIndex]).initialize(table);
-    }
-    public BTreeSerialization<?>[] getIndexes(){
-        return this.indexes;
-    }
+    public BTreeSerialization<?>[] getIndexes(){return this.indexes;}
+    public int getPages(int columnIndex){return this.numOfPages[columnIndex];}
+    public void addOnePage(int columnIndex){this.numOfPages[columnIndex]++;}
+    public void removeOnePage(int columnIndex){this.numOfPages[columnIndex]--;}
 }

@@ -2,14 +2,13 @@ package com.database.db.page;
 
 import java.io.IOException;
 
-
 public abstract class Page {
 
     private int pageID;
     private short numOfEntries;
     private int spaceInUse;
     private Entry[] entries;
-    private int maxSizeOfEntry;
+    private int sizeOfEntry;
 
     public static final int BLOCK_SIZE = 4096;
     public static final int SIZE_OF_HEADER = 2*Integer.BYTES + Short.BYTES;
@@ -20,7 +19,7 @@ public abstract class Page {
         this.numOfEntries = 0;
         this.spaceInUse = 0;
         this.entries = new Entry[Page.getPageCapacity(sizeOfEntry)];
-        this.maxSizeOfEntry = sizeOfEntry;
+        this.sizeOfEntry = sizeOfEntry;
     }
 
     // ==========ADDING_ENTRIES==========
@@ -33,7 +32,7 @@ public abstract class Page {
         if (this.entries[index] != null) throw new IllegalArgumentException("Entry already exists at index " + index+" can not add a new one");
         this.numOfEntries++;
         this.entries[index] = entry;
-        this.spaceInUse += this.maxSizeOfEntry;
+        this.spaceInUse += this.sizeOfEntry;
         this.dirty = true;
         return index;
     }
@@ -47,7 +46,7 @@ public abstract class Page {
             throw new IllegalArgumentException("Null Entry to remove for Index: "+index+" Maximum: "+this.numOfEntries);
         this.swapWithLast(index);
         this.entries[this.numOfEntries-1] = null;
-        this.spaceInUse -= this.maxSizeOfEntry;
+        this.spaceInUse -= this.sizeOfEntry;
         this.numOfEntries--;
         this.dirty = true;
         return result;
@@ -104,7 +103,8 @@ public abstract class Page {
     }
     public static int pageSizeInBytes(int sizeOfEntry) {
         int sizeOfEntries = Page.pageSizeOfEntries(sizeOfEntry);
-        return (sizeOfEntries + SIZE_OF_HEADER)+ (BLOCK_SIZE - ((sizeOfEntries + SIZE_OF_HEADER) % BLOCK_SIZE));
+        int total = sizeOfEntries + SIZE_OF_HEADER;
+        return ((total + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
     }
 
     public abstract byte[] toBytes() throws IOException;
@@ -116,9 +116,9 @@ public abstract class Page {
 
     public short size() {return this.numOfEntries;}
 
-    public int sizeInBytes() {return (sizeOfEntries() + sizeOfHeader())+ (BLOCK_SIZE - ((sizeOfEntries() + sizeOfHeader()) % BLOCK_SIZE));}
+    public int sizeInBytes() {return Page.pageSizeInBytes(sizeOfEntry);}
     public int sizeOfHeader() {return (2 * (Integer.BYTES)) + Short.BYTES;}
-    public int sizeOfEntries() {return (maxSizeOfEntry * this.entries.length);}
+    public int sizeOfEntries() {return (sizeOfEntry * this.entries.length);}
 
     public int getCapacity(){return this.entries.length;}
     public int getPagePos() {return this.pageID * this.sizeInBytes();}

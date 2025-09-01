@@ -1,6 +1,7 @@
 package com.database.db;
 
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
@@ -11,6 +12,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import com.database.db.page.Page;
 
 public class FileIO {
     private static final Logger logger = Logger.getLogger(FileIO.class.getName());
@@ -56,46 +59,48 @@ public class FileIO {
             throw new IllegalArgumentException("Page buffer cannot be null or empty.");
         if (path == null || path.isEmpty())
             throw new IllegalArgumentException("Path cannot be null or empty.");
+        if (pageBuffer.length%4096 != 0)
+            throw new IllegalArgumentException("Page size not modulo of 4096.");
         fileIOThread.submit(() -> {
-            try (FileChannel channel = FileChannel.open(Path.of(path), 
-                    StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
-                ByteBuffer buffer = ByteBuffer.wrap(pageBuffer);
-                channel.position(pagePosition);
-                while (buffer.hasRemaining()) {
-                    channel.write(buffer);
-                }
+            try (RandomAccessFile raf = new RandomAccessFile(path, "rw")) {
+                raf.seek(pagePosition);
+                raf.write(pageBuffer);
             } catch (IOException e) {
-                logger.log(Level.SEVERE, "Error writing page to file: " + path + " at position " + pagePosition, e);
-                throw new RuntimeException("Failed to write page to file: " + path, e);
+                logger.log(Level.SEVERE, "Error writing page to file: " + path + " pos=" + pagePosition, e);
+                throw new RuntimeException(e);
             }
         });
     }
 
-    public byte[] readPage(String path, int pagePosition, int pageMaxSize) throws InterruptedException, ExecutionException {
-        return readPageAsync(path, pagePosition, pageMaxSize).get();
-    }
-
-    private Future<byte[]> readPageAsync(String path, int pagePosition, int pageMaxSize) {
+    public byte[] readPage(String path, int pagePosition, int pageMaxSize)
+            throws InterruptedException, ExecutionException {
+        // quick validations
         if (path == null || path.isEmpty())
             throw new IllegalArgumentException("Path cannot be null or empty.");
-        if (pageMaxSize <= 0 || pageMaxSize % 4096 != 0)
+        if (pageMaxSize <= 0 || pageMaxSize % Page.BLOCK_SIZE != 0)
             throw new IllegalArgumentException("Invalid page size: " + pageMaxSize);
-        
+
         FutureTask<byte[]> readTask = new FutureTask<>(() -> {
             ByteBuffer buffer = ByteBuffer.allocate(pageMaxSize);
-            try (FileChannel channel = FileChannel.open(Path.of(path), StandardOpenOption.READ)) {
+            Path p = Path.of(path);
+            try (FileChannel channel = FileChannel.open(p, StandardOpenOption.READ)) {
                 channel.position(pagePosition);
-                int bytesRead = channel.read(buffer);
-                if (bytesRead == -1)
+                int totalRead = 0;
+                int r;
+                while (buffer.hasRemaining() && (r = channel.read(buffer)) != -1) {
+                    totalRead += r;
+                }
+                if (totalRead <= 0)
                     return null;
-
-                if (bytesRead < pageMaxSize) {
-                    byte[] actual = new byte[bytesRead];
+                if (totalRead < pageMaxSize) {
+                    byte[] actual = new byte[totalRead];
                     buffer.flip();
                     buffer.get(actual);
                     return actual;
                 } else {
-                    return buffer.array(); // Full page read
+                    buffer.flip();
+                    byte[] full = buffer.array();
+                    return full;
                 }
             } catch (IOException e) {
                 logger.log(Level.SEVERE, "Error reading page from file: " + path, e);
@@ -103,7 +108,8 @@ public class FileIO {
             }
         });
         fileIOThread.submit(readTask);
-        return readTask;
+        byte[] result = readTask.get();
+        return result;
     }
 
     public void truncateFile(String path, int pageSize) throws ExecutionException, InterruptedException {
@@ -125,7 +131,6 @@ public class FileIO {
                 throw new RuntimeException("Failed to truncate file", e);
             }
         });
-
         fileIOThread.submit(future);
         future.get();
     }
