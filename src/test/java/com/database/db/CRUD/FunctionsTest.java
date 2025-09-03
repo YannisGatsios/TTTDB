@@ -6,21 +6,22 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.time.LocalDateTime;
 
 import com.database.db.api.Functions.*;
-import com.database.db.table.Schema;
+import com.database.db.api.Schema;
 
 public class FunctionsTest {
 
     // Existing OPERATION tests...
     @Test
     void testGetFromFunction_allOperations_Integer() throws Exception {
-        Schema schema = new Schema(("c1:INT:NON:NO_CONSTRAINT:NULL;" +
-                "c2:INT:NON:NO_CONSTRAINT:NULL;" +
-                "c3:INT:NON:NO_CONSTRAINT:NULL;" +
-                "c4:INT:NON:NO_CONSTRAINT:NULL;" +
-                "c5:INT:NON:NO_CONSTRAINT:NULL;").split(";"));
+        Schema schema = new Schema()
+            .column("c1").type("INT")
+            .column("c2").type("INT")
+            .column("c3").type("INT")
+            .column("c4").type("INT")
+            .column("c5").type("INT").end();
         Object[] row = { 2, 3, 4, 10, 3 };
         String expression = "((c1 + c2) * c3 - c4 / c5 + c4 % c3) ^ c1";
-        Object resultNumber = new operationData(expression).apply(schema, row, 0);
+        Object resultNumber = new operationData(expression).apply(new com.database.db.table.Schema(schema.get()), row, 0);
         int result = ((Number) resultNumber).intValue();
         assertNotNull(result);
         assertTrue(resultNumber instanceof Number);
@@ -29,14 +30,15 @@ public class FunctionsTest {
 
     @Test
     void testGetFromFunction_allOperations_Double() throws Exception {
-        Schema schema = new Schema(("c1:DOUBLE:NON:NO_CONSTRAINT:NULL;" +
-                "c2:DOUBLE:NON:NO_CONSTRAINT:NULL;" +
-                "c3:DOUBLE:NON:NO_CONSTRAINT:NULL;" +
-                "c4:DOUBLE:NON:NO_CONSTRAINT:NULL;" +
-                "c5:DOUBLE:NON:NO_CONSTRAINT:NULL;").split(";"));
+        Schema schema = new Schema()
+            .column("c1").type("DOUBLE")
+            .column("c2").type("DOUBLE")
+            .column("c3").type("DOUBLE")
+            .column("c4").type("DOUBLE")
+            .column("c5").type("DOUBLE").end();
         Object[] row = { 2.0, 3.0, 4.0, 10.0, 3.0 };
         String expression = "((c1 + c2) * c3- c4 / c5 + c4 % c3) ^ c1";
-        Object resultNumber = new operationData(expression).apply(schema, row, 0);
+        Object resultNumber = new operationData(expression).apply(new com.database.db.table.Schema(schema.get()), row, 0);
         Double result = ((Number) resultNumber).doubleValue();
         assertNotNull(result);
         assertTrue(resultNumber instanceof Number);
@@ -45,12 +47,13 @@ public class FunctionsTest {
 
     @Test
     void testGetFromFunction_simpleExpression() throws Exception {
-        Schema schema = new Schema(("c1:INT:NON:NO_CONSTRAINT:NULL;" +
-                "c2:INT:NON:NO_CONSTRAINT:NULL;" +
-                "c3:INT:NON:NO_CONSTRAINT:NULL;").split(";"));
+        Schema schema = new Schema()
+            .column("c1").type("INT")
+            .column("c2").type("INT")
+            .column("c3").type("INT").end();
         Object[] row = { 10, 5, 2 };
         String expression = "c1 + c2 * c3";
-        Object result = new operationData(expression).apply(schema, row, 0);
+        Object result = new operationData(expression).apply(new com.database.db.table.Schema(schema.get()), row, 0);
         assertNotNull(result);
         assertTrue(result instanceof Long);
         assertEquals(20L, result);
@@ -58,12 +61,13 @@ public class FunctionsTest {
 
     @Test
     void testGetFromFunction_withDifferentValues() throws Exception {
-        Schema schema = new Schema(("x:INT:NON:NO_CONSTRAINT:NULL;" +
-                "y:INT:NON:NO_CONSTRAINT:NULL;" +
-                "z:INT:NON:NO_CONSTRAINT:NULL;").split(";"));
+        Schema schema = new Schema()
+            .column("x").type("INT")
+            .column("y").type("INT")
+            .column("z").type("INT").end();
         Object[] row = { 7, 3, 4 };
         String expression = "x * y + z";
-        Object result = new operationData(expression).apply(schema, row, 0);
+        Object result = new operationData(expression).apply(new com.database.db.table.Schema(schema.get()), row, 0);
         assertNotNull(result);
         assertTrue(result instanceof Long);
         assertEquals(25L, result);
@@ -71,10 +75,11 @@ public class FunctionsTest {
 
     @Test
     void testGetFromFunction_nullExpression() throws Exception {
-        Schema schema = new Schema(("a:INT:NON:NO_CONSTRAINT:NULL;" +
-                "b:INT:NON:NO_CONSTRAINT:NULL;").split(";"));
+        Schema schema = new Schema()
+            .column("a").type("INT")
+            .column("b").type("INT").end();
         Object[] row = { 1, 2 };
-        Object result = new operationData(null).apply(schema, row, 0);
+        Object result = new operationData(null).apply(new com.database.db.table.Schema(schema.get()), row, 0);
         assertNull(result);
     }
 

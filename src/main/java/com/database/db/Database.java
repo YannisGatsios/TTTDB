@@ -1,12 +1,8 @@
 package com.database.db;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -35,7 +31,7 @@ public class Database {
             logger.info(String.format("Table '%s' already exists in database '%s'. Skipping creation.", tableConfig.tableName(), this.name));
             return;
         }
-        Schema schema = new Schema(tableConfig.schemaConfig().split(";"));
+        Schema schema = new Schema(tableConfig.schema().get());
         SchemaManager.createTable(schema, this.path, this.name, tableConfig.tableName());
         this.addTable(tableConfig);
         logger.info(
@@ -46,12 +42,7 @@ public class Database {
         fileIOThread.start();
         try {
             this.tables.put(tableConfig.tableName(), 
-                new Table(this.name,
-                    tableConfig.tableName(),
-                    tableConfig.schemaConfig(),
-                    fileIOThread,
-                    tableConfig.cacheCapacity(),
-                    this.path));
+                new Table(this.name, this.path, fileIOThread, tableConfig));
         } catch (ExecutionException e) {
             logger.log(Level.SEVERE,
                 String.format("ExecutionException: Failed to create table '%s' in database '%s'.",tableConfig.tableName(), this.name),e);

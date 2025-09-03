@@ -22,7 +22,7 @@ public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTr
             return new BlockPointer(BlockID, RowOffset);
         }
     }
-    public record PointerPair(BlockPointer tablePointer, BlockPointer IndexPointer) {} 
+    public record PointerPair(BlockPointer tablePointer, BlockPointer indexPointer) {} 
 
     public BTreeSerialization(int order){
         super(order);

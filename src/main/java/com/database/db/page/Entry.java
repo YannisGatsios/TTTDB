@@ -15,8 +15,6 @@ import com.database.db.table.Table;
 public class Entry {
     
     private Object[] values;
-    private int[] sizeOfElementsOfEntry;
-    private int[] indexOfElementsOfEntry;
     private BitSet nullsBitMap;
     private int numberOfNullableColumns;
 
@@ -199,7 +197,4 @@ public class Entry {
     public Object get(int index){return this.values[index];}
     public void set(int index, Object value){this.values[index] = value;}
     public Object[] getEntry(){return this.values;}
-    public int[] getElementSizes(){return this.sizeOfElementsOfEntry;}
-    public int[] getElementIndexes(){return this.indexOfElementsOfEntry;}
-    public int getNumOfElements(){return this.indexOfElementsOfEntry[this.indexOfElementsOfEntry.length - 1];}
 }

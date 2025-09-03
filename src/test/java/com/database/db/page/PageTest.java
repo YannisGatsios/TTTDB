@@ -8,6 +8,9 @@ import org.junit.jupiter.api.Test;
 
 import com.database.db.table.Table;
 import com.database.db.FileIOThread;
+import com.database.db.api.DBMS.TableConfig;
+import com.database.db.api.Column;
+import com.database.db.api.Schema;
 
 import java.io.File;
 import java.io.IOException;
@@ -57,8 +60,8 @@ class PageTest {
      * for size calculations, but without file I/O or index initialization.
      */
     private static class MockTable extends Table {
-        public MockTable(String schemaConfig) throws IOException, ExecutionException, InterruptedException,Exception {
-            super("mockDB", "mockTable", schemaConfig, new MockFileIOThread(), null, "storage/");
+        public MockTable(Schema schema) throws IOException, ExecutionException, InterruptedException,Exception {
+            super("mockDB", "storage/", new MockFileIOThread(),new TableConfig("mockTable", schema, null));
         }
 
         // Mock FileIOThread to avoid actual file operations during tests
@@ -86,11 +89,11 @@ class PageTest {
     void setUp() throws IOException, ExecutionException, InterruptedException, Exception {
         File file = new File("./mockDB.mockTable.table");
         file.createNewFile();
-        String schemaConfig = 
-    "id:INT:NON:NO_CONSTRAINT:NULL;" +
-    "name:CHAR:50:NO_CONSTRAINT:NULL";
+        Schema schema = new Schema()
+            .column("id").type("INT")
+            .column("name").type("CHAR").size(50).end();
 
-        mockTable = new MockTable(schemaConfig);
+        mockTable = new MockTable(schema);
         page = new ConcretePage(PAGE_ID, mockTable);
 
         entry1 = new MockEntry(mockTable, 100, "Alice");

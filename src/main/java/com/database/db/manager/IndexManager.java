@@ -178,7 +178,7 @@ public class IndexManager {
                 K keyOfSwapped = (K) swapped.get(1);
                 PointerPair oldValue = new PointerPair(
                     (BlockPointer) swapped.get(0),
-                    new BlockPointer(value.IndexPointer().BlockID(), result.previusPosition())
+                    new BlockPointer(value.indexPointer().BlockID(), result.previusPosition())
                 );
                 PointerPair newValue = new PointerPair((BlockPointer) swapped.get(0), indexPointer);
                 if (index.isUnique()) ((BTreeSerialization<K>) index).update(keyOfSwapped, newValue);
@@ -188,7 +188,7 @@ public class IndexManager {
                 K keyOfReplaced = (K)result.replacedEntry().get(1);
                 short pageCapacity = Page.getPageCapacity(IndexPage.sizeOfEntry(table, columnIndex));
                 PointerPair newValue = new  PointerPair((BlockPointer)result.replacedEntry().get(0),
-                    new BlockPointer(value.IndexPointer().BlockID(),(short)(pageCapacity-1)));
+                    new BlockPointer(value.indexPointer().BlockID(),(short)(pageCapacity-1)));
                 PointerPair oldValue = new PointerPair((BlockPointer)result.replacedEntry().get(0),
                     result.lasteEntryPoionter());
                 if(index.isUnique()) ((BTreeSerialization<K>) index).update( keyOfReplaced, newValue);

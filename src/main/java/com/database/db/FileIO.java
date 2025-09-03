@@ -16,7 +16,7 @@ import com.database.db.page.Page;
 public class FileIO {
     private static final Logger logger = Logger.getLogger(FileIO.class.getName());
 
-    private FileIOThread fileIOThread;;
+    private FileIOThread fileIOThread;
 
     public FileIO(FileIOThread thread) {
         this.fileIOThread = thread;

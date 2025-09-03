@@ -19,8 +19,10 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import com.database.db.api.Column;
 import com.database.db.api.Condition.*;
 import com.database.db.api.DBMS.*;
+import com.database.db.api.Schema;
 import com.database.db.manager.EntryManager;
 import com.database.db.page.Entry;
 import com.database.db.Database;
@@ -51,11 +53,14 @@ public class EntryManagerTest {
     @BeforeAll
     void setup() throws ExecutionException, InterruptedException, IOException, Exception {
         database = new Database("test_database");
-        String schemaConfig = "username:CHAR:100:PRIMARY_KEY:NULL;"+
-            "num:INT:NON:INDEX:NULL;"+
-            "message:CHAR:10:NO_CONSTRAINT:NULL;"+
-            "data:BYTE:10:NOT_NULL:NON";
-        config = new TableConfig("test_table", schemaConfig, null);
+        
+        Schema schema = new Schema()
+            .column("username").type("CHAR").size(50).primaryKey()
+            .column("num").type("INT").index()
+            .column("message").type("CHAR").size(10)
+            .column("data").type("BYTE").size(10).notNull().defaultValue(new byte[10]).end();
+
+        config = new TableConfig("test_table", schema, new CacheCapacity(5,2));
         database.createTable(config);
         table = database.getTable("test_table");
         

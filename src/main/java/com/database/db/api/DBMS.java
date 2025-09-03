@@ -14,7 +14,6 @@ import com.database.db.Database;
 import com.database.db.api.Condition.WhereClause;
 import com.database.db.manager.EntryManager;
 import com.database.db.page.Entry;
-import com.database.db.table.Schema;
 import com.database.db.table.Table;
 
 public class DBMS {
@@ -30,7 +29,7 @@ public class DBMS {
     private String path = "";
     private EntryManager entryManager;
 
-    public record TableConfig(String tableName, String schemaConfig, CacheCapacity cacheCapacity){}
+    public record TableConfig(String tableName, Schema schema, CacheCapacity cacheCapacity){}
     public record CacheCapacity(int tableCapacity, int indexCapacity){}
 
     public record Record(String[] columnNames, Object[] values){
@@ -155,7 +154,7 @@ public class DBMS {
     }
     private List<Record> prepareSelectResult(String[] resultColumns,List<Entry> selectResult){
         List<Record> result = new ArrayList<>();
-        Schema schema = this.entryManager.getTable().getSchema();
+        com.database.db.table.Schema schema = this.entryManager.getTable().getSchema();
         for (Entry entry : selectResult) {
             Object[] values = new Object[resultColumns.length];
             for(int i = 0;i<resultColumns.length;i++){

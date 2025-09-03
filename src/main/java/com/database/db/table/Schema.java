@@ -3,30 +3,30 @@ package com.database.db.table;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.database.db.api.Schema.ColumnInner;
+
 
 public class Schema {
 
-    private Column[] columns;
+    private ColumnInner[] columns;
     
     public boolean hasPrimaryKey = false;
     public boolean hasUnique = false;
     public boolean hasIndex = false;
 
-    public record Column(String name, DataType type, int size, List<Constraint> constraints, Object Default) {}
-
-    public Schema(String[] schema) {
-        this.columns = this.getColumns(schema);
+    public Schema(ColumnInner[] columns) {
+        this.columns = columns;
     }
 
-    private Column[] getColumns(String[] columnConfigs){
-        Column[] result = new Column[columnConfigs.length]; 
+    private ColumnInner[] getColumns(String[] columnConfigs){
+        ColumnInner[] result = new ColumnInner[columnConfigs.length]; 
         for (int i = 0;i<result.length;i++) {
             result[i] = this.createColumn(columnConfigs[i]);
         }
         return result;
     }
 
-    private Column createColumn(String columnConfig) {
+    private ColumnInner createColumn(String columnConfig) {
         String[] fields = columnConfig.split(":");
         String columnName = fields[0].trim();
         DataType columnDataType = DataType.fromString(fields[1].trim());
@@ -47,7 +47,7 @@ public class Schema {
             columnConstraints.add(constraint);
         }
         Object Default = columnDataType.parseValue(fields[4].trim());
-        return new Column(columnName, columnDataType, columnSize, columnConstraints, Default);
+        return new ColumnInner(columnName, columnDataType, columnSize, columnConstraints, Default);
     }
     public String[] getNames(){
         String[] names = new String[columns.length];
@@ -58,8 +58,8 @@ public class Schema {
     }
     public int getNameIndex(String columnName){
         int result = 0;
-        for (Column column : this.columns) {
-            if(column.name.equals(columnName)) return result;
+        for (ColumnInner column : this.columns) {
+            if(column.name().equals(columnName)) return result;
             result++;
         }
         throw new IllegalArgumentException("Invalid column name identifier");
@@ -97,15 +97,17 @@ public class Schema {
     public boolean[] isIndexed(){
         boolean[] result = new boolean[this.columns.length];
         for (int i = 0; i < columns.length; i++) {
-            result[i] = (columns[i].constraints.contains(Constraint.PRIMARY_KEY) || columns[i].constraints.contains(Constraint.UNIQUE) || columns[i].constraints.contains(Constraint.INDEX));
+            result[i] = (columns[i].constraints().contains(Constraint.PRIMARY_KEY) 
+            || columns[i].constraints().contains(Constraint.UNIQUE) 
+            || columns[i].constraints().contains(Constraint.INDEX));
         }
         return result;
     }
 
     public int getPrimaryKeyIndex(){
         int index = 0;
-        for (Column column : this.columns) {
-            if(column.constraints.contains(Constraint.PRIMARY_KEY)) return index;
+        for (ColumnInner column : this.columns) {
+            if(column.constraints().contains(Constraint.PRIMARY_KEY)) return index;
             index++;
         }
         return -1;
@@ -114,8 +116,8 @@ public class Schema {
     public boolean[] getUniqueIndex(){
         boolean[] result = new boolean[this.columns.length];
         for (int i = 0;i<this.columns.length;i++) {
-            Column column = this.columns[i];
-            result[i] = (column.constraints.contains(Constraint.UNIQUE));
+            ColumnInner column = this.columns[i];
+            result[i] = (column.constraints().contains(Constraint.UNIQUE));
         }
         return result;
     }
@@ -123,8 +125,8 @@ public class Schema {
     public boolean[] getIndexIndex(){
         boolean[] result = new boolean[this.columns.length];
         for (int i = 0;i<this.columns.length;i++) {
-            Column column = this.columns[i];
-            result[i] = (column.constraints.contains(Constraint.INDEX));
+            ColumnInner column = this.columns[i];
+            result[i] = (column.constraints().contains(Constraint.INDEX));
         }
         return result;
     }
@@ -132,8 +134,8 @@ public class Schema {
     public boolean[] getAutoIncrementIndex(){
         boolean[] result = new boolean[this.columns.length];
         for (int i = 0;i<this.columns.length;i++) {
-            Column column = this.columns[i];
-            result[i] = (column.constraints.indexOf(Constraint.AUTO_INCREMENT) != -1);
+            ColumnInner column = this.columns[i];
+            result[i] = (column.constraints().indexOf(Constraint.AUTO_INCREMENT) != -1);
         }
         return result;
     }
@@ -171,7 +173,7 @@ public class Schema {
         int maxDefaultLen = headers[4].length();
 
         // compute max widths in one loop
-        for (Column c : columns) {
+        for (ColumnInner c : columns) {
             maxNameLen = Math.max(maxNameLen, c.name().length());
             maxTypeLen = Math.max(maxTypeLen, c.type().toString().length());
             maxSizeLen = Math.max(maxSizeLen, String.valueOf(c.size()).length());
@@ -203,7 +205,7 @@ public class Schema {
         sb.append(border).append("\n");
 
         // data rows
-        for (Column c : columns) {
+        for (ColumnInner c : columns) {
             sb.append("| ")
                     .append(pad(c.name(), maxNameLen)).append(" | ")
                     .append(pad(c.type().toString(), maxTypeLen)).append(" | ")

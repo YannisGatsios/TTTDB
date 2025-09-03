@@ -14,6 +14,7 @@ import java.util.concurrent.ExecutionException;
 import com.database.db.FileIOThread;
 import com.database.db.api.Condition.WhereClause;
 import com.database.db.api.DBMS.CacheCapacity;
+import com.database.db.api.DBMS.TableConfig;
 import com.database.db.api.Condition.Clause;
 import com.database.db.api.Condition.Conditions;
 import com.database.db.index.BTreeSerialization.BlockPointer;
@@ -41,13 +42,13 @@ public class Table {
     private String path = "";
     private FileIOThread fileIOThread;
 
-    public Table(String databaseName, String tableName,String schemaConfig, FileIOThread fileIOThread, CacheCapacity cacheCapacity, String path) throws InterruptedException, ExecutionException, IOException {
+    public Table(String databaseName, String path, FileIOThread fileIOThread, TableConfig config) throws InterruptedException, ExecutionException, IOException {
         this.databaseName = databaseName;
-        this.tableName = tableName;
-        this.schema = new Schema(schemaConfig.split(";"));
+        this.tableName = config.tableName();
+        this.schema = new Schema(config.schema().get());
         this.path = path;
         this.fileIOThread = fileIOThread;
-        if(cacheCapacity != null) this.cacheCapacity = cacheCapacity;
+        if(config.cacheCapacity() != null) this.cacheCapacity = config.cacheCapacity();
         this.cache = new Cache(this);
         this.numberOfPages = Table.getNumOfPages(this.getPath(),TablePage.sizeOfEntry(this));
         this.indexes = new IndexManager(this);

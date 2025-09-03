@@ -22,7 +22,7 @@ public class IndexPageManager {
         List<PointerPair> pointerList = ((BTreeSerialization<K>)index).search(key);
         BlockPointer result = null;
         for (PointerPair pointerPair : pointerList) {
-            if(tablePointer.equals(pointerPair.tablePointer())) result = pointerPair.IndexPointer();
+            if(tablePointer.equals(pointerPair.tablePointer())) result = pointerPair.indexPointer();
         }
         return result;
     }
@@ -45,9 +45,9 @@ public class IndexPageManager {
     }
     public record RemoveResult(Entry swapedEntry, short previusPosition, Entry replacedEntry, BlockPointer lasteEntryPoionter){}
     public RemoveResult remove(PointerPair pairPointer, int columnIndex){
-        IndexPage page = this.cache[columnIndex].get(pairPointer.IndexPointer().BlockID());
+        IndexPage page = this.cache[columnIndex].get(pairPointer.indexPointer().BlockID());
 
-        int removedPos = pairPointer.IndexPointer().RowOffset();
+        int removedPos = pairPointer.indexPointer().RowOffset();
         Entry removedEntry = page.remove(removedPos);
 
         if (!removedEntry.get(0).equals(pairPointer.tablePointer()))

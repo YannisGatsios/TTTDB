@@ -14,6 +14,7 @@ import com.database.db.api.DBMS.DeleteQuery;
 import com.database.db.api.DBMS.InsertQuery;
 import com.database.db.api.DBMS.SelectQuery;
 import com.database.db.api.DBMS.UpdateQuery;
+import com.database.db.api.Schema;
 import com.database.db.api.DBMS.Record;
 import com.database.db.api.DBMS;
 import com.database.db.api.UpdateFields;
@@ -33,13 +34,14 @@ public class App {
 
     public static void main(String[] args) throws IOException,InterruptedException, ExecutionException, Exception{
         //DataBase INIT.
-        String schemaConfig = 
-            "username:CHAR:10:PRIMARY_KEY:NULL;"+
-            "num:INT:NON:INDEX:NULL;"+
-            "message:CHAR:10:NO_CONSTRAINT:NULL;"+
-            "data:BYTE:10:NOT_NULL:NON;"+
-            "id:LONG:NON:AUTO_INCREMENT,UNIQUE:NULL";
-        TableConfig tableConf = new TableConfig("users", schemaConfig, new CacheCapacity(5,2));
+        Schema schema = new Schema()
+            .column("username").type("CHAR").size(10).primaryKey()
+            .column("num").type("INT").index()
+            .column("message").type("CHAR").size(10)
+            .column("data").type("BYTE").size(10).notNull().defaultValue(new byte[10])
+            .column("id").autoIncrementing().unique().end();
+
+        TableConfig tableConf = new TableConfig("users", schema, new CacheCapacity(5,2));
         DBMS db = new DBMS("test_database","")
             .createTable(tableConf)
             .selectDatabase("test_database");
@@ -63,7 +65,6 @@ public class App {
                 entryData.add((intNum%25)==0 ? null : intNum);
                 entryData.add((ind%25)==0 ? null : "_HELLO_");
                 entryData.add(data);
-                System.out.println("Insertion : "+ind);
                 InsertQuery query = new InsertQuery("users", new String[]{"username","num","message","data"},entryData.toArray());
                 db.insert(query);
                 ind++;
@@ -75,7 +76,6 @@ public class App {
             int randInd = random.nextInt(400-ind);
             if(db.containsValue("users", "username", keysList.get(randInd))){
                 String key = keysList.get(randInd);
-                System.out.println("Deletion : "+ind);
                 DeleteQuery query = new DeleteQuery("users", new WhereClause("username").isEqual(key),-1);
                 db.delete(query);
                 keysList.remove(randInd);

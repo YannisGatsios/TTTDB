@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.database.db.api.Schema;
 import com.database.db.api.DBMS.*;
 import com.database.db.manager.EntryManager;
 import com.database.db.page.Entry;
@@ -26,7 +27,6 @@ public class TableTest {
 
     private Table table;
     private String testPath;
-    private String schemaDef;
     private Database database;
 
     @BeforeEach
@@ -34,8 +34,10 @@ public class TableTest {
         testPath = tempDir.toString() + File.separator;
         String databaseName = "testDB";
         String tableName = "testTable";
-        schemaDef = "username:CHAR:10:PRIMARY_KEY:NULL;num:INT:4:INDEX:NULL";
-        TableConfig tableConf = new TableConfig(tableName, schemaDef, null);
+        
+        TableConfig tableConf = new TableConfig(tableName, new Schema()
+            .column("username").type("CHAR").size(10).primaryKey()
+            .column("num").type("INT").index().end(), null);
         database = new Database(databaseName);
         database.setPath(testPath);
         database.createTable(tableConf);
@@ -83,7 +85,10 @@ public class TableTest {
         Files.write(tablePath, new byte[12288]);
         FileIOThread file = new FileIOThread();
         file.start();
-        Table diskTable = new Table("testDB", "testTable", schemaDef, file, null, testPath);
+        TableConfig config = new TableConfig("testTable", new Schema()
+            .column("username").type("CHAR").size(10).primaryKey()
+            .column("num").type("INT").index().end(), null);
+        Table diskTable = new Table("testDB", testPath, file, config);
         assertEquals(3, diskTable.getPages());
         file.shutdown();
     }
@@ -99,10 +104,10 @@ public class TableTest {
     @Test
     void autoIncrementing_InitializesCorrectly() throws Exception {
         // Create schema with auto-increment column
-        String aiSchemaDef = "id:LONG:4:AUTO_INCREMENT:NULL;name:CHAR:20:NO_CONSTRAINT:NULL";
-        //Files.createFile(tempDir.resolve("testDB.aiTable.table"));
-        TableConfig tableConf = new TableConfig("aiTable", aiSchemaDef, null);
-        database.createTable(tableConf);
+        TableConfig config = new TableConfig("aiTable", new Schema()
+            .column("id").autoIncrementing()
+            .column("name").type("CHAR").size(20).end(), null);
+        database.createTable(config);
 
         // Create table with auto-increment
         Table aiTable = database.getTable("aiTable");

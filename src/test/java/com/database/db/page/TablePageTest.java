@@ -6,6 +6,8 @@ import org.junit.jupiter.api.AfterAll;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.database.db.FileIOThread;
+import com.database.db.api.Schema;
+import com.database.db.api.DBMS.TableConfig;
 import com.database.db.table.Table;
 
 import java.io.File;
@@ -16,11 +18,12 @@ class TablePageTest {
     private Table table;
     private TablePage page;
     private Entry entry1, entry2, entry3;
-    private static final String SCHEMA_STRING = (
-            "username:CHAR:10:PRIMARY_KEY:NULL;"+
-            "num:INT:NON:INDEX:NULL;"+
-            "message:CHAR:10:NO_CONSTRAINT:NULL;"+
-            "data:BYTE:10:NOT_NULL:NON");
+    private static final Schema SCHEMA = new Schema()
+            .column("username").type("CHAR").size(50).primaryKey()
+            .column("num").type("INT").index()
+            .column("message").type("CHAR").size(10)
+            .column("data").type("BYTE").size(10).notNull().defaultValue(new byte[10]).end();
+            
 
     @BeforeEach
     void setUp() throws Exception {
@@ -32,7 +35,8 @@ class TablePageTest {
         file2.createNewFile();
         fileIOThread = new FileIOThread();
         fileIOThread.start();
-        table = new Table("testdb", "test", SCHEMA_STRING, fileIOThread, null, "");
+        TableConfig config = new TableConfig("test", SCHEMA, null);
+        table = new Table("testdb", "", fileIOThread, config);
 
         entry1 = createEntry("user1", 100, "msg1", new byte[]{1,2,3});
         entry2 = createEntry("user22", 200, "msg22", new byte[]{4,5,6});

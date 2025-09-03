@@ -40,6 +40,10 @@ public enum DataType {
         return javaClass;
     }
 
+    public boolean isValid(Object value) {
+        return value != null && javaClass.isInstance(value);
+    }
+
     public boolean isVariable(){
         return this.isVariable;
     }
