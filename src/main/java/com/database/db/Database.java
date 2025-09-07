@@ -10,8 +10,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.database.db.api.DBMS.TableConfig;
+import com.database.db.api.Schema;
 import com.database.db.manager.SchemaManager;
-import com.database.db.table.Schema;
+import com.database.db.table.SchemaInner;
 import com.database.db.table.Table;
 
 public class Database {
@@ -20,10 +21,12 @@ public class Database {
     private String name;
     private String path = "";
     private Map<String,Table> tables;
+    private Map<String,Schema> schema;
 
     public Database(String name){
         this.name = name;
         this.tables = new HashMap<>();
+        this.schema = new HashMap<>();
     }
 
     public void createTable(TableConfig tableConfig) {
@@ -31,7 +34,7 @@ public class Database {
             logger.info(String.format("Table '%s' already exists in database '%s'. Skipping creation.", tableConfig.tableName(), this.name));
             return;
         }
-        Schema schema = new Schema(tableConfig.schema().get());
+        SchemaInner schema = new SchemaInner(tableConfig.schema().get());
         SchemaManager.createTable(schema, this.path, this.name, tableConfig.tableName());
         this.addTable(tableConfig);
         logger.info(
@@ -41,6 +44,7 @@ public class Database {
         FileIOThread fileIOThread = new FileIOThread();
         fileIOThread.start();
         try {
+            this.schema.put(tableConfig.tableName(), tableConfig.schema());
             this.tables.put(tableConfig.tableName(), 
                 new Table(this.name, this.path, fileIOThread, tableConfig));
         } catch (ExecutionException e) {
@@ -108,6 +112,13 @@ public class Database {
         }
     }
 
+    public void rollBack(){
+        Set<String> tableNames = new HashSet<>(this.tables.keySet());
+        for (String tableName : tableNames) {
+            this.tables.get(tableName).rollBack();
+        }
+    }
+
     public Database commit(){
         Set<String> tableNames = new HashSet<>(this.tables.keySet());
         for (String tableName : tableNames) {
@@ -117,6 +128,7 @@ public class Database {
     }
 
     public Table getTable(String tableName) {return tables.get(tableName);}
+    public Schema getSchema(String tableName) {return schema.get(tableName);}
     public void setPath(String path){this.path = path;}
     public String getName(){ return this.name; }
     public Map<String,Table> getTables(){ return this.tables; }

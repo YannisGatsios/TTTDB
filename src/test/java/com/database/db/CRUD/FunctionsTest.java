@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 
 import com.database.db.api.Functions.*;
 import com.database.db.api.Schema;
+import com.database.db.table.DataType;
 
 public class FunctionsTest {
 
@@ -14,14 +15,14 @@ public class FunctionsTest {
     @Test
     void testGetFromFunction_allOperations_Integer() throws Exception {
         Schema schema = new Schema()
-            .column("c1").type("INT")
-            .column("c2").type("INT")
-            .column("c3").type("INT")
-            .column("c4").type("INT")
-            .column("c5").type("INT").end();
+            .column("c1").type(DataType.INT).endColumn()
+            .column("c2").type(DataType.INT).endColumn()
+            .column("c3").type(DataType.INT).endColumn()
+            .column("c4").type(DataType.INT).endColumn()
+            .column("c5").type(DataType.INT).endColumn();
         Object[] row = { 2, 3, 4, 10, 3 };
         String expression = "((c1 + c2) * c3 - c4 / c5 + c4 % c3) ^ c1";
-        Object resultNumber = new operationData(expression).apply(new com.database.db.table.Schema(schema.get()), row, 0);
+        Object resultNumber = new operationData(expression).apply(new com.database.db.table.SchemaInner(schema.get()), row, 0);
         int result = ((Number) resultNumber).intValue();
         assertNotNull(result);
         assertTrue(resultNumber instanceof Number);
@@ -31,14 +32,14 @@ public class FunctionsTest {
     @Test
     void testGetFromFunction_allOperations_Double() throws Exception {
         Schema schema = new Schema()
-            .column("c1").type("DOUBLE")
-            .column("c2").type("DOUBLE")
-            .column("c3").type("DOUBLE")
-            .column("c4").type("DOUBLE")
-            .column("c5").type("DOUBLE").end();
+            .column("c1").type(DataType.DOUBLE).endColumn()
+            .column("c2").type(DataType.DOUBLE).endColumn()
+            .column("c3").type(DataType.DOUBLE).endColumn()
+            .column("c4").type(DataType.DOUBLE).endColumn()
+            .column("c5").type(DataType.DOUBLE).endColumn();
         Object[] row = { 2.0, 3.0, 4.0, 10.0, 3.0 };
         String expression = "((c1 + c2) * c3- c4 / c5 + c4 % c3) ^ c1";
-        Object resultNumber = new operationData(expression).apply(new com.database.db.table.Schema(schema.get()), row, 0);
+        Object resultNumber = new operationData(expression).apply(new com.database.db.table.SchemaInner(schema.get()), row, 0);
         Double result = ((Number) resultNumber).doubleValue();
         assertNotNull(result);
         assertTrue(resultNumber instanceof Number);
@@ -48,12 +49,12 @@ public class FunctionsTest {
     @Test
     void testGetFromFunction_simpleExpression() throws Exception {
         Schema schema = new Schema()
-            .column("c1").type("INT")
-            .column("c2").type("INT")
-            .column("c3").type("INT").end();
+            .column("c1").type(DataType.INT).endColumn()
+            .column("c2").type(DataType.INT).endColumn()
+            .column("c3").type(DataType.INT).endColumn();
         Object[] row = { 10, 5, 2 };
         String expression = "c1 + c2 * c3";
-        Object result = new operationData(expression).apply(new com.database.db.table.Schema(schema.get()), row, 0);
+        Object result = new operationData(expression).apply(new com.database.db.table.SchemaInner(schema.get()), row, 0);
         assertNotNull(result);
         assertTrue(result instanceof Long);
         assertEquals(20L, result);
@@ -62,12 +63,12 @@ public class FunctionsTest {
     @Test
     void testGetFromFunction_withDifferentValues() throws Exception {
         Schema schema = new Schema()
-            .column("x").type("INT")
-            .column("y").type("INT")
-            .column("z").type("INT").end();
+            .column("x").type(DataType.INT).endColumn()
+            .column("y").type(DataType.INT).endColumn()
+            .column("z").type(DataType.INT).endColumn();
         Object[] row = { 7, 3, 4 };
         String expression = "x * y + z";
-        Object result = new operationData(expression).apply(new com.database.db.table.Schema(schema.get()), row, 0);
+        Object result = new operationData(expression).apply(new com.database.db.table.SchemaInner(schema.get()), row, 0);
         assertNotNull(result);
         assertTrue(result instanceof Long);
         assertEquals(25L, result);
@@ -76,10 +77,10 @@ public class FunctionsTest {
     @Test
     void testGetFromFunction_nullExpression() throws Exception {
         Schema schema = new Schema()
-            .column("a").type("INT")
-            .column("b").type("INT").end();
+            .column("a").type(DataType.INT).endColumn()
+            .column("b").type(DataType.INT).endColumn();
         Object[] row = { 1, 2 };
-        Object result = new operationData(null).apply(new com.database.db.table.Schema(schema.get()), row, 0);
+        Object result = new operationData(null).apply(new com.database.db.table.SchemaInner(schema.get()), row, 0);
         assertNull(result);
     }
 

@@ -19,7 +19,7 @@ import com.database.db.page.Entry;
 import com.database.db.page.IndexPage;
 import com.database.db.page.Page;
 import com.database.db.page.TablePage;
-import com.database.db.table.Schema;
+import com.database.db.table.SchemaInner;
 import com.database.db.table.Table;
 import com.database.db.table.DataType;
 import com.database.db.index.Unique;
@@ -27,7 +27,7 @@ import com.database.db.index.Unique;
 public class IndexManager {
 
     private Table table;
-    Schema schema;
+    SchemaInner schema;
     private BTreeSerialization<?>[] indexes;
     private int[] numOfPages;
     public IndexPageManager pageManager;

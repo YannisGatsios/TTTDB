@@ -1,26 +1,27 @@
 package com.database.db.manager;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import com.database.db.Database;
+import com.database.db.api.Condition.UpdateCondition;
 import com.database.db.api.Condition.WhereClause;
 import com.database.db.api.Functions.InnerFunctions;
+import com.database.db.api.Functions.endConditionalUpdate;
+import com.database.db.api.Functions.selectColumn;
 import com.database.db.api.UpdateFields;
 import com.database.db.index.BTreeSerialization.BlockPointer;
 import com.database.db.index.BTreeSerialization.PointerPair;
 import com.database.db.page.Entry;
 import com.database.db.page.TablePage;
-import com.database.db.table.Schema;
+import com.database.db.table.SchemaInner;
 import com.database.db.table.Table;
 
 public class EntryManager {
     private Database database;
     private Table table;
-    private Schema schema;
+    private SchemaInner schema;
     public EntryManager(){}
     public void selectDatabase(Database database){
         this.database = database;
@@ -95,7 +96,6 @@ public class EntryManager {
      * @throws IllegalArgumentException if the entry is invalid according to the table schema
      */
     public void insertEntry(Entry entry) {
-        if(!Entry.isValidEntry(entry.getEntry(),this.table.getSchema())) throw new IllegalArgumentException("Invalid Entry");
         if(table.getPages()==0) table.addOnePage();
         TablePage page = table.getCache().tableCache.getLast();
         if(page.size() < page.getCapacity()){
@@ -210,7 +210,7 @@ public class EntryManager {
         }
         return result;
     }
-    private void updateProcess(TablePage page, BlockPointer tablePointer,  List<Map.Entry<String,InnerFunctions>> updates) {
+    private void updateProcess(TablePage page, BlockPointer tablePointer,  List<InnerFunctions> updates) {
         BlockPointer oldBlockPointer = new BlockPointer(page.getPageID(), (short)(page.size()-1));
         Entry removed = page.remove(tablePointer.RowOffset());
         table.removeIndex(removed, tablePointer);
@@ -218,21 +218,36 @@ public class EntryManager {
             table.updateIndex(page.get(tablePointer.RowOffset()), tablePointer, oldBlockPointer);
         Object[] values = removed.getEntry();
         values = this.applyUpdates(values, updates);
-        if(!Entry.isValidEntry(values, this.table.getSchema()))
-            throw new IllegalArgumentException("Unable to update, final entry is invalid.");
         Entry updatedEntry = new Entry(values,this.schema.getNumOfColumns())
             .setBitMap(this.table.getSchema().getNotNull());
+        database.getSchema(table.getName()).isValidEntry(updatedEntry, table);
         page.add(updatedEntry);
         BlockPointer newPointer = new BlockPointer(page.getPageID(),(short)(page.size()-1));
         table.insertIndex(updatedEntry, newPointer);
     }
-    private Object[] applyUpdates(Object[] values, List<Map.Entry<String,InnerFunctions>> updates){
-        ArrayList<String> columnNames = new ArrayList<>(Arrays.asList(this.table.getSchema().getNames()));
-        for (Map.Entry<String, InnerFunctions> update : updates) {
-            int index = columnNames.indexOf(update.getKey());
-            if(index<0)
-                throw new IllegalArgumentException("Invalid column to update: "+update.getKey());
-            values[index] = update.getValue().apply(this.table.getSchema(), values, index);
+    private Object[] applyUpdates(Object[] values, List<InnerFunctions> updates){
+        int columnsIndex = -1;
+        boolean isInCondition = false;
+        boolean conditionResult = false;
+        for (InnerFunctions update : updates) {
+            if(update instanceof selectColumn) {
+                columnsIndex = table.getSchema().getColumnIndex(((selectColumn)update).column());
+                continue;
+            }
+            if(columnsIndex<0)
+                throw new IllegalArgumentException("Invalid column to update");
+            if(update instanceof UpdateCondition){
+                conditionResult = ((UpdateCondition)update).isTrue(table.getSchema(), values);
+                if(conditionResult) isInCondition = true;
+            }
+            if(update instanceof endConditionalUpdate) isInCondition = false;
+            if(isInCondition){
+                if(conditionResult){
+                    values[columnsIndex] = update.apply(table.getSchema(), values, columnsIndex);
+                }
+            }else{
+                values[columnsIndex] = update.apply(table.getSchema(), values, columnsIndex);
+            }
         }
         return values;
     }

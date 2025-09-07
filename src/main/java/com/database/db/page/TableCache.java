@@ -68,6 +68,10 @@ public class TableCache {
         logger.info(String.format("Cache flushed and cleared for table '%s'.", table.getName()));
     }
 
+    public void clear(){
+        this.cache.clear();
+    }
+
     /** Load a page into cache, evicting LRU if necessary. */
     public TablePage loadPage(int pageID) {
         TablePage newPage = new TablePage(pageID, table);

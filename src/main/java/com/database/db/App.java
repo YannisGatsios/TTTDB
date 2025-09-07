@@ -8,12 +8,8 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.database.db.api.DBMS.TableConfig;
-import com.database.db.api.DBMS.CacheCapacity;
-import com.database.db.api.DBMS.DeleteQuery;
-import com.database.db.api.DBMS.InsertQuery;
-import com.database.db.api.DBMS.SelectQuery;
-import com.database.db.api.DBMS.UpdateQuery;
+import com.database.db.api.DBMS.*;
+import com.database.db.table.DataType;
 import com.database.db.api.Schema;
 import com.database.db.api.DBMS.Record;
 import com.database.db.api.DBMS;
@@ -35,13 +31,22 @@ public class App {
     public static void main(String[] args) throws IOException,InterruptedException, ExecutionException, Exception{
         //DataBase INIT.
         Schema schema = new Schema()
-            .column("username").type("CHAR").size(10).primaryKey()
-            .column("num").type("INT").index()
-            .column("message").type("CHAR").size(10)
-            .column("data").type("BYTE").size(10).notNull().defaultValue(new byte[10])
-            .column("id").autoIncrementing().unique().end();
+            .column("username").type(DataType.CHAR).size(10).primaryKey().endColumn()
+            .column("num").type(DataType.INT).index().endColumn()
+            .column("message").type(DataType.CHAR).size(10).endColumn()
+            .column("data").type(DataType.BYTE).size(10).notNull().defaultValue(new byte[10]).endColumn()
+            .column("id").autoIncrementing().unique().endColumn()
+            .check("age_check")
+                .open()
+                    .column("num")
+                    .isBiggerOrEqual(18).end()
+                .close()
+                .AND()
+                .column("num")
+                .isSmaller(130).end()
+            .endCheck();
 
-        TableConfig tableConf = new TableConfig("users", schema, new CacheCapacity(5,2));
+        TableConfig tableConf = new TableConfig("users", schema, new CacheCapacity(0,0));
         DBMS db = new DBMS("test_database","")
             .createTable(tableConf)
             .selectDatabase("test_database");
@@ -55,14 +60,14 @@ public class App {
             if(!db.containsValue("users", "username", userName)){
                 ArrayList<Object> entryData = new ArrayList<>();
                 int sizeOfData = random.nextInt(db.getColumnSizes("users")[3]);
-                int intNum = random.nextInt();
+                //int intNum = random.nextInt();
                 byte[] data = new byte[sizeOfData];
                 for(int y = 0; y < sizeOfData; y++){
                     data[y] = (byte) random.nextInt(127);
                 }
                 keysList.add(userName);
                 entryData.add(userName);
-                entryData.add((intNum%25)==0 ? null : intNum);
+                entryData.add(ind%100+18);
                 entryData.add((ind%25)==0 ? null : "_HELLO_");
                 entryData.add(data);
                 InsertQuery query = new InsertQuery("users", new String[]{"username","num","message","data"},entryData.toArray());
@@ -76,7 +81,7 @@ public class App {
             int randInd = random.nextInt(400-ind);
             if(db.containsValue("users", "username", keysList.get(randInd))){
                 String key = keysList.get(randInd);
-                DeleteQuery query = new DeleteQuery("users", new WhereClause("username").isEqual(key),-1);
+                DeleteQuery query = new DeleteQuery("users", new WhereClause().column("username").isEqual(key).end(),-1);
                 db.delete(query);
                 keysList.remove(randInd);
                 ind++;
@@ -89,7 +94,7 @@ public class App {
             if(db.containsValue("users", "username", keysList.get(randInd))){
                 String key = keysList.get(randInd);
                 UpdateQuery query = new UpdateQuery("users",
-                new WhereClause("username").isEqual(key), -1,
+                new WhereClause().column("username").isEqual(key).end(), -1,
                 new UpdateFields("username")
                     .leftPad( 10, "x")
                     .selectColumn("data")
@@ -99,7 +104,7 @@ public class App {
                 ind++;
             }
         }
-        SelectQuery query = new SelectQuery("users",new String[]{"id","username"},new WhereClause("username"),0,-1);
+        SelectQuery query = new SelectQuery("users",new String[]{"id","username"},null,0,-1);
         db.commit();
         List<Record> result = db.select(query);
         //db.dropDatabase();

@@ -115,6 +115,7 @@ public class DBMS {
         this.entryManager.selectDatabase(selected);
         this.entryManager.selectTable(query.tableName);
         Entry entry = Entry.prepareEntry(query.columns, query.values, this.selected.getTable(query.tableName));
+        this.selected.getSchema(query.tableName).isValidEntry(entry, this.entryManager.getTable());
         this.entryManager.insertEntry(entry);
     }
     public int delete(DeleteQuery query){
@@ -130,8 +131,12 @@ public class DBMS {
         return this.entryManager.updateEntry(query.whereClause, query.limit, query.updateFields);
     }
     public void startTransaction(){
-        if(this.selected == null) throw new IllegalArgumentException("Can not commit when no Database selected.");
+        if(this.selected == null) throw new IllegalArgumentException("Can not start transaction when no Database selected.");
         this.selected.startTransaction();
+    }
+    public void rollBack(){
+        if(this.selected == null) throw new IllegalArgumentException("Can not roll back when no Database selected.");
+        this.selected.rollBack();
     }
     public void commit(){
         if(this.selected == null) throw new IllegalArgumentException("Can not commit when no Database selected.");
@@ -154,7 +159,7 @@ public class DBMS {
     }
     private List<Record> prepareSelectResult(String[] resultColumns,List<Entry> selectResult){
         List<Record> result = new ArrayList<>();
-        com.database.db.table.Schema schema = this.entryManager.getTable().getSchema();
+        com.database.db.table.SchemaInner schema = this.entryManager.getTable().getSchema();
         for (Entry entry : selectResult) {
             Object[] values = new Object[resultColumns.length];
             for(int i = 0;i<resultColumns.length;i++){

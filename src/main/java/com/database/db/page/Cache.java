@@ -36,6 +36,12 @@ public class Cache {
             if(indexCache!=null) indexCache.writeCache();
         }
     }
+    public synchronized void rollBack(){
+        this.tableCache.clear();
+        for (IndexCache indexCache : indexCaches) {
+            if(indexCache!=null) indexCache.clear();
+        }
+    }
 
     public CacheCapacity getCacheCapacity(){return this.capacity;}
 }

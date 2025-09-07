@@ -19,13 +19,13 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import com.database.db.api.Column;
 import com.database.db.api.Condition.*;
 import com.database.db.api.DBMS.*;
 import com.database.db.api.Schema;
 import com.database.db.manager.EntryManager;
 import com.database.db.page.Entry;
 import com.database.db.Database;
+import com.database.db.table.DataType;
 import com.database.db.table.Table;
 
 
@@ -55,10 +55,10 @@ public class EntryManagerTest {
         database = new Database("test_database");
         
         Schema schema = new Schema()
-            .column("username").type("CHAR").size(50).primaryKey()
-            .column("num").type("INT").index()
-            .column("message").type("CHAR").size(10)
-            .column("data").type("BYTE").size(10).notNull().defaultValue(new byte[10]).end();
+            .column("username").type(DataType.CHAR).size(50).primaryKey().endColumn()
+            .column("num").type(DataType.INT).index().endColumn()
+            .column("message").type(DataType.CHAR).size(10).endColumn()
+            .column("data").type(DataType.BYTE).size(10).notNull().defaultValue(new byte[10]).endColumn();
 
         config = new TableConfig("test_table", schema, new CacheCapacity(5,2));
         database.createTable(config);
@@ -87,8 +87,8 @@ public class EntryManagerTest {
     @Test
     @Order(2)
     void testDeleteLastEntry() throws ExecutionException, InterruptedException, IOException {
-        WhereClause clause = new WhereClause("username")
-            .isEqual("firstEntry");
+        WhereClause clause = new WhereClause().column("username")
+            .isEqual("firstEntry").end();
         CRUD.deleteEntry(clause,-1);
     }
 
@@ -158,8 +158,8 @@ public class EntryManagerTest {
             int randInd = random.nextInt(400);
             if(table.isKeyFound(keysList[randInd],0)){
                 String key = keysList[randInd];
-                WhereClause clause = new WhereClause("username")
-                    .isEqual(key);
+                WhereClause clause = new WhereClause().column("username")
+                    .isEqual(key).end();
                 CRUD.deleteEntry(clause,-1);
                 ind++;
             }

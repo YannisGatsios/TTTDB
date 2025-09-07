@@ -6,10 +6,10 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.database.db.table.DataType;
 import com.database.db.table.Table;
 import com.database.db.FileIOThread;
 import com.database.db.api.DBMS.TableConfig;
-import com.database.db.api.Column;
 import com.database.db.api.Schema;
 
 import java.io.File;
@@ -90,8 +90,8 @@ class PageTest {
         File file = new File("./mockDB.mockTable.table");
         file.createNewFile();
         Schema schema = new Schema()
-            .column("id").type("INT")
-            .column("name").type("CHAR").size(50).end();
+            .column("id").type(DataType.INT).endColumn()
+            .column("name").type(DataType.CHAR).size(50).endColumn();
 
         mockTable = new MockTable(schema);
         page = new ConcretePage(PAGE_ID, mockTable);

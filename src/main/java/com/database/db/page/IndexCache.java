@@ -46,6 +46,10 @@ public class IndexCache {
         }
     }
 
+    public void clear(){
+        this.cache.clear();
+    }
+
     public void writePage(IndexPage page) throws IOException {
         if (page.isDirty()) {
             fileIO.writePage(table.getIndexPath(columnIndex), page.toBytes(), page.getPagePos());

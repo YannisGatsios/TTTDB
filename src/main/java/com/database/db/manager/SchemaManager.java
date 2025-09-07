@@ -8,13 +8,13 @@ import java.nio.file.Paths;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.database.db.table.Schema;
+import com.database.db.table.SchemaInner;
 import com.database.db.table.Table;
 
 public class SchemaManager {
     private static final Logger logger = Logger.getLogger(SchemaManager.class.getName());
     
-    public static void createTable(Schema schema, String path, String databaseName, String tableName) {
+    public static void createTable(SchemaInner schema, String path, String databaseName, String tableName) {
         File tableFile = new File(path + databaseName + "." + tableName + ".table");
         try {
             if(!tableFile.createNewFile()){

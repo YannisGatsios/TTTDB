@@ -36,8 +36,8 @@ public class TableTest {
         String tableName = "testTable";
         
         TableConfig tableConf = new TableConfig(tableName, new Schema()
-            .column("username").type("CHAR").size(10).primaryKey()
-            .column("num").type("INT").index().end(), null);
+            .column("username").type(DataType.CHAR).size(10).primaryKey().endColumn()
+            .column("num").type(DataType.INT).index().endColumn(), null);
         database = new Database(databaseName);
         database.setPath(testPath);
         database.createTable(tableConf);
@@ -86,8 +86,8 @@ public class TableTest {
         FileIOThread file = new FileIOThread();
         file.start();
         TableConfig config = new TableConfig("testTable", new Schema()
-            .column("username").type("CHAR").size(10).primaryKey()
-            .column("num").type("INT").index().end(), null);
+            .column("username").type(DataType.CHAR).size(10).primaryKey().endColumn()
+            .column("num").type(DataType.INT).index().endColumn(), null);
         Table diskTable = new Table("testDB", testPath, file, config);
         assertEquals(3, diskTable.getPages());
         file.shutdown();
@@ -105,8 +105,8 @@ public class TableTest {
     void autoIncrementing_InitializesCorrectly() throws Exception {
         // Create schema with auto-increment column
         TableConfig config = new TableConfig("aiTable", new Schema()
-            .column("id").autoIncrementing()
-            .column("name").type("CHAR").size(20).end(), null);
+            .column("id").autoIncrementing().endColumn()
+            .column("name").type(DataType.CHAR).size(20).endColumn(), null);
         database.createTable(config);
 
         // Create table with auto-increment
@@ -123,8 +123,7 @@ public class TableTest {
         }
         
         // Verify auto-increment starts at the next value
-        AutoIncrementing ai = aiTable.getAutoIncrementing(0);
-        assertEquals(101L, ai.getNextKey());
+        assertEquals(101L, aiTable.nextAutoIncrementValue(0));
 
         for (long i = 1; i <= 100; i++) {
             Object[] entryData = {"Name" + i};
@@ -133,6 +132,6 @@ public class TableTest {
         }
         
         // Verify auto-increment starts at the next value
-        assertEquals(202L, ai.getNextKey());
+        assertEquals(202L, aiTable.nextAutoIncrementValue(0));
     }
 }

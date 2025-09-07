@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.database.db.FileIOThread;
 import com.database.db.api.Schema;
 import com.database.db.api.DBMS.TableConfig;
+import com.database.db.table.DataType;
 import com.database.db.table.Table;
 
 import java.io.File;
@@ -19,10 +20,10 @@ class TablePageTest {
     private TablePage page;
     private Entry entry1, entry2, entry3;
     private static final Schema SCHEMA = new Schema()
-            .column("username").type("CHAR").size(50).primaryKey()
-            .column("num").type("INT").index()
-            .column("message").type("CHAR").size(10)
-            .column("data").type("BYTE").size(10).notNull().defaultValue(new byte[10]).end();
+            .column("username").type(DataType.CHAR).size(50).primaryKey().endColumn()
+            .column("num").type(DataType.INT).index().endColumn()
+            .column("message").type(DataType.CHAR).size(10).endColumn()
+            .column("data").type(DataType.BYTE).size(10).notNull().defaultValue(new byte[10]).endColumn();
             
 
     @BeforeEach

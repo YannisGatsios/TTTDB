@@ -1,7 +1,8 @@
 package com.database.db.api;
 
 import java.util.ArrayList;
-import java.util.List;
+import java.util.EnumSet;
+import java.util.Set;
 
 import com.database.db.api.Schema.ColumnInner;
 import com.database.db.table.Constraint;
@@ -13,7 +14,7 @@ public class Column {
     private String name;
     private DataType type;
     private int size;
-    private List<Constraint> constraints = new ArrayList<>();
+    private Set<Constraint> constraints = EnumSet.noneOf(Constraint.class);
     private Object defaultValue;
     
     public Column(){}
@@ -26,8 +27,8 @@ public class Column {
         this.name = name;
         return this;
     }
-    public Column type(String type){
-        this.type = DataType.fromString(type);
+    public Column type(DataType type){
+        this.type = type;
         if(this.type.getSize() != -1) this.size = this.type.getSize();
         return this;
     }
@@ -38,6 +39,7 @@ public class Column {
     }
     public Column primaryKey(){
         this.constraints.add(Constraint.PRIMARY_KEY);
+        this.constraints.add(Constraint.NOT_NULL);
         return this;
     }
     public Column unique(){
@@ -49,7 +51,7 @@ public class Column {
         return this;
     }
     public Column autoIncrementing(){
-        this.type("LONG");
+        this.type(DataType.LONG);
         this.constraints.add(Constraint.AUTO_INCREMENT);
         return this;
     }
@@ -73,16 +75,18 @@ public class Column {
         this.defaultValue = value;
         return this;
     }
-    public Column column(String name){
+    public Schema endColumn(){
         this.schema.add(get());
-        return this.schema.column(name);
+        return this.schema;
     }
     public ColumnInner get(){
         if(this.constraints.size()==0) this.constraints.add(Constraint.NO_CONSTRAINT);
-        return new ColumnInner(name, type, size, constraints, defaultValue);
-    }
-    public Schema end(){
-        this.schema.add(get());
-        return this.schema;
+        return new ColumnInner(
+            name, 
+            type, 
+            size, 
+            new ArrayList<>(constraints), 
+            defaultValue
+        );
     }
 }

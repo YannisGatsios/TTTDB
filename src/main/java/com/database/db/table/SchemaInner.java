@@ -1,12 +1,11 @@
 package com.database.db.table;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import com.database.db.api.Schema.ColumnInner;
 
 
-public class Schema {
+public class SchemaInner {
 
     private ColumnInner[] columns;
     
@@ -14,41 +13,10 @@ public class Schema {
     public boolean hasUnique = false;
     public boolean hasIndex = false;
 
-    public Schema(ColumnInner[] columns) {
+    public SchemaInner(ColumnInner[] columns) {
         this.columns = columns;
     }
 
-    private ColumnInner[] getColumns(String[] columnConfigs){
-        ColumnInner[] result = new ColumnInner[columnConfigs.length]; 
-        for (int i = 0;i<result.length;i++) {
-            result[i] = this.createColumn(columnConfigs[i]);
-        }
-        return result;
-    }
-
-    private ColumnInner createColumn(String columnConfig) {
-        String[] fields = columnConfig.split(":");
-        String columnName = fields[0].trim();
-        DataType columnDataType = DataType.fromString(fields[1].trim());
-        int size = columnDataType.getSize();
-        int columnSize = size == -1 ? Integer.parseInt(fields[2].trim()) : size;
-        String[] constraintStrings = (fields[3].trim()).split(",");
-        ArrayList<Constraint> columnConstraints = new ArrayList<>();
-        for (String constraintString : constraintStrings) {
-            Constraint constraint = Constraint.fromString(constraintString);
-            if (constraint == null)
-                throw new IllegalArgumentException("Invalid Constraint from column " + columnName);
-            switch (constraint) {
-                case PRIMARY_KEY -> this.hasPrimaryKey = true;
-                case UNIQUE -> this.hasUnique = true;
-                case INDEX -> this.hasIndex = true;
-                default -> {}
-            }
-            columnConstraints.add(constraint);
-        }
-        Object Default = columnDataType.parseValue(fields[4].trim());
-        return new ColumnInner(columnName, columnDataType, columnSize, columnConstraints, Default);
-    }
     public String[] getNames(){
         String[] names = new String[columns.length];
         for (int i = 0; i < columns.length; i++) {
@@ -89,7 +57,7 @@ public class Schema {
     public Object[] getDefaults() {
         Object[] defaults = new Object[columns.length];
         for (int i = 0; i < columns.length; i++) {
-            defaults[i] = columns[i].Default();
+            defaults[i] = columns[i].defaultValue();
         }
         return defaults;
     }
@@ -162,6 +130,15 @@ public class Schema {
 
     public int getNumOfColumns(){return this.columns.length;}
 
+    public int getColumnIndex(String columnName) {
+        for (int i = 0; i < columns.length; i++) {
+            if (columns[i].name().equals(columnName)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     @Override
     public String toString() {
         String[] headers = { "Column Name", "Type", "Size", "Constraints", "Default" };
@@ -178,7 +155,7 @@ public class Schema {
             maxTypeLen = Math.max(maxTypeLen, c.type().toString().length());
             maxSizeLen = Math.max(maxSizeLen, String.valueOf(c.size()).length());
             maxConstraintLen = Math.max(maxConstraintLen, c.constraints().toString().length());
-            maxDefaultLen = Math.max(maxDefaultLen, String.valueOf(c.Default()).length());
+            maxDefaultLen = Math.max(maxDefaultLen, String.valueOf(c.defaultValue()).length());
         }
 
         String border = "+" + "-".repeat(maxNameLen + 2) +
@@ -211,7 +188,7 @@ public class Schema {
                     .append(pad(c.type().toString(), maxTypeLen)).append(" | ")
                     .append(pad(String.valueOf(c.size()), maxSizeLen)).append(" | ")
                     .append(pad(c.constraints().toString(), maxConstraintLen)).append(" | ")
-                    .append(pad(String.valueOf(c.Default()), maxDefaultLen)).append(" |\n");
+                    .append(pad(String.valueOf(c.defaultValue()), maxDefaultLen)).append(" |\n");
             sb.append(border).append("\n");
         }
 

@@ -3,7 +3,6 @@ package com.database.db.table;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
@@ -12,7 +11,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 import com.database.db.FileIOThread;
-import com.database.db.api.Condition.WhereClause;
+import com.database.db.api.Condition.*;
 import com.database.db.api.DBMS.CacheCapacity;
 import com.database.db.api.DBMS.TableConfig;
 import com.database.db.api.Condition.Clause;
@@ -29,7 +28,7 @@ import com.database.db.page.TablePage;
 public class Table {
     private String databaseName;
     private String tableName;
-    private Schema schema;
+    private SchemaInner schema;
     private Cache cache;
     private Cache tmpCache;//Used for transatctions.
     private IndexManager indexes;
@@ -45,7 +44,7 @@ public class Table {
     public Table(String databaseName, String path, FileIOThread fileIOThread, TableConfig config) throws InterruptedException, ExecutionException, IOException {
         this.databaseName = databaseName;
         this.tableName = config.tableName();
-        this.schema = new Schema(config.schema().get());
+        this.schema = new SchemaInner(config.schema().get());
         this.path = path;
         this.fileIOThread = fileIOThread;
         if(config.cacheCapacity() != null) this.cacheCapacity = config.cacheCapacity();
@@ -91,7 +90,7 @@ public class Table {
         return max;
     }
 
-    public AutoIncrementing getAutoIncrementing(int columnIndex){
+    public long nextAutoIncrementValue(int columnIndex){
         if (columnIndex < 0 || columnIndex >= autoIncrementing.length) {
             throw new IllegalArgumentException("Invalid column index: " + columnIndex);
         }
@@ -99,7 +98,28 @@ public class Table {
         if (result == null) {
             throw new IllegalStateException("Column " + columnIndex + " is not auto-incrementing.");
         }
-        return result;
+        return result.getNextKey();
+    }
+
+    public long getAutoIncrementValue(int columnIndex){
+        if (columnIndex < 0 || columnIndex >= autoIncrementing.length) {
+            throw new IllegalArgumentException("Invalid column index: " + columnIndex);
+        }
+        AutoIncrementing result = autoIncrementing[columnIndex];
+        if (result == null) {
+            throw new IllegalStateException("Column " + columnIndex + " is not auto-incrementing.");
+        }
+        return result.getKey();
+    }
+    public void setAutoIncrementValue(int columnIndex, long value){
+        if (columnIndex < 0 || columnIndex >= autoIncrementing.length) {
+            throw new IllegalArgumentException("Invalid column index: " + columnIndex);
+        }
+        AutoIncrementing result = autoIncrementing[columnIndex];
+        if (result == null) {
+            throw new IllegalStateException("Column " + columnIndex + " is not auto-incrementing.");
+        }
+        result.setNextKey(value);;
     }
 
     public void startTransaction(){
@@ -107,6 +127,14 @@ public class Table {
         if(this.tmpCache == null)this.tmpCache = this.cache;
         this.cacheCapacity = new CacheCapacity(-1,-1);
         this.cache = new Cache(this);
+    }
+    public void rollBack(){
+        if(this.tmpCache != null){
+            this.cache = this.tmpCache;
+            this.tmpCache = null;
+            this.cacheCapacity = this.cache.getCacheCapacity();
+        }
+        this.cache.rollBack();
     }
     public void commit(){
         this.cache.clear();
@@ -122,30 +150,32 @@ public class Table {
         if(whereClause == null) return this.noCondition();
         Object start = null;
         Object end  = null;
-        ArrayList<String> columnNames = new ArrayList<>(Arrays.asList(this.schema.getNames()));
-        List<Map.Entry<Clause, WhereClause>> clauses = whereClause.getClauseList();
+        List<Map.Entry<Clause, Cond<WhereClause>>> clauses = whereClause.getConditions();
         List<PointerPair> previousPointerList = new ArrayList<>();
-        for (Map.Entry<Clause, WhereClause> condition : clauses) {
-            WhereClause queryCondition = condition.getValue();
-            EnumMap<Conditions, Object> conditionList = queryCondition.getConditionElementsList();
-            if(conditionList.containsKey(Conditions.IS_BIGGER))
-                start = conditionList.get(Conditions.IS_BIGGER);
-            if(conditionList.containsKey(Conditions.IS_SMALLER))
-                end = conditionList.get(Conditions.IS_SMALLER);
+        for (Map.Entry<Clause, Cond<WhereClause>> conditionEntry : clauses) {
+            Cond<WhereClause> condition = conditionEntry.getValue();
+            EnumMap<Conditions, Object> conditionList = condition.getConditions();
+            if(conditionList.containsKey(Conditions.IS_BIGGER)) start = conditionList.get(Conditions.IS_BIGGER);
+            if(conditionList.containsKey(Conditions.IS_SMALLER)) end = conditionList.get(Conditions.IS_SMALLER);
+            if(conditionList.containsKey(Conditions.IS_BIGGER_OR_EQUAL)) start = conditionList.get(Conditions.IS_BIGGER_OR_EQUAL);
+            if(conditionList.containsKey(Conditions.IS_SMALLER_OR_EQUAL)) end = conditionList.get(Conditions.IS_SMALLER_OR_EQUAL);
+
             if(!conditionList.containsKey(Conditions.IS_BIGGER) &&
             !conditionList.containsKey(Conditions.IS_SMALLER) &&
+            !conditionList.containsKey(Conditions.IS_BIGGER_OR_EQUAL) &&
+            !conditionList.containsKey(Conditions.IS_SMALLER_OR_EQUAL) &&
             conditionList.containsKey(Conditions.IS_EQUAL)){
                 start = conditionList.get(Conditions.IS_EQUAL);
                 end = conditionList.get(Conditions.IS_EQUAL);
             }
-            int columnIndex = columnNames.indexOf(queryCondition.getColumnName());
+            int columnIndex = this.schema.getColumnIndex(condition.getColumnName());
             List<Pair<K,PointerPair>> indexResult = this.indexes.findRangeIndex((K)start, (K)end, columnIndex);
             List<PointerPair> resultInner = new ArrayList<>();
             for (Pair<K,PointerPair> pair : indexResult) {
-                if(!queryCondition.isApplicable(pair.key)) continue;
+                if(!condition.isApplicable(pair.key)) continue;
                 resultInner.add(pair.value);
             }
-            switch (condition.getKey()) {
+            switch (conditionEntry.getKey()) {
                 case FIRST:
                     previousPointerList = resultInner;
                     break;
@@ -157,6 +187,9 @@ public class Table {
                 case AND:
                     previousPointerList.retainAll(resultInner);
                     break;
+                case FIRST_GROUP:
+                case OR_GROUP:
+                case AND_GROUP:
             }
         }
         return previousPointerList;
@@ -205,7 +238,7 @@ public class Table {
 
     public String getDatabaseName(){return this.databaseName;}
     public String getName(){return this.tableName;}
-    public Schema getSchema(){return this.schema;}
+    public SchemaInner getSchema(){return this.schema;}
     public Cache getCache(){return this.cache;}
     public FileIOThread getFileIOThread() {return this.fileIOThread;}
     public IndexManager getIndexManager(){return this.indexes;}

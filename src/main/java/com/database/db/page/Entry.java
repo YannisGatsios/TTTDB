@@ -1,14 +1,12 @@
 package com.database.db.page;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Objects;
 
 import com.database.db.index.BTreeSerialization.BlockPointer;
 import com.database.db.table.DataType;
-import com.database.db.table.Schema;
+import com.database.db.table.SchemaInner;
 import com.database.db.table.Table;
 
 
@@ -62,7 +60,7 @@ public class Entry {
         // optional: validate enough bytes remain
         if (buffer.remaining() < expectedSize)
             throw new IllegalArgumentException("Not enough bytes in buffer for one entry: "+buffer.remaining()+" < "+expectedSize);
-        Schema schema = table.getSchema();
+        SchemaInner schema = table.getSchema();
         Object[] entry = new Object[table.getSchema().getNumOfColumns()];
         DataType[] types = schema.getTypes();
 
@@ -107,7 +105,7 @@ public class Entry {
         // optional: validate enough bytes remain
         if (buffer.remaining() < expectedSize)
             throw new IllegalArgumentException("Not enough bytes in buffer for one entry: "+buffer.remaining()+" < "+expectedSize);
-        Schema schema = table.getSchema();
+        SchemaInner schema = table.getSchema();
         Object[] values = new Object[2];
         DataType type = schema.getTypes()[columnIndex];
 
@@ -130,42 +128,33 @@ public class Entry {
     }
 
     public static Entry prepareEntry(String[] columnNames, Object[] entry, Table table) {
+        // Align input to table column order
         entry = Entry.setEntry(columnNames, entry, table);
-        Schema schema = table.getSchema();
-        int primaryKeyIndex = schema.getPrimaryKeyIndex();
-        boolean[] notNullable = schema.getNotNull();
-        boolean[] AutoIncrementing = schema.getAutoIncrementIndex();
-        boolean[] hasUniqueIndex = schema.getUniqueIndex();
-        int numOfNullColumns = schema.getNumOfColumns();
-        for (int i = 0;i<notNullable.length;i++) {
-            boolean isPrimaryKey = (i == primaryKeyIndex);
-            boolean isUnique = (hasUniqueIndex[i] || isPrimaryKey);
-            if (notNullable[i] && !AutoIncrementing[i] && entry[i] == null)
-                throw new IllegalArgumentException("Gave null value for NOT_NULL field: "+schema.getNames()[i]);
-            if (AutoIncrementing[i] && entry[i] == null) 
-                entry[i] = table.getAutoIncrementing(i).getNextKey();
-            else if (AutoIncrementing[i] && entry[i] != null)
-                if(table.getAutoIncrementing(i).getKey() < (long)entry[i]) table.getAutoIncrementing(i).setNextKey((long)entry[i]);
-            else if (entry[i] == null) 
+        SchemaInner schema = table.getSchema();
+
+        // Fill defaults for null values
+        for (int i = 0; i < entry.length; i++) {
+            if(schema.getAutoIncrementIndex()[i]){
+                entry[i] = table.nextAutoIncrementValue(i);
+            }
+            if (entry[i] == null) {
                 entry[i] = schema.getDefaults()[i];
-            if(isUnique && table.isKeyFound(entry[i], i))
-                throw new IllegalArgumentException("Already Existing value for Primary Key column: "+schema.getNames()[i]);
+            }
         }
-        return new Entry(entry, numOfNullColumns).setBitMap(notNullable);
+        return new Entry(entry, schema.getNumOfColumns()).setBitMap(schema.getNotNull());
     }
     private static Object[] setEntry(String[] columnNames, Object[] entry, Table table){
-        ArrayList<String> names = new ArrayList<>(Arrays.asList(table.getSchema().getNames()));
-        Object[] result = new Object[names.size()];
+        Object[] result = new Object[table.getSchema().getNumOfColumns()];
         for (int i = 0;i<columnNames.length;i++) {
             String name = columnNames[i];
-            int columnIndex = names.indexOf(name);
+            int columnIndex = table.getSchema().getColumnIndex(name);
             if(columnIndex<0) throw new IllegalArgumentException("Invalid column to insert: "+name);
             result[columnIndex] = entry[i];
         }
         return result;
     }
 
-    public static boolean isValidEntry(Object[] entry, Schema schema) {
+    public static boolean isValidEntry(Object[] entry, SchemaInner schema) {
         //Check if the number of columns matches the number of elements in the entry.
         if (entry.length != schema.getNumOfColumns()) return false;
         // Get the entry data and check each element's type and size.
