@@ -18,6 +18,7 @@ public class IndexPageManager {
         this.cache = table.getCache().indexCaches;
     }
 
+    @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> BlockPointer findIndexPointer(BTreeSerialization<?> index, K key, BlockPointer tablePointer){
         List<PointerPair> pointerList = ((BTreeSerialization<K>)index).search(key);
         BlockPointer result = null;
@@ -43,7 +44,7 @@ public class IndexPageManager {
         this.cache[columnIndex].put(page);
         return new BlockPointer(page.getPageID(), (short)(page.size()-1));
     }
-    public record RemoveResult(Entry swapedEntry, short previusPosition, Entry replacedEntry, BlockPointer lasteEntryPoionter){}
+    public record RemoveResult(Entry swappedEntry, short previousPosition, Entry replacedEntry, BlockPointer lastEntryPointer){}
     public RemoveResult remove(PointerPair pairPointer, int columnIndex){
         IndexPage page = this.cache[columnIndex].get(pairPointer.indexPointer().BlockID());
 
@@ -51,7 +52,7 @@ public class IndexPageManager {
         Entry removedEntry = page.remove(removedPos);
 
         if (!removedEntry.get(0).equals(pairPointer.tablePointer()))
-            throw new IllegalArgumentException("Missmaching table pointer from removed index entry");
+            throw new IllegalArgumentException("Mismatching table pointer from removed index entry");
         Entry swappedEntry = null;
         short previousPosition = -1;
 

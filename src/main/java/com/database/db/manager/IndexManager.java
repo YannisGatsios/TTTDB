@@ -111,6 +111,7 @@ public class IndexManager {
         if(this.indexes[columnIndex] == null) return this.sequentialRangeSearch(upper, lower, columnIndex);
         return ((BTreeSerialization<K>) this.indexes[columnIndex]).rangeSearch(upper, lower);
     }
+    @SuppressWarnings("unchecked")
     private <K extends Comparable<? super K>> List<Pair<K,PointerPair>> sequentialRangeSearch(K upper, K lower, int columnIndex){
         List<Pair<K,PointerPair>> result = new ArrayList<>();
         for(int i = 0;i<table.getPages();i++){
@@ -173,12 +174,12 @@ public class IndexManager {
             PointerPair value = new PointerPair(blockPointer, indexPointer);
             RemoveResult result = pageManager.remove(value, index.getColumnIndex());
             ((BTreeSerialization<K>) index).remove((K) key, value);
-            if (result.swapedEntry() != null && result.previusPosition() != indexPointer.RowOffset()) {
-                Entry swapped = result.swapedEntry();
+            if (result.swappedEntry() != null && result.previousPosition() != indexPointer.RowOffset()) {
+                Entry swapped = result.swappedEntry();
                 K keyOfSwapped = (K) swapped.get(1);
                 PointerPair oldValue = new PointerPair(
                     (BlockPointer) swapped.get(0),
-                    new BlockPointer(value.indexPointer().BlockID(), result.previusPosition())
+                    new BlockPointer(value.indexPointer().BlockID(), result.previousPosition())
                 );
                 PointerPair newValue = new PointerPair((BlockPointer) swapped.get(0), indexPointer);
                 if (index.isUnique()) ((BTreeSerialization<K>) index).update(keyOfSwapped, newValue);
@@ -190,7 +191,7 @@ public class IndexManager {
                 PointerPair newValue = new  PointerPair((BlockPointer)result.replacedEntry().get(0),
                     new BlockPointer(value.indexPointer().BlockID(),(short)(pageCapacity-1)));
                 PointerPair oldValue = new PointerPair((BlockPointer)result.replacedEntry().get(0),
-                    result.lasteEntryPoionter());
+                    result.lastEntryPointer());
                 if(index.isUnique()) ((BTreeSerialization<K>) index).update( keyOfReplaced, newValue);
                 else ((BTreeSerialization<K>) index).update( keyOfReplaced, newValue, oldValue);
             }

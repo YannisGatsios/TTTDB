@@ -101,7 +101,9 @@ public class ConditionGroup<T extends ConditionGroup<T>> {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public OR OR() { return new OR((T) this); }
+    @SuppressWarnings("unchecked")
     public AND AND() { return new AND((T) this); }
 
     public boolean isTrue(Object[] entryValues, SchemaInner schema) {
