@@ -42,7 +42,7 @@ public class FileIOThread extends Thread {
                     logger.log(Level.SEVERE, "Task execution failed.", e);
                 }
             } catch (InterruptedException e) {
-                // Thread was interrupted (likely due to shutdown), check flags and loop
+                // Thread was interrupted (likely due to shut down), check flags and loop
             }
         }
         logger.info("FileIOThread shut down. All tasks completed.");

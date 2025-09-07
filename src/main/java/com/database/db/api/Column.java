@@ -14,7 +14,7 @@ public class Column {
     private String name;
     private DataType type;
     private int size;
-    private Set<Constraint> constraints = EnumSet.noneOf(Constraint.class);
+    private final Set<Constraint> constraints = EnumSet.noneOf(Constraint.class);
     private Object defaultValue;
     
     public Column(){}
@@ -80,7 +80,7 @@ public class Column {
         return this.schema;
     }
     public ColumnInner get(){
-        if(this.constraints.size()==0) this.constraints.add(Constraint.NO_CONSTRAINT);
+        if(this.constraints.isEmpty()) this.constraints.add(Constraint.NO_CONSTRAINT);
         return new ColumnInner(
             name, 
             type, 

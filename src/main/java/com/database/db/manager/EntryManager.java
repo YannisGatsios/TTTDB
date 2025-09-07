@@ -38,9 +38,7 @@ public class EntryManager {
      * Selects entries from the table in ascending order based on the given column and range.
      * The entries are fetched using a range index and returned starting from a specific offset.
      *
-     * @param start the lower bound of the range filter for the target column
-     * @param end the upper bound of the range filter
-     * @param columnIndex the index of the column to filter and sort entries on
+     * @param whereClause contains a condition, it is used to search for entries
      * @param begin the number of matching entries to skip before starting to collect results
      * @param limit the maximum number of entries to return; if negative, all matching entries are returned
      * @return a list of entries matching the criteria, ordered in ascending fashion
@@ -53,9 +51,7 @@ public class EntryManager {
      * Selects entries from the table in descending order based on the given column and range.
      * The entries are fetched using a range index, reversed, and returned starting from a specific offset.
      *
-     * @param start the lower bound of the range filter for the target column
-     * @param end the upper bound of the range filter
-     * @param columnIndex the index of the column to filter and sort entries on
+     * @param whereClause contains a condition, it is used to search for entries
      * @param begin the number of matching entries to skip before starting to collect results
      * @param limit the maximum number of entries to return; if negative, all matching entries are returned
      * @return a list of entries matching the criteria, ordered in descending fashion
@@ -82,7 +78,6 @@ public class EntryManager {
     /**
      * Inserts a new entry into the table. If the last page has available space, the entry
      * is added there. Otherwise, a new page is created to accommodate the entry.
-     *
      * The method performs the following:
      * <ul>
      *   <li>Validates the entry against the table schema.</li>
@@ -115,13 +110,9 @@ public class EntryManager {
     /**
     * Deletes entries from the table that fall within a specified range on a given column.
     * The deletion uses a range index to identify target entries and removes up to the given limit.
-    *
     * The method ensures page compaction by replacing deleted entries with the last entry
     * from the table when applicable. If the last page becomes empty as a result, it is removed.
-    *
-    * @param start the lower bound of the range filter (inclusive or exclusive depending on implementation)
-    * @param end the upper bound of the range filter
-    * @param columnIndex the index of the column to apply the range filter on
+    * @param whereClause contains a condition, it is used to search for entries
     * @param limit the maximum number of entries to delete; if negative, all matching entries are deleted
     * @return the number of entries successfully deleted
     */
@@ -141,7 +132,7 @@ public class EntryManager {
                 table.getCache().tableCache.put(page);
                 continue;
             }
-            this.replaceLastEntry(page, pointerPair.tablePointer());
+            this.replaceLastEntry(page);
         }
         return deletedCount;
     }
@@ -157,11 +148,11 @@ public class EntryManager {
         }
         return page;
     }
-    private void replaceLastEntry(TablePage page,  BlockPointer blockPointer){
+    private void replaceLastEntry(TablePage page){
         TablePage lastPage = table.getCache().tableCache.getLast();
         Entry lastEntry = lastPage.removeLast();
         page.add(lastEntry);
-        BlockPointer oldPointer = new BlockPointer(lastPage.getPageID(), (short)(lastPage.size()));
+        BlockPointer oldPointer = new BlockPointer(lastPage.getPageID(), lastPage.size());
         BlockPointer newPointer = new BlockPointer(page.getPageID(),(short)(page.size()-1));
         table.updateIndex(lastEntry, newPointer, oldPointer);
         table.getCache().tableCache.put(page);
@@ -176,7 +167,6 @@ public class EntryManager {
     /**
      * Updates entries in the table that fall within a specified range on a given column.
      * For each matching entry, a set of update functions is applied to specified columns.
-     *
      * The method:
      * <ul>
      *   <li>Uses a range index to locate target entries based on the given column and range.</li>
@@ -186,9 +176,7 @@ public class EntryManager {
      *   <li>Updates the page in the cache.</li>
      * </ul>
      *
-     * @param start the lower bound of the range filter for the target column
-     * @param end the upper bound of the range filter
-     * @param columnIndex the index of the column to filter entries on
+     * @param whereClause contains a condition, it is used to search for entries
      * @param limit the maximum number of entries to update; if negative, all matching entries are updated
      * @param updates a list of update operations, each mapping a column name to a function that computes the new value
      * @return the number of entries successfully updated
@@ -217,7 +205,7 @@ public class EntryManager {
         if(tablePointer.RowOffset() != page.size())
             table.updateIndex(page.get(tablePointer.RowOffset()), tablePointer, oldBlockPointer);
         Object[] values = removed.getEntry();
-        values = this.applyUpdates(values, updates);
+        this.applyUpdates(values, updates);
         Entry updatedEntry = new Entry(values,this.schema.getNumOfColumns())
             .setBitMap(this.table.getSchema().getNotNull());
         database.getSchema(table.getName()).isValidEntry(updatedEntry, table);
@@ -225,7 +213,7 @@ public class EntryManager {
         BlockPointer newPointer = new BlockPointer(page.getPageID(),(short)(page.size()-1));
         table.insertIndex(updatedEntry, newPointer);
     }
-    private Object[] applyUpdates(Object[] values, List<InnerFunctions> updates){
+    private void applyUpdates(Object[] values, List<InnerFunctions> updates){
         int columnsIndex = -1;
         boolean isInCondition = false;
         boolean conditionResult = false;
@@ -249,6 +237,5 @@ public class EntryManager {
                 values[columnsIndex] = update.apply(table.getSchema(), values, columnsIndex);
             }
         }
-        return values;
     }
 }

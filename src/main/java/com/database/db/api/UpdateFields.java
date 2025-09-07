@@ -8,7 +8,7 @@ import com.database.db.api.Condition.UpdateCondition;
 import com.database.db.api.Functions.*;
 
 public class UpdateFields {
-    private List<InnerFunctions> functionsList;
+    private final List<InnerFunctions> functionsList;
     public UpdateFields(String column){
         this.functionsList = new ArrayList<>();
         this.functionsList.add(new selectColumn(column));
@@ -134,7 +134,4 @@ public class UpdateFields {
     public List<InnerFunctions> getFunctionsList() {
         return functionsList;
     }
-    /**
-    * This method is used internally 
-    */
 }

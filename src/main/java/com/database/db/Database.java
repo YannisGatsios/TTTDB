@@ -18,10 +18,10 @@ import com.database.db.table.Table;
 public class Database {
     private static final Logger logger = Logger.getLogger(Database.class.getName());
 
-    private String name;
+    private final String name;
     private String path = "";
-    private Map<String,Table> tables;
-    private Map<String,Schema> schema;
+    private final Map<String,Table> tables;
+    private final Map<String,Schema> schema;
 
     public Database(String name){
         this.name = name;

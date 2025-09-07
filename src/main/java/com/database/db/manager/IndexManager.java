@@ -1,11 +1,9 @@
 package com.database.db.manager;
 
-import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 import com.database.db.index.BPlusTree;
 import com.database.db.index.BTreeSerialization;
@@ -26,13 +24,13 @@ import com.database.db.index.Unique;
 
 public class IndexManager {
 
-    private Table table;
+    private final Table table;
     SchemaInner schema;
-    private BTreeSerialization<?>[] indexes;
-    private int[] numOfPages;
+    private final BTreeSerialization<?>[] indexes;
+    private final int[] numOfPages;
     public IndexPageManager pageManager;
 
-    public IndexManager(Table table) throws InterruptedException, ExecutionException, IOException {
+    public IndexManager(Table table) {
         this.table = table;
         this.schema = table.getSchema();
         this.indexes = new BTreeSerialization<?>[schema.getNumOfColumns()];
@@ -57,9 +55,9 @@ public class IndexManager {
         }
         return result;
     }
-    private PrimaryKey<?> newPrimaryKey(int pkIndex) throws InterruptedException, ExecutionException{
+    private PrimaryKey<?> newPrimaryKey(int pkIndex) {
         DataType pkType = schema.getTypes()[pkIndex];
-        PrimaryKey<?> primaryKey = switch (pkType) {
+        return switch (pkType) {
             case INT -> new PrimaryKey<Integer>(table, pkIndex);
             case LONG -> new PrimaryKey<Long>(table, pkIndex);
             case FLOAT -> new PrimaryKey<Float>(table, pkIndex);
@@ -69,9 +67,8 @@ public class IndexManager {
             case TIMESTAMP -> new PrimaryKey<Timestamp>(table, pkIndex);
             default -> throw new IllegalArgumentException("Unsupported primary key type: " + pkType);
         };
-        return primaryKey;
     }
-    private Unique<?> newUnique(int uqIndex) throws InterruptedException, ExecutionException{
+    private Unique<?> newUnique(int uqIndex) {
         DataType type = schema.getTypes()[uqIndex];
         return switch (type) {
             case INT -> new Unique<Integer>(table, uqIndex);
@@ -84,7 +81,7 @@ public class IndexManager {
             default -> throw new IllegalArgumentException("Unsupported type: " + type.name());
         };
     }
-    private Index<?> newIndex(int skIndex) throws InterruptedException, ExecutionException{
+    private Index<?> newIndex(int skIndex) {
         DataType type = schema.getTypes()[skIndex];
         return switch (type) {
             case INT -> new Index<Integer>(table, skIndex);
@@ -108,11 +105,11 @@ public class IndexManager {
     }
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> List<Pair<K,PointerPair>> findRangeIndex(K upper, K lower, int columnIndex){
-        if(this.indexes[columnIndex] == null) return this.sequentialRangeSearch(upper, lower, columnIndex);
+        if(this.indexes[columnIndex] == null) return this.sequentialRangeSearch(columnIndex);
         return ((BTreeSerialization<K>) this.indexes[columnIndex]).rangeSearch(upper, lower);
     }
     @SuppressWarnings("unchecked")
-    private <K extends Comparable<? super K>> List<Pair<K,PointerPair>> sequentialRangeSearch(K upper, K lower, int columnIndex){
+    private <K extends Comparable<? super K>> List<Pair<K,PointerPair>> sequentialRangeSearch(int columnIndex){
         List<Pair<K,PointerPair>> result = new ArrayList<>();
         for(int i = 0;i<table.getPages();i++){
             TablePage page = table.getCache().tableCache.get(i);
@@ -150,14 +147,14 @@ public class IndexManager {
                 "Invalid secondary key type at column " + columnIndex + 
                 ": expected " + expectedClass.getName() + 
                 ", but got " + key.getClass().getName());
-            BlockPointer indexpointer = this.pageManager.insert(tablePointer, key, index.getColumnIndex());
-            PointerPair value = new PointerPair(tablePointer,indexpointer);
+            BlockPointer indexPointer = this.pageManager.insert(tablePointer, key, index.getColumnIndex());
+            PointerPair value = new PointerPair(tablePointer,indexPointer);
             ((BPlusTree<K,PointerPair>) index).insert((K) key, value);
         }
     }
 
     @SuppressWarnings("unchecked")
-    public <K extends Comparable<? super K>,V> void removeIndex(Entry entry, BlockPointer blockPointer){
+    public <K extends Comparable<? super K>> void removeIndex(Entry entry, BlockPointer blockPointer){
         for (BTreeSerialization<?> index : this.indexes) {
             if(index == null) continue;
             int columnIndex = index.getColumnIndex();
@@ -199,7 +196,7 @@ public class IndexManager {
     }
 
     @SuppressWarnings("unchecked")
-    public <K extends Comparable<? super K>,V> void updateIndex(Entry entry, BlockPointer newBlockPointer, BlockPointer oldBlockPointer){
+    public <K extends Comparable<? super K>> void updateIndex(Entry entry, BlockPointer newBlockPointer, BlockPointer oldBlockPointer){
         for (BTreeSerialization<?> index : this.indexes) {
             if(index == null) continue;
             int columnIndex = index.getColumnIndex();

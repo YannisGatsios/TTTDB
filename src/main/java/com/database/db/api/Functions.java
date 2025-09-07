@@ -14,7 +14,7 @@ public class Functions {
 
     public interface InnerFunctions {
         /**
-         * @param table       full table (contains schema, constraints, etc.)
+         * @param schema       tables schema
          * @param rowData     current row values
          * @param columnIndex index of the column being updated
          * @return the new value
@@ -212,7 +212,7 @@ public class Functions {
         // Replace variables with column values (tokenized, safe)
         Pattern tokenPattern = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");
         Matcher matcher = tokenPattern.matcher(expression);
-        StringBuffer sb = new StringBuffer();
+        StringBuilder sb = new StringBuilder();
         while (matcher.find()) {
             String var = matcher.group();
             int idx = schema.getColumnIndex(var);

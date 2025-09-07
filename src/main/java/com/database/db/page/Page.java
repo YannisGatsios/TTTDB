@@ -1,14 +1,15 @@
 package com.database.db.page;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 public abstract class Page {
 
     private int pageID;
     private short numOfEntries;
     private int spaceInUse;
-    private Entry[] entries;
-    private int sizeOfEntry;
+    private final Entry[] entries;
+    private final int sizeOfEntry;
 
     public static final int BLOCK_SIZE = 4096;
     public static final int SIZE_OF_HEADER = 2*Integer.BYTES + Short.BYTES;
@@ -91,6 +92,24 @@ public abstract class Page {
                 "\n\tSize Of Page :           [" + this.sizeInBytes() + "]" +
                 "\n\tSize Of Page Header :   [" + this.sizeOfHeader() + "]" +
                 "\n\tSpace in Use :            [ " + this.spaceInUse + "/" + this.sizeOfEntries() + " ]";
+    }
+
+    public static ByteBuffer headerToBytes(Page page){
+        ByteBuffer buffer = ByteBuffer.allocate(page.sizeOfHeader());
+        // Add primitive fields
+        buffer.putInt(page.getPageID()); // Serialize pageID as 4 bytes (int)
+        buffer.putShort(page.size()); // Serialize numOfEntries as 2 bytes (short)
+        buffer.putInt(page.getSpaceInUse()); // Serialize spaceInUse as 4 bytes (int)
+        buffer.flip();
+        return buffer;
+    }
+    public record HeaderValues(int numOfEntries, int spaceInUse){}
+    public static HeaderValues headerFromBytes(ByteBuffer buffer, Page page){
+        int pageID = buffer.getInt();
+        page.setPageID(pageID);
+        short numOfEntries = buffer.getShort();
+        int spaceInUse = buffer.getInt();
+        return  new HeaderValues(numOfEntries, spaceInUse);
     }
 
     public static short getPageCapacity(int sizeOfEntry){

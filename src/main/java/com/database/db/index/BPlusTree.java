@@ -437,11 +437,11 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
     public boolean isKey(K key) {
         if (this.root == null)
             return false;
-        return this.search(key).size() != 0;
+        return !this.search(key).isEmpty();
     }
 
     public K getMax(){
-        if (this.root.pairs.size() == 0) return null;
+        if (this.root.pairs.isEmpty()) return null;
         Node<K, V> current = this.root;
         while (!current.isLeaf) {
             current = current.children.getLast();
@@ -568,6 +568,7 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
                     .append(" Nodes) !=========!\n");
             for (int i = 0; i < levelSize; i++) {
                 Node<K, V> current = queue.poll();
+                assert current != null;
                 sb.append(current.toString());
                 if (i < levelSize - 1)
                     sb.append("  --  "); // Separator

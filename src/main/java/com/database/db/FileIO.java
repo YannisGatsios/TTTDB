@@ -16,7 +16,7 @@ import com.database.db.page.Page;
 public class FileIO {
     private static final Logger logger = Logger.getLogger(FileIO.class.getName());
 
-    private FileIOThread fileIOThread;
+    private final FileIOThread fileIOThread;
 
     public FileIO(FileIOThread thread) {
         this.fileIOThread = thread;
@@ -67,8 +67,7 @@ public class FileIO {
                     return actual;
                 } else {
                     buffer.flip();
-                    byte[] full = buffer.array();
-                    return full;
+                    return buffer.array();
                 }
             } catch (IOException e) {
                 logger.log(Level.SEVERE, "Error reading page from file: " + path, e);
@@ -76,8 +75,7 @@ public class FileIO {
             }
         });
         fileIOThread.submit(readTask);
-        byte[] result = readTask.get();
-        return result;
+        return readTask.get();
     }
 
     public void truncateFile(String path, int pageSize) throws ExecutionException, InterruptedException {

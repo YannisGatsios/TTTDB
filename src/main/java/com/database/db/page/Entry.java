@@ -1,6 +1,7 @@
 package com.database.db.page;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Objects;
 
@@ -14,23 +15,20 @@ public class Entry {
     
     private Object[] values;
     private BitSet nullsBitMap;
-    private int numberOfNullableColumns;
 
     public Entry(){}
 
     //Constructor
     public Entry(Object[] data, int numOfNullColumns){
         this.values = data;
-        this.numberOfNullableColumns = numOfNullColumns;
-        this.nullsBitMap = new BitSet(this.numberOfNullableColumns);
+        this.nullsBitMap = new BitSet(numOfNullColumns);
     }
 
     public Entry setBitMap(boolean[] notNullables){
         int bitSetIndex = 0;
         for (int i = 0; i < values.length; i++) {
             if (!notNullables[i]) { // column is nullable
-                if (values[i] == null) this.nullsBitMap.set(bitSetIndex,true);
-                else this.nullsBitMap.set(bitSetIndex,false);
+                this.nullsBitMap.set(bitSetIndex, values[i] == null);
                 bitSetIndex++;
             }
         }
@@ -175,7 +173,7 @@ public class Entry {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Entry other = (Entry) o;
-        return Objects.equals(this.values, other.values);
+        return Arrays.equals(this.values, other.values);
     }
 
     @Override

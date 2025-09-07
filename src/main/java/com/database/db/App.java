@@ -1,9 +1,7 @@
 package com.database.db;
 
 import java.util.Random;
-import java.util.concurrent.ExecutionException;
 
-import java.io.IOException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +26,7 @@ public class App {
         return sb.toString();
     }
 
-    public static void main(String[] args) throws IOException,InterruptedException, ExecutionException, Exception{
+    public static void main(String[] args) {
         //DataBase INIT.
         Schema schema = new Schema()
             .column("username").type(DataType.CHAR).size(10).primaryKey().endColumn()

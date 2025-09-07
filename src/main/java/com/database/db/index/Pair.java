@@ -112,7 +112,7 @@ public class Pair<K, V> {
         String keyString;
         if(key instanceof Byte[]){
             StringBuilder sb = new StringBuilder();
-            for (byte b : (byte[])key) {
+            for (byte b : (Byte[])key) {
                 if (!sb.isEmpty()) {
                     sb.append(" ");
                 }

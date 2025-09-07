@@ -12,8 +12,8 @@ import com.database.db.table.Table;
 
 public class Schema {
 
-    private List<ColumnInner> columns;
-    private List<Check> checkList;
+    private final List<ColumnInner> columns;
+    private final List<Check> checkList;
 
     public record ColumnInner(String name, DataType type, int size, List<Constraint> constraints, Object defaultValue) {}
     
@@ -48,7 +48,7 @@ public class Schema {
     * This method is used internally 
     */
     public ColumnInner[] get() {
-        if (columns == null) {
+        if (columns.isEmpty()) {
             return new ColumnInner[0]; // return empty array instead of null
         }
         this.isValidSchema();

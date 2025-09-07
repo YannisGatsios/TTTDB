@@ -23,7 +23,7 @@ public class Cache {
 
     private IndexCache[] initializeIndexCaches(){
         boolean[] indexedColumns = table.getSchema().isIndexed();
-        IndexCache indexedCache[] = new IndexCache[indexedColumns.length];
+        IndexCache[] indexedCache = new IndexCache[indexedColumns.length];
         for (int i = 0;i<indexedCache.length;i++) {
             if(indexedColumns[i]) indexedCache[i] = new IndexCache(table, capacity.indexCapacity(), fileIO, i);
         }

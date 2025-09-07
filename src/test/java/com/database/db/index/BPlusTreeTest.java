@@ -358,7 +358,7 @@ class BPlusTreeTest {
         // Insert random keys
         for (int i = 0; i < size; i++) {
             int key = random.nextInt(10000);
-            if(tree.search(key).size() == 0){
+            if(tree.search(key).isEmpty()){
                 tree.insert(key, "Value" + key);
                 insertedKeys.add(key);
             }else{

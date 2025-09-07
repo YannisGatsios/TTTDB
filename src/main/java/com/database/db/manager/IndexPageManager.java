@@ -11,8 +11,8 @@ import com.database.db.page.IndexPage;
 import com.database.db.table.Table;
 
 public class IndexPageManager {
-    private Table table;
-    private IndexCache[] cache;
+    private final Table table;
+    private final IndexCache[] cache;
     public IndexPageManager(Table table){
         this.table = table;
         this.cache = table.getCache().indexCaches;
@@ -58,7 +58,7 @@ public class IndexPageManager {
 
         if (removedPos < page.size()) {
             swappedEntry = page.get(removedPos);
-            previousPosition = (short) page.size();
+            previousPosition = page.size();
         }
 
         Entry replacedEntry = null;

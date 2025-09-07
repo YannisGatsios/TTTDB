@@ -13,7 +13,7 @@ import com.database.db.FileIO;
 import com.database.db.table.Table;
 
 public class IndexCache {
-    private static final Logger logger = Logger.getLogger(Cache.class.getName());
+    private static final Logger logger = Logger.getLogger(IndexCache.class.getName());
 
     private final FileIO fileIO;
     private final Table table;
@@ -108,10 +108,6 @@ public class IndexCache {
 
     public synchronized IndexPage remove(int pageID) {
         return cache.remove(pageID);
-    }
-
-    public synchronized boolean containsKey(int pageID) {
-        return cache.containsKey(pageID);
     }
 
     public void deleteLastPage(IndexPage page) {

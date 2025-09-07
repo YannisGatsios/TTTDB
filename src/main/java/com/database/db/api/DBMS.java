@@ -24,10 +24,10 @@ public class DBMS {
             handler.setLevel(Level.ALL);
         }
     }
-    private Map<String,Database> databases;
+    private final Map<String,Database> databases;
     private Database selected;
     private String path = "";
-    private EntryManager entryManager;
+    private final EntryManager entryManager;
 
     public record TableConfig(String tableName, Schema schema, CacheCapacity cacheCapacity){}
     public record CacheCapacity(int tableCapacity, int indexCapacity){}
