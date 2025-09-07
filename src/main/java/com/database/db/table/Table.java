@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 import com.database.db.FileIOThread;
+import com.database.db.api.Condition;
 import com.database.db.api.Condition.*;
 import com.database.db.api.DBMS.CacheCapacity;
 import com.database.db.api.DBMS.TableConfig;
@@ -150,10 +151,10 @@ public class Table {
         if(whereClause == null) return this.noCondition();
         Object start = null;
         Object end  = null;
-        List<Map.Entry<Clause, Cond<WhereClause>>> clauses = whereClause.getConditions();
+        List<Map.Entry<Clause, Condition<WhereClause>>> clauses = whereClause.getConditions();
         List<PointerPair> previousPointerList = new ArrayList<>();
-        for (Map.Entry<Clause, Cond<WhereClause>> conditionEntry : clauses) {
-            Cond<WhereClause> condition = conditionEntry.getValue();
+        for (Map.Entry<Clause, Condition<WhereClause>> conditionEntry : clauses) {
+            Condition<WhereClause> condition = conditionEntry.getValue();
             EnumMap<Conditions, Object> conditionList = condition.getConditions();
             if(conditionList.containsKey(Conditions.IS_BIGGER)) start = conditionList.get(Conditions.IS_BIGGER);
             if(conditionList.containsKey(Conditions.IS_SMALLER)) end = conditionList.get(Conditions.IS_SMALLER);

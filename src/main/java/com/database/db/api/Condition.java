@@ -9,7 +9,103 @@ import java.util.regex.Pattern;
 import com.database.db.api.Functions.operationData;
 import com.database.db.table.SchemaInner;
 
-public class Condition {
+public class Condition<T extends ConditionGroup<T>> {
+    private String columnName;
+    private operationData expression;
+    private final EnumMap<Conditions, Object> conditionElementsList = new EnumMap<>(Conditions.class);
+    private final T group;
+
+    public Condition(T group) { this.group = group; }
+
+    public Condition<T> column(String column) {
+        if (this.expression != null) throw new IllegalArgumentException("Can't set column when expression is set");
+        this.columnName = column;
+        return this;
+    }
+    public Condition<T> expression(String expr) {
+        // Enforce flat-only restriction: expressions are not allowed in WhereClause
+        if (group instanceof WhereClause) 
+            throw new UnsupportedOperationException("Expressions are not supported in WhereClause. Use column() with simple conditions instead.");
+        if (this.columnName != null) throw new IllegalArgumentException("Can't set expression when column is set");
+        this.expression = new operationData(expr);
+        return this;
+    }
+
+    // comparison builders
+    public Condition<T> isNull(){ conditionElementsList.put(Conditions.IS_EQUAL, null); return this; }
+    public Condition<T> notNull(){ conditionElementsList.put(Conditions.IS_NOT_EQUAL, null); return this; }
+    public Condition<T> isEqual(Object v){ conditionElementsList.put(Conditions.IS_EQUAL, v); return this; }
+    public Condition<T> isNotEqual(Object v){ conditionElementsList.put(Conditions.IS_NOT_EQUAL, v); return this; }
+    public Condition<T> isBigger(Object v){ conditionElementsList.put(Conditions.IS_BIGGER, v); return this; }
+    public Condition<T> isSmaller(Object v){ conditionElementsList.put(Conditions.IS_SMALLER, v); return this; }
+    public Condition<T> isBiggerOrEqual(Object v){ conditionElementsList.put(Conditions.IS_BIGGER_OR_EQUAL, v); return this; }
+    public Condition<T> isSmallerOrEqual(Object v){ conditionElementsList.put(Conditions.IS_SMALLER_OR_EQUAL, v); return this; }
+
+    // return the concrete group type so chaining keeps the specific type
+    public T end() { return this.group; }
+
+    // evaluation helpers (same as your logic)
+    @SuppressWarnings("unchecked")
+    public boolean isApplicable(Object value) {
+        for (Map.Entry<Conditions, Object> cond : conditionElementsList.entrySet()) {
+            boolean passed = switch (cond.getKey()) {
+                case IS_EQUAL -> Objects.equals(value, cond.getValue());
+                case IS_NOT_EQUAL -> !Objects.equals(value, cond.getValue());
+                case IS_BIGGER -> {
+                    if (value instanceof Comparable<?> && cond.getValue() instanceof Comparable<?>)
+                        yield ((Comparable<Object>) value).compareTo(cond.getValue()) > 0;
+                    yield false;
+                }
+                case IS_SMALLER -> {
+                    if (value instanceof Comparable<?> && cond.getValue() instanceof Comparable<?>)
+                        yield ((Comparable<Object>) value).compareTo(cond.getValue()) < 0;
+                    yield false;
+                }
+                case IS_BIGGER_OR_EQUAL -> {
+                    if (value instanceof Comparable<?> && cond.getValue() instanceof Comparable<?>)
+                        yield ((Comparable<Object>) value).compareTo(cond.getValue()) >= 0;
+                    yield false;
+                }
+                case IS_SMALLER_OR_EQUAL -> {
+                    if (value instanceof Comparable<?> && cond.getValue() instanceof Comparable<?>)
+                        yield ((Comparable<Object>) value).compareTo(cond.getValue()) <= 0;
+                    yield false;
+                }
+            };
+            if (!passed) return false;
+        }
+        return true;
+    }
+
+    public boolean isTrue(Object[] entryValues, SchemaInner schema) {
+        Object value;
+        if (columnName != null) {
+            int idx = schema.getColumnIndex(columnName);
+            value = entryValues[idx];
+        } else if (expression != null) {
+            value = this.expression.apply(schema, entryValues, -1);
+        } else {
+            throw new IllegalStateException("Cond must have column or expression");
+        }
+        if (value == null) return false;
+        return isApplicable(value);
+    }
+
+    public boolean isValid(Schema schema) {
+        if (columnName != null) return schema.hasColumn(columnName);
+        if (expression != null) {
+            Pattern p = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");
+            Matcher m = p.matcher(expression.expression());
+            while (m.find()) {
+                if (!schema.hasColumn(m.group())) return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public String getColumnName() { return this.columnName; }
+    public EnumMap<Conditions, Object> getConditions() { return this.conditionElementsList; }
     public static enum Clause{
         FIRST,
         OR,
@@ -30,105 +126,7 @@ public class Condition {
         IS_SMALLER_OR_EQUAL,
         IS_BIGGER_OR_EQUAL,
     }
-    public static class Cond<T extends CondGroup<T>> {
-        private String columnName;
-        private operationData expression;
-        private final EnumMap<Conditions, Object> conditionElementsList = new EnumMap<>(Conditions.class);
-        private final T group;
-
-        public Cond(T group) { this.group = group; }
-
-        public Cond<T> column(String column) {
-            if (this.expression != null) throw new IllegalArgumentException("Can't set column when expression is set");
-            this.columnName = column;
-            return this;
-        }
-        public Cond<T> expression(String expr) {
-            // Enforce flat-only restriction: expressions are not allowed in WhereClause
-            if (group instanceof WhereClause) 
-                throw new UnsupportedOperationException("Expressions are not supported in WhereClause. Use column() with simple conditions instead.");
-            if (this.columnName != null) throw new IllegalArgumentException("Can't set expression when column is set");
-            this.expression = new operationData(expr);
-            return this;
-        }
-
-        // comparison builders
-        public Cond<T> isNull(){ conditionElementsList.put(Conditions.IS_EQUAL, null); return this; }
-        public Cond<T> notNull(){ conditionElementsList.put(Conditions.IS_NOT_EQUAL, null); return this; }
-        public Cond<T> isEqual(Object v){ conditionElementsList.put(Conditions.IS_EQUAL, v); return this; }
-        public Cond<T> isNotEqual(Object v){ conditionElementsList.put(Conditions.IS_NOT_EQUAL, v); return this; }
-        public Cond<T> isBigger(Object v){ conditionElementsList.put(Conditions.IS_BIGGER, v); return this; }
-        public Cond<T> isSmaller(Object v){ conditionElementsList.put(Conditions.IS_SMALLER, v); return this; }
-        public Cond<T> isBiggerOrEqual(Object v){ conditionElementsList.put(Conditions.IS_BIGGER_OR_EQUAL, v); return this; }
-        public Cond<T> isSmallerOrEqual(Object v){ conditionElementsList.put(Conditions.IS_SMALLER_OR_EQUAL, v); return this; }
-
-        // return the concrete group type so chaining keeps the specific type
-        public T end() { return this.group; }
-
-        // evaluation helpers (same as your logic)
-        @SuppressWarnings("unchecked")
-        public boolean isApplicable(Object value) {
-            for (Map.Entry<Conditions, Object> cond : conditionElementsList.entrySet()) {
-                boolean passed = switch (cond.getKey()) {
-                    case IS_EQUAL -> Objects.equals(value, cond.getValue());
-                    case IS_NOT_EQUAL -> !Objects.equals(value, cond.getValue());
-                    case IS_BIGGER -> {
-                        if (value instanceof Comparable<?> && cond.getValue() instanceof Comparable<?>)
-                            yield ((Comparable<Object>) value).compareTo(cond.getValue()) > 0;
-                        yield false;
-                    }
-                    case IS_SMALLER -> {
-                        if (value instanceof Comparable<?> && cond.getValue() instanceof Comparable<?>)
-                            yield ((Comparable<Object>) value).compareTo(cond.getValue()) < 0;
-                        yield false;
-                    }
-                    case IS_BIGGER_OR_EQUAL -> {
-                        if (value instanceof Comparable<?> && cond.getValue() instanceof Comparable<?>)
-                            yield ((Comparable<Object>) value).compareTo(cond.getValue()) >= 0;
-                        yield false;
-                    }
-                    case IS_SMALLER_OR_EQUAL -> {
-                        if (value instanceof Comparable<?> && cond.getValue() instanceof Comparable<?>)
-                            yield ((Comparable<Object>) value).compareTo(cond.getValue()) <= 0;
-                        yield false;
-                    }
-                };
-                if (!passed) return false;
-            }
-            return true;
-        }
-
-        public boolean isTrue(Object[] entryValues, SchemaInner schema) {
-            Object value;
-            if (columnName != null) {
-                int idx = schema.getColumnIndex(columnName);
-                value = entryValues[idx];
-            } else if (expression != null) {
-                value = this.expression.apply(schema, entryValues, -1);
-            } else {
-                throw new IllegalStateException("Cond must have column or expression");
-            }
-            if (value == null) return false;
-            return isApplicable(value);
-        }
-
-        public boolean isValid(Schema schema) {
-            if (columnName != null) return schema.hasColumn(columnName);
-            if (expression != null) {
-                Pattern p = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");
-                Matcher m = p.matcher(expression.expression());
-                while (m.find()) {
-                    if (!schema.hasColumn(m.group())) return false;
-                }
-                return true;
-            }
-            return false;
-        }
-
-        public String getColumnName() { return this.columnName; }
-        public EnumMap<Conditions, Object> getConditions() { return this.conditionElementsList; }
-    }
-    public static class WhereClause extends CondGroup<WhereClause> {
+    public static class WhereClause extends ConditionGroup<WhereClause> {
         /** Root constructor (no parent). Used for creating the main WhereClause. */
         public WhereClause() {
             super(null);
@@ -150,7 +148,7 @@ public class Condition {
          * Only flat column-based conditions are allowed.
          */
         @Override
-        public Condition.Cond<WhereClause> expression(String expression) {
+        public Condition<WhereClause> expression(String expression) {
             throw new UnsupportedOperationException(
                 "Expressions are not supported in WhereClause. " +
                 "Use column() with simple conditions instead."
@@ -172,7 +170,7 @@ public class Condition {
                 }
 
                 @Override
-                public Condition.Cond<WhereClause> expression(String expression) {
+                public Condition<WhereClause> expression(String expression) {
                     throw new UnsupportedOperationException(
                         "Expressions are not supported in OR within WhereClause. " +
                         "Use column() with simple conditions instead."
@@ -196,7 +194,7 @@ public class Condition {
                 }
 
                 @Override
-                public Condition.Cond<WhereClause> expression(String expression) {
+                public Condition<WhereClause> expression(String expression) {
                     throw new UnsupportedOperationException(
                         "Expressions are not supported in AND within WhereClause. " +
                         "Use column() with simple conditions instead."
@@ -226,7 +224,7 @@ public class Condition {
         }
     }
 
-    public static class UpdateCondition extends CondGroup<UpdateCondition> implements Functions.InnerFunctions {
+    public static class UpdateCondition extends ConditionGroup<UpdateCondition> implements Functions.InnerFunctions {
         private final UpdateFields updateFields;
         // Root constructor (parent == null)
         public UpdateCondition(UpdateFields updateFields) {
@@ -252,7 +250,7 @@ public class Condition {
         /**
          * Return this group so callers can build the condition: updateField.condition(...).column(...).isBigger(10).end() ...
          */
-        public CondGroup<UpdateCondition> getCondition() {
+        public ConditionGroup<UpdateCondition> getCondition() {
             return this;
         }
         /**
@@ -272,7 +270,7 @@ public class Condition {
             throw new UnsupportedOperationException("UpdateCondition is a control function; it cannot be applied as a value.");
         }
     }
-    public static class CheckCondition extends CondGroup<CheckCondition> {
+    public static class CheckCondition extends ConditionGroup<CheckCondition> {
         private final Check check;
 
         // root constructor (parent = null)
