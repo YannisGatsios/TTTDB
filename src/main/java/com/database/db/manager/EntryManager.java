@@ -17,6 +17,7 @@ import com.database.db.page.Entry;
 import com.database.db.page.TablePage;
 import com.database.db.table.SchemaInner;
 import com.database.db.table.Table;
+import com.database.db.table.Table.IndexRecord;
 
 public class EntryManager {
     private Database database;
@@ -43,8 +44,8 @@ public class EntryManager {
      * @param limit the maximum number of entries to return; if negative, all matching entries are returned
      * @return a list of entries matching the criteria, ordered in ascending fashion
      */
-    public List<Entry> selectEntriesAscending(WhereClause whereClause, int begin, int limit) {
-        List<PointerPair> blockPointerList = table.findRangeIndex(whereClause);
+    public <K extends Comparable<? super K>> List<Entry> selectEntriesAscending(WhereClause whereClause, int begin, int limit) {
+        List<IndexRecord<K>> blockPointerList = table.findRangeIndex(whereClause);
         return this.selectionProcess(blockPointerList, begin, limit);
     }
     /**
@@ -56,17 +57,17 @@ public class EntryManager {
      * @param limit the maximum number of entries to return; if negative, all matching entries are returned
      * @return a list of entries matching the criteria, ordered in descending fashion
      */
-    public List<Entry> selectEntriesDescending(WhereClause whereClause, int begin, int limit) {
-        List<PointerPair> reversed = table.findRangeIndex(whereClause);
+    public <K extends Comparable<? super K>> List<Entry> selectEntriesDescending(WhereClause whereClause, int begin, int limit) {
+        List<IndexRecord<K>> reversed = table.findRangeIndex(whereClause);
         Collections.reverse(reversed);
         return this.selectionProcess(reversed, begin, limit);
     }
-    private List<Entry> selectionProcess(List<PointerPair> blockPointerList, int begin, int limit){
+    private <K extends Comparable<? super K>> List<Entry> selectionProcess(List<IndexRecord<K>> indexResult, int begin, int limit){
         List<Entry> result = new ArrayList<>();
         int index = 0;
         boolean selectAll = limit < 0;
-        for (PointerPair pointerPair : blockPointerList) {
-            BlockPointer blockPointer = pointerPair.tablePointer();
+        for (IndexRecord<K> pair : indexResult) {
+            BlockPointer blockPointer = pair.value().tablePointer();
             if(index++ < begin) continue;
             if(!selectAll && index>=limit+begin) break;
             TablePage page = table.getCache().tableCache.get(blockPointer.BlockID());
@@ -116,20 +117,21 @@ public class EntryManager {
     * @param limit the maximum number of entries to delete; if negative, all matching entries are deleted
     * @return the number of entries successfully deleted
     */
-    public int deleteEntry(WhereClause whereClause, int limit){
-        List<PointerPair> blockPointerList = table.findRangeIndex(whereClause);
+    public <K extends Comparable<? super K>> int deleteEntry(WhereClause whereClause, int limit){
+        List<IndexRecord<K>> indexResult = table.findRangeIndex(whereClause);
         boolean deleteAll = limit < 0;
         int deletedCount = 0;
-        for (PointerPair pointerPair : blockPointerList) {
+        for (IndexRecord<K> value : indexResult) {
             if(!deleteAll && deletedCount>=limit)return deletedCount;
-            TablePage page = this.deletionProcess(pointerPair.tablePointer());
+            PointerPair pointer = table.searchIndex(value.key(), value.columnIndex()).get(0);
+            TablePage page = this.deletionProcess(pointer.tablePointer());
             if(page == null) continue;
             deletedCount++;
             if (page.isLastPage()) {
-                if (page.size() == 0) {
+                if (page.size() == 0) 
                     table.getCache().tableCache.deleteLastPage(page);
-                }
-                table.getCache().tableCache.put(page);
+                else
+                    table.getCache().tableCache.put(page);
                 continue;
             }
             this.replaceLastEntry(page);
@@ -182,17 +184,17 @@ public class EntryManager {
      * @return the number of entries successfully updated
      * @throws IllegalArgumentException if any updated entry is invalid or if a column name in updates is not found
      */
-    public int updateEntry(WhereClause whereClause, int limit, UpdateFields updates) {
+    public <K extends Comparable<? super K>> int updateEntry(WhereClause whereClause, int limit, UpdateFields updates) {
         int result = 0;
-        List<PointerPair> blockPointerList = table.findRangeIndex(whereClause);
+        List<IndexRecord<K>> indexResult = table.findRangeIndex(whereClause);
         boolean updateAll = limit < 0;
         int index = -1;
-        for (PointerPair pointerPair : blockPointerList) {
+        for (IndexRecord<K> pair : indexResult) {
             index++;
             if(!updateAll && index>=limit)return result;
-            TablePage page = table.getCache().tableCache.get(pointerPair.tablePointer().BlockID());
+            TablePage page = table.getCache().tableCache.get(pair.value().tablePointer().BlockID());
             if (page == null) continue;
-            this.updateProcess(page, pointerPair.tablePointer(), updates.getFunctionsList());
+            this.updateProcess(page, pair.value().tablePointer(), updates.getFunctionsList());
             table.getCache().tableCache.put(page);
             result++;
         }

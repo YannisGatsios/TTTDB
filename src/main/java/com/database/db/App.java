@@ -46,8 +46,9 @@ public class App {
 
         TableConfig tableConf = new TableConfig("users", schema, new CacheCapacity(0,0));
         DBMS db = new DBMS("test_database","")
-            .createTable(tableConf)
-            .selectDatabase("test_database");
+            .addTable(tableConf)
+        .create()
+        .selectDatabase("test_database");
         
         Random random = new Random(); 
         ArrayList<String> keysList = new ArrayList<>(400);

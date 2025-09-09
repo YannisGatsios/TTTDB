@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.AfterAll;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.database.db.Database;
 import com.database.db.FileIOThread;
 import com.database.db.api.Schema;
 import com.database.db.api.DBMS.TableConfig;
@@ -37,7 +38,10 @@ class TablePageTest {
         fileIOThread = new FileIOThread();
         fileIOThread.start();
         TableConfig config = new TableConfig("test", SCHEMA, null);
-        table = new Table("testdb", "", fileIOThread, config);
+        Database database = new Database("testdb");
+        database.createTable(config);
+        table = database.getTable("test");
+        database.create();
 
         entry1 = createEntry("user1", 100, "msg1", new byte[]{1,2,3});
         entry2 = createEntry("user22", 200, "msg22", new byte[]{4,5,6});

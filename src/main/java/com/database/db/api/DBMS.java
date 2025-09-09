@@ -59,17 +59,25 @@ public class DBMS {
     public DBMS(String databaseName, String path){
         this();
         this.setPath(path);
-        this.createDatabase(databaseName);
+        this.addDatabase(databaseName);
         this.selectDatabase(databaseName);
     }
     public DBMS setPath(String path){
         this.path = path;
         return this;
     }
-    public DBMS createDatabase(String databaseName){
+    public DBMS addDatabase(String databaseName){
         Database database = new Database(databaseName);
         database.setPath(this.path);
         this.databases.put(databaseName, database);
+        return this;
+    }
+    public DBMS create(){
+        Set<String> databaseNames = new HashSet<>(this.databases.keySet());
+        for (String databaseName : databaseNames) {
+            Database database = databases.get(databaseName);
+            database.create();
+        }
         return this;
     }
     public void dropDatabase(String databaseName){
@@ -86,7 +94,7 @@ public class DBMS {
         this.entryManager.selectDatabase(selected);
         return this;
     }
-    public DBMS createTable(TableConfig config){
+    public DBMS addTable(TableConfig config){
         if(this.selected == null) throw new IllegalArgumentException("Trying to create Table with not Database selected.");
         this.selected.createTable(config);
         return this;

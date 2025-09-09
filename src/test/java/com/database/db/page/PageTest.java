@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import com.database.db.table.DataType;
 import com.database.db.table.Table;
-import com.database.db.FileIOThread;
+import com.database.db.Database;
 import com.database.db.api.DBMS.TableConfig;
 import com.database.db.api.Schema;
 
@@ -55,24 +55,6 @@ class PageTest {
         }
     }
 
-    /**
-     * A stub implementation of the Table class that mimics your actual Table's behavior
-     * for size calculations, but without file I/O or index initialization.
-     */
-    private static class MockTable extends Table {
-        public MockTable(Schema schema) throws IOException, ExecutionException, InterruptedException,Exception {
-            super("mockDB", "storage/", new MockFileIOThread(),new TableConfig("mockTable", schema, null));
-        }
-
-        // Mock FileIOThread to avoid actual file operations during tests
-        private static class MockFileIOThread extends FileIOThread {
-            public MockFileIOThread() {
-                super(); // A dummy pool size
-            }
-            // No other FileIOThread methods are typically called by Table's constructors
-            // for the purpose of setting up initial sizes, so this should be sufficient.
-        }
-    }
 
     /**
      * A stub implementation of the Entry class that now properly extends your new Entry constructor.
@@ -92,8 +74,10 @@ class PageTest {
         Schema schema = new Schema()
             .column("id").type(DataType.INT).endColumn()
             .column("name").type(DataType.CHAR).size(50).endColumn();
-
-        mockTable = new MockTable(schema);
+        Database database = new Database("mockDB");
+        TableConfig config = new TableConfig("mockTable", schema,null);
+        database.createTable(config);
+        mockTable = database.getTable("mockTable");
         page = new ConcretePage(PAGE_ID, mockTable);
 
         entry1 = new MockEntry(mockTable, 100, "Alice");

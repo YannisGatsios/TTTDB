@@ -41,6 +41,7 @@ public class TableTest {
         database = new Database(databaseName);
         database.setPath(testPath);
         database.createTable(tableConf);
+        database.create();
         // Create real Schema instance
 
         // Get table
@@ -88,7 +89,11 @@ public class TableTest {
         TableConfig config = new TableConfig("testTable", new Schema()
             .column("username").type(DataType.CHAR).size(10).primaryKey().endColumn()
             .column("num").type(DataType.INT).index().endColumn(), null);
-        Table diskTable = new Table("testDB", testPath, file, config);
+        Database db = new Database("testDB");
+        db.setPath(testPath);
+        db.createTable(config);
+        db.create();
+        Table diskTable = db.getTable("testTable");
         assertEquals(3, diskTable.getPages());
         file.shutdown();
     }
@@ -103,11 +108,13 @@ public class TableTest {
     
     @Test
     void autoIncrementing_InitializesCorrectly() throws Exception {
+        database.close();
         // Create schema with auto-increment column
         TableConfig config = new TableConfig("aiTable", new Schema()
             .column("id").autoIncrementing().endColumn()
             .column("name").type(DataType.CHAR).size(20).endColumn(), null);
         database.createTable(config);
+        database.create();
 
         // Create table with auto-increment
         Table aiTable = database.getTable("aiTable");

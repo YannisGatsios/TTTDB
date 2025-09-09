@@ -1,18 +1,15 @@
 package com.database.db;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.database.db.api.DBMS.TableConfig;
 import com.database.db.api.Schema;
 import com.database.db.manager.SchemaManager;
-import com.database.db.table.SchemaInner;
 import com.database.db.table.Table;
 
 public class Database {
@@ -29,31 +26,30 @@ public class Database {
         this.schema = new HashMap<>();
     }
 
+    public void create(){
+        Set<String> tableNames = new HashSet<>(this.tables.keySet());
+        for (String tableName : tableNames) {
+            Table table = tables.get(tableName);
+            SchemaManager.createTable(table.getSchema(), this.path, this.name, tableName);
+            table.start();
+        }
+    }
+
     public void createTable(TableConfig tableConfig) {
         if (this.tables.containsKey(tableConfig.tableName())) {
             logger.info(String.format("Table '%s' already exists in database '%s'. Skipping creation.", tableConfig.tableName(), this.name));
             return;
         }
-        SchemaInner schema = new SchemaInner(tableConfig.schema().get());
-        SchemaManager.createTable(schema, this.path, this.name, tableConfig.tableName());
         this.addTable(tableConfig);
         logger.info(
             String.format("Table '%s' created successfully in database '%s'.", tableConfig.tableName(), this.name));
     }
     private void addTable(TableConfig tableConfig){
-        FileIOThread fileIOThread = new FileIOThread();
-        fileIOThread.start();
         try {
             this.schema.put(tableConfig.tableName(), tableConfig.schema());
             this.tables.put(tableConfig.tableName(), 
-                new Table(this.name, this.path, fileIOThread, tableConfig));
-        } catch (ExecutionException e) {
-            logger.log(Level.SEVERE,
-                String.format("ExecutionException: Failed to create table '%s' in database '%s'.",tableConfig.tableName(), this.name),e);
-        } catch (IOException e) {
-            logger.log(Level.SEVERE,
-                String.format("IOException: File operation failed while creating table '%s' in database '%s'.",tableConfig.tableName(), this.name),e);
-        } catch (Exception e) {
+                new Table(this, tableConfig));
+        }catch (Exception e) {
             logger.log(Level.SEVERE, 
                 String.format("Unexpected error while creating table '%s' in database '%s'.", tableConfig.tableName(), this.name), e);
         }
@@ -66,7 +62,7 @@ public class Database {
             return;
         }
         try {
-            table.getFileIOThread().shutdown();
+            table.close();
             SchemaManager.dropTable(table);
             this.tables.remove(tableName);
         } catch (InterruptedException e) {
@@ -83,7 +79,7 @@ public class Database {
     public void close(){
         for (Table table : this.tables.values()) {
             try {
-                table.getFileIOThread().shutdown();
+                table.close();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 logger.log(Level.WARNING,
@@ -130,6 +126,7 @@ public class Database {
     public Table getTable(String tableName) {return tables.get(tableName);}
     public Schema getSchema(String tableName) {return schema.get(tableName);}
     public void setPath(String path){this.path = path;}
+    public String getPath() { return this.path; }
     public String getName(){ return this.name; }
     public Map<String,Table> getTables(){ return this.tables; }
 }

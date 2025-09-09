@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.database.db.Database;
 import com.database.db.page.Entry;
 import com.database.db.table.Constraint;
 import com.database.db.table.DataType;
@@ -14,24 +15,32 @@ public class Schema {
 
     private final List<ColumnInner> columns;
     private final List<Check> checkList;
+    private final List<ForeignKey> foreignKeyList;
 
     public record ColumnInner(String name, DataType type, int size, List<Constraint> constraints, Object defaultValue) {}
     
     public Schema(){
         this.columns = new ArrayList<>();
         this.checkList = new ArrayList<>();
+        this.foreignKeyList = new ArrayList<>();
     }
     public Column column(String name){
         return new Column(name, this);
     }
-    public Check check(String columnName){
-        return new Check(columnName, this);
+    public Check check(String checkName){
+        return new Check(checkName, this);
+    }
+    public ForeignKey foreignKey(String name){
+        return new ForeignKey(name, this);
     }
     public void add(ColumnInner column){
         this.columns.add(column);
     }
     public void add(Check check){
         this.checkList.add(check);
+    }
+    public void add(ForeignKey foreignKey){
+        this.foreignKeyList.add(foreignKey);
     }
     public int getColumnIndex(String columnName) {
         for (int i = 0; i < columns.size(); i++) {
@@ -47,17 +56,24 @@ public class Schema {
     /**
     * This method is used internally 
     */
-    public ColumnInner[] get() {
+    public ColumnInner[] get(Database database) {
         if (columns.isEmpty()) {
             return new ColumnInner[0]; // return empty array instead of null
         }
-        this.isValidSchema();
+        this.isValidSchema(database);
+        return columns.toArray(new ColumnInner[0]);
+    }
+    public ColumnInner[] getColumns(){
         return columns.toArray(new ColumnInner[0]);
     }
     /**
     * This method is used internally 
     */
-    private boolean isValidSchema(){
+    public List<ForeignKey> getForeignKeys() { return this.foreignKeyList; }
+    /**
+    * This method is used internally 
+    */
+    private boolean isValidSchema(Database database){
         Set<String> columnNames = new HashSet<>();
         boolean hasPrimaryKey = false;
         boolean hasAutoIncrement = false;
@@ -116,14 +132,19 @@ public class Schema {
 
         // Check constraints must reference valid columns
         for (Check check : checkList) {
-            if (!check.isValid(this)) {
+            if (!check.isValid()) {
                 throw new IllegalStateException("Check references unknown column for CHECK: " + check.name());
             }
         }
+
+        for (ForeignKey foreignKey : foreignKeyList) {
+            foreignKey.isValid(database);
+        }
+
         return true;
     }
     public void isValidEntry(Entry entry, Table table) {
-        ColumnInner[] cols = this.get();
+        ColumnInner[] cols = columns.toArray(new ColumnInner[0]);
         Object[] values = entry.getEntry();
 
         if (values.length != cols.length) {

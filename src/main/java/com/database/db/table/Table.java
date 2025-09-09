@@ -1,22 +1,20 @@
 package com.database.db.table;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 
+import com.database.db.Database;
 import com.database.db.FileIOThread;
 import com.database.db.api.Condition;
 import com.database.db.api.Condition.*;
 import com.database.db.api.DBMS.CacheCapacity;
 import com.database.db.api.DBMS.TableConfig;
-import com.database.db.api.Condition.Clause;
-import com.database.db.api.Condition.Conditions;
 import com.database.db.index.BTreeSerialization.BlockPointer;
 import com.database.db.index.BTreeSerialization.PointerPair;
 import com.database.db.index.Pair;
@@ -27,11 +25,11 @@ import com.database.db.page.Page;
 import com.database.db.page.TablePage;
 
 public class Table {
-    private String databaseName;
+    private Database database;
     private String tableName;
     private SchemaInner schema;
     private Cache cache;
-    private Cache tmpCache;//Used for transatctions.
+    private Cache tmpCache;//Used for transactions.
     private IndexManager indexes;
 
     private int numberOfPages;
@@ -42,17 +40,24 @@ public class Table {
     private String path = "";
     private FileIOThread fileIOThread;
 
-    public Table(String databaseName, String path, FileIOThread fileIOThread, TableConfig config) throws InterruptedException, ExecutionException, IOException {
-        this.databaseName = databaseName;
+    public Table(Database database, TableConfig config) {
+        this.database = database;
+        this.path = database.getPath();
         this.tableName = config.tableName();
-        this.schema = new SchemaInner(config.schema().get());
-        this.path = path;
-        this.fileIOThread = fileIOThread;
+        this.schema = new SchemaInner(config.schema().get(database));
         if(config.cacheCapacity() != null) this.cacheCapacity = config.cacheCapacity();
+    }
+    public void start(){
+        this.fileIOThread = new FileIOThread();
+        this.fileIOThread.start();
         this.cache = new Cache(this);
         this.numberOfPages = Table.getNumOfPages(this.getPath(),TablePage.sizeOfEntry(this));
         this.indexes = new IndexManager(this);
         this.autoIncrementing = this.getAutoIncrementing();
+    }
+    public void close() throws InterruptedException{
+        this.fileIOThread.shutdown();
+        this.fileIOThread = null;
     }
     public static int getNumOfPages(String path, int sizeOfEntry){
         File file = new File(path);
@@ -145,57 +150,79 @@ public class Table {
             this.cacheCapacity = this.cache.getCacheCapacity();
         }
     }
-    
+    public record IndexRecord<K>(K key, PointerPair value, int columnIndex) {
+            @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof IndexRecord<?> other)) return false;
+            return Objects.equals(value, other.value);
+        }
+        @Override
+        public int hashCode() {
+            return Objects.hash(value);
+        }
+    }
     @SuppressWarnings("unchecked")
-    public <K extends Comparable<? super K>> List<PointerPair> findRangeIndex(WhereClause whereClause){
-        if(whereClause == null) return this.noCondition();
+    public <K extends Comparable<? super K>> List<IndexRecord<K>> findRangeIndex(WhereClause whereClause) {
+        if (whereClause == null) return this.noCondition();
+        
         Object start = null;
-        Object end  = null;
+        Object end   = null;
         List<Map.Entry<Clause, Condition<WhereClause>>> clauses = whereClause.getConditions();
-        List<PointerPair> previousPointerList = new ArrayList<>();
+        List<IndexRecord<K>> previousPairList = new ArrayList<>();
+        
         for (Map.Entry<Clause, Condition<WhereClause>> conditionEntry : clauses) {
             Condition<WhereClause> condition = conditionEntry.getValue();
             EnumMap<Conditions, Object> conditionList = condition.getConditions();
-            if(conditionList.containsKey(Conditions.IS_BIGGER)) start = conditionList.get(Conditions.IS_BIGGER);
-            if(conditionList.containsKey(Conditions.IS_SMALLER)) end = conditionList.get(Conditions.IS_SMALLER);
-            if(conditionList.containsKey(Conditions.IS_BIGGER_OR_EQUAL)) start = conditionList.get(Conditions.IS_BIGGER_OR_EQUAL);
-            if(conditionList.containsKey(Conditions.IS_SMALLER_OR_EQUAL)) end = conditionList.get(Conditions.IS_SMALLER_OR_EQUAL);
 
-            if(!conditionList.containsKey(Conditions.IS_BIGGER) &&
-            !conditionList.containsKey(Conditions.IS_SMALLER) &&
-            !conditionList.containsKey(Conditions.IS_BIGGER_OR_EQUAL) &&
-            !conditionList.containsKey(Conditions.IS_SMALLER_OR_EQUAL) &&
-            conditionList.containsKey(Conditions.IS_EQUAL)){
+            if (conditionList.containsKey(Conditions.IS_BIGGER)) 
+                start = conditionList.get(Conditions.IS_BIGGER);
+            if (conditionList.containsKey(Conditions.IS_SMALLER)) 
+                end = conditionList.get(Conditions.IS_SMALLER);
+            if (conditionList.containsKey(Conditions.IS_BIGGER_OR_EQUAL)) 
+                start = conditionList.get(Conditions.IS_BIGGER_OR_EQUAL);
+            if (conditionList.containsKey(Conditions.IS_SMALLER_OR_EQUAL)) 
+                end = conditionList.get(Conditions.IS_SMALLER_OR_EQUAL);
+
+            if (!conditionList.containsKey(Conditions.IS_BIGGER) &&
+                !conditionList.containsKey(Conditions.IS_SMALLER) &&
+                !conditionList.containsKey(Conditions.IS_BIGGER_OR_EQUAL) &&
+                !conditionList.containsKey(Conditions.IS_SMALLER_OR_EQUAL) &&
+                conditionList.containsKey(Conditions.IS_EQUAL)) {
+                
                 start = conditionList.get(Conditions.IS_EQUAL);
-                end = conditionList.get(Conditions.IS_EQUAL);
+                end   = conditionList.get(Conditions.IS_EQUAL);
             }
+
             int columnIndex = this.schema.getColumnIndex(condition.getColumnName());
-            List<Pair<K,PointerPair>> indexResult = this.indexes.findRangeIndex((K)start, (K)end, columnIndex);
-            List<PointerPair> resultInner = new ArrayList<>();
-            for (Pair<K,PointerPair> pair : indexResult) {
-                if(!condition.isApplicable(pair.key)) continue;
-                resultInner.add(pair.value);
+            List<Pair<K, PointerPair>> indexResult = this.indexes.findRangeIndex((K) start, (K) end, columnIndex);
+
+            List<IndexRecord<K>> resultInner = new ArrayList<>();
+            for (Pair<K, PointerPair> pair : indexResult) {
+                if (!condition.isApplicable(pair.key)) continue;
+                resultInner.add(new IndexRecord<K>(pair.key, pair.value, columnIndex));
             }
+
             switch (conditionEntry.getKey()) {
                 case FIRST:
-                    previousPointerList = resultInner;
+                    previousPairList = resultInner;
                     break;
                 case OR:
-                    Set<PointerPair> orSet = new HashSet<>(previousPointerList);
+                    Set<IndexRecord<K>> orSet = new HashSet<>(previousPairList);
                     orSet.addAll(resultInner);
-                    previousPointerList = new ArrayList<>(orSet);
+                    previousPairList = new ArrayList<>(orSet);
                     break;
                 case AND:
-                    previousPointerList.retainAll(resultInner);
+                    previousPairList.retainAll(resultInner);
                     break;
                 case FIRST_GROUP:
                 case OR_GROUP:
                 case AND_GROUP:
             }
         }
-        return previousPointerList;
+        return previousPairList;
     }
-    private <K extends Comparable<? super K>> List<PointerPair> noCondition(){
+    private <K extends Comparable<? super K>> List<IndexRecord<K>> noCondition(){
         int columnIndex = this.schema.getPrimaryKeyIndex();
         if(columnIndex == -1){
             boolean[] unique = this.schema.getUniqueIndex();
@@ -216,16 +243,20 @@ public class Table {
             }
         }
         if(columnIndex == -1) columnIndex = 0;
-        List<Pair<K,PointerPair>> indexResult = this.indexes.findRangeIndex(null, null, columnIndex);
-        List<PointerPair> result = new ArrayList<>();
-        for (Pair<K,PointerPair> pair : indexResult) {
-            result.add(pair.value);
+        List<Pair<K, PointerPair>> indexResult = this.indexes.findRangeIndex(null, null, columnIndex);
+        List<IndexRecord<K>> result = new ArrayList<>();
+        for (Pair<K, PointerPair> pair : indexResult) {
+            result.add(new IndexRecord<K>(pair.key, pair.value, columnIndex));
         }
         return result;
     }
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> boolean isKeyFound(Object key, int columnIndex){
         return this.indexes.isKeyFound((K)key, columnIndex);
+    }
+    @SuppressWarnings("unchecked")
+    public <K extends Comparable<? super K>> List<PointerPair> searchIndex(Object key, int columnIndex){
+        return this.indexes.findBlock((K)key, columnIndex);
     }
     public void insertIndex(Entry entry, BlockPointer blockPointer){
         this.indexes.insertIndex(entry, blockPointer);
@@ -237,7 +268,7 @@ public class Table {
         this.indexes.updateIndex(entry, newValue, oldValue);
     }
 
-    public String getDatabaseName(){return this.databaseName;}
+    public String getDatabaseName(){return database.getName();}
     public String getName(){return this.tableName;}
     public SchemaInner getSchema(){return this.schema;}
     public Cache getCache(){return this.cache;}
@@ -245,8 +276,8 @@ public class Table {
     public IndexManager getIndexManager(){return this.indexes;}
 
     //Get Index and Table file paths for this Table. 
-    public String getPath(){return this.path+this.getDatabaseName()+"."+this.getName()+".table";}
-    public String getIndexPath(int columnIndex){return this.path+this.getDatabaseName()+"."+this.getName()+"."+this.schema.getNames()[columnIndex]+".index";}
+    public String getPath(){return this.path+database.getName()+"."+this.getName()+".table";}
+    public String getIndexPath(int columnIndex){return this.path+database.getName()+"."+this.getName()+"."+this.schema.getNames()[columnIndex]+".index";}
 
     public int getPages(){return this.numberOfPages;}
     public void addOnePage(){this.numberOfPages++;}

@@ -16,6 +16,6 @@ public class Check {
     public Condition<CheckCondition> expression(String c) { return this.root.column(c); }
     public Schema endCheck() { this.schema.add(this); return this.schema; }
     public boolean isTrue(Entry  entry, SchemaInner schema) { return this.root.isTrue(entry.getEntry(), schema); }
-    public boolean isValid(Schema schema) { return this.root.isValid(schema); }
+    public boolean isValid() { return this.root.isValid(schema); }
     public String name() { return this.name; }
 }

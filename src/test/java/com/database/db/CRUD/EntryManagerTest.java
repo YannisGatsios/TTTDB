@@ -60,8 +60,9 @@ public class EntryManagerTest {
             .column("message").type(DataType.CHAR).size(10).endColumn()
             .column("data").type(DataType.BYTE).size(10).notNull().defaultValue(new byte[10]).endColumn();
 
-        config = new TableConfig("test_table", schema, new CacheCapacity(5,2));
+        config = new TableConfig("test_table", schema, new CacheCapacity(50,10));
         database.createTable(config);
+        database.create();
         table = database.getTable("test_table");
         
         CRUD = new EntryManager();
@@ -169,7 +170,6 @@ public class EntryManagerTest {
     @Test
     @Order(5)
     void testOrderedEntryInsertion() throws ExecutionException, InterruptedException, IOException, Exception {
-
         int ind = 0;
         while(ind < 1000000){
             ArrayList<Object> entryData = new ArrayList<>();
@@ -182,8 +182,9 @@ public class EntryManagerTest {
             CRUD.insertEntry(entry);
             ind++;
         }
-        table.getCache().clear();
-        System.out.println();
+        database.commit();
+        ind = 0;
+        CRUD.deleteEntry(null, -1);
     }
 
     @AfterAll
@@ -194,6 +195,6 @@ public class EntryManagerTest {
             e.printStackTrace();
             fail();
         }
-        database.removeAllTables();
+        //database.removeAllTables();
     }
 }

@@ -25,7 +25,7 @@ public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTr
     public record PointerPair(BlockPointer tablePointer, BlockPointer indexPointer) {} 
 
     public BTreeSerialization(int order){
-        super(order);
+        super(12);
     }
     @SuppressWarnings("unchecked")
     public BTreeSerialization<K> initialize(Table table){
