@@ -13,6 +13,9 @@ public class UpdateFields {
         this.functionsList = new ArrayList<>();
         this.functionsList.add(new selectColumn(column));
     }
+    public UpdateFields(){
+        this.functionsList = new ArrayList<>();
+    }
 
     public UpdateFields selectColumn(String column){
         this.functionsList.add(new selectColumn(column));
@@ -21,6 +24,11 @@ public class UpdateFields {
 
     public UpdateFields set(Object value){
         InnerFunctions function = new setData(value);
+        this.functionsList.add(function);
+        return this;
+    }
+    public UpdateFields setDefault(){
+        InnerFunctions function = new setDefault();
         this.functionsList.add(function);
         return this;
     }

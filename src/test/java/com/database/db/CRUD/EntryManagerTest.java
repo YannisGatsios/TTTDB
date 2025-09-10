@@ -52,7 +52,7 @@ public class EntryManagerTest {
 
     @BeforeAll
     void setup() throws ExecutionException, InterruptedException, IOException, Exception {
-        database = new Database("test_database");
+        database = new Database("test_database",null);
         
         Schema schema = new Schema()
             .column("username").type(DataType.CHAR).size(50).primaryKey().endColumn()

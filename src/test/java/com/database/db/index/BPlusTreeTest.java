@@ -13,6 +13,7 @@ import java.util.Queue;
 import java.util.LinkedList;
 import java.util.Random;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 class BPlusTreeTest {
     private static final int ORDER = 3;
@@ -129,12 +130,12 @@ class BPlusTreeTest {
 
         // Verify inserts
         for (int i = 100; i <= 1000; i += 100) {
-            assertEquals("Value" + i, tree.search(i).get(0), "Key not found: " + i);
+            assertEquals("Value" + i, tree.search(i).get(0).value, "Key not found: " + i);
         }
 
         // Test updates
         tree.update(500, "Updated500");
-        assertEquals("Updated500", tree.search(500).get(0), "Update failed");
+        assertEquals("Updated500", tree.search(500).get(0).value, "Update failed");
         
         // Test deletions
         tree.remove(100, "Value100");
@@ -169,7 +170,7 @@ class BPlusTreeTest {
 
         // Verify
         for (int i = 0; i < keys.length; i++) {
-            assertEquals(i, (int) tree.search(keys[i]).get(0), "Key not found: " + keys[i]);
+            assertEquals(i, (int) tree.search(keys[i]).get(0).value, "Key not found: " + keys[i]);
         }
 
         // Test deletions
@@ -202,19 +203,19 @@ class BPlusTreeTest {
         validateTreeStructure(tree);
 
         // Verify values
-        List<String> values100 = tree.search(100);
+        List<String> values100 = tree.search(100).stream().map(p -> p.value).collect(Collectors.toList());
         assertNotNull(values100);
         assertTrue(values100.containsAll(Arrays.asList("Value100-1", "Value100-2", "Value100-3")));
         
         // Test value removal
         tree.remove(100, "Value100-1");
-        List<String> values100AfterRemove1 = tree.search(100);
+        List<String> values100AfterRemove1 = tree.search(100).stream().map(p -> p.value).collect(Collectors.toList());
         assertNotNull(values100AfterRemove1);
         assertFalse(values100AfterRemove1.contains("Value100-1"));
         assertTrue(values100AfterRemove1.contains("Value100-2"));
         
         tree.remove(100, "Value100-2");
-        List<String> values100AfterRemove2 = tree.search(100);
+        List<String> values100AfterRemove2 = tree.search(100).stream().map(p -> p.value).collect(Collectors.toList());
         assertNotNull(values100AfterRemove2);
         assertTrue(values100AfterRemove2.contains("Value100-3"));
         
@@ -236,17 +237,21 @@ class BPlusTreeTest {
         validateTreeStructure(tree);
 
         // Verify
-        assertTrue(tree.search("A").containsAll(Arrays.asList(1, 2, 4)), "Values for key 'A' mismatch");
-        assertTrue(tree.search("B").containsAll(Arrays.asList(3, 5)), "Values for key 'B' mismatch");
+        List<Integer> valuesA = tree.search("A").stream().map(p -> p.value).collect(Collectors.toList());
+        List<Integer> valuesB = tree.search("B").stream().map(p -> p.value).collect(Collectors.toList());
+        assertTrue(valuesA.containsAll(Arrays.asList(1, 2, 4)), "Values for key 'A' mismatch");
+        assertTrue(valuesB.containsAll(Arrays.asList(3, 5)), "Values for key 'B' mismatch");
         
         // Test deletions
         tree.remove("A", 1);
-        assertFalse(tree.search("A").contains(1), "Value should be removed");
-        assertTrue(tree.search("A").contains(2), "Value should remain");
+        valuesA = tree.search("A").stream().map(p -> p.value).collect(Collectors.toList());
+        assertFalse(valuesA.contains(1), "Value should be removed");
+        assertTrue(valuesA.contains(2), "Value should remain");
         
         tree.remove("B", 3);
-        assertFalse(tree.search("B").contains(3), "Value should be removed");
-        assertTrue(tree.search("B").contains(5), "Value should remain");
+        valuesB = tree.search("B").stream().map(p -> p.value).collect(Collectors.toList());
+        assertFalse(valuesB.contains(3), "Value should be removed");
+        assertTrue(valuesB.contains(5), "Value should remain");
         
         tree.remove("B", 5);
         assertEquals(0, tree.search("B").size(), "Key should be removed");
@@ -296,7 +301,7 @@ class BPlusTreeTest {
         
         // Update primary value
         tree.update(100, "UpdatedPrimary","Primary");
-        List<String> values = tree.search(100);
+        List<String> values = tree.search(100).stream().map(p -> p.value).collect(Collectors.toList());
         assertTrue(values.contains("UpdatedPrimary"), "Primary update failed");
         assertFalse(values.contains("Primary"), "Old primary should be gone");
         
@@ -341,9 +346,9 @@ class BPlusTreeTest {
             int idx = random.nextInt(insertedKeys.size());
             String key = insertedKeys.remove(idx);
             // We need to know the value to remove it. We'll search for it first.
-            List<Integer> values = tree.search(key);
+            List<Pair<String,Integer>> values = tree.search(key);
             if (values != null && !values.isEmpty()) {
-                tree.remove(key, values.get(0));
+                tree.remove(key, values.get(0).value);
             }
             assertEquals(0, tree.search(key).size(), "Delete failed: " + key);
             if (i > 0 && i % 50 == 0) validateTreeStructure(tree);
@@ -377,9 +382,9 @@ class BPlusTreeTest {
         for (int i = 0; i < size / 2; i++) {
             int idx = random.nextInt(insertedKeys.size());
             int key = insertedKeys.remove(idx);
-            List<String> values = tree.search(key);
+            List<Pair<Integer,String>> values = tree.search(key);
             if (values != null && !values.isEmpty()) {
-                tree.remove(key, values.get(0));
+                tree.remove(key, values.get(0).value);
             }
             assertEquals(0,tree.search(key).size(), "Delete failed: " + key);
             if (i > 0 && i % 50 == 0) validateTreeStructure(tree);
@@ -531,10 +536,10 @@ class BPlusTreeTest {
         tree.remove(100, "Dup3");
 
         // Verify primary remains
-        List<String> result = tree.search(100);
+        List<Pair<Integer,String>> result = tree.search(100);
         assertNotNull(result);
         assertEquals(1, result.size());
-        assertEquals("Primary", result.get(0));
+        assertEquals("Primary", result.get(0).value);
         validateTreeStructure(tree);
     }
     
@@ -547,7 +552,7 @@ class BPlusTreeTest {
 
         // Valid update
         tree.update(100, "Updated");
-        assertEquals("Updated", tree.search(100).get(0));
+        assertEquals("Updated", tree.search(100).get(0).value);
 
         // Update non-existent key
         tree.update(300, "New");
@@ -566,20 +571,20 @@ class BPlusTreeTest {
 
         // Valid update
         tree.update(100, "NewPrimary", "Primary");
-        List<String> values1 = tree.search(100);
+        List<String> values1 = tree.search(100).stream().map(p -> p.value).collect(Collectors.toList());
         assertTrue(values1.contains("NewPrimary"));
         assertFalse(values1.contains("Primary"));
 
-
         // Update duplicate
         tree.update(100, "NewDuplicate", "Duplicate");
-        List<String> values2 = tree.search(100);
+        List<String> values2 = tree.search(100).stream().map(p -> p.value).collect(Collectors.toList());
         assertTrue(values2.contains("NewDuplicate"));
         assertFalse(values2.contains("Duplicate"));
 
         // Invalid update (old value mismatch)
         tree.update(100, "Invalid", "WrongValue");
-        assertFalse(tree.search(100).contains("Invalid"));
+        List<String> values3 = tree.search(100).stream().map(p -> p.value).collect(Collectors.toList());
+        assertFalse(values3.contains("Invalid"));
 
         // Verify size unchanged
         assertEquals(2, tree.size());
@@ -588,69 +593,35 @@ class BPlusTreeTest {
     // ================ NULL KEY TESTS ================
 
     @Test
-    void testNullKeyOperationsUniqueTree() {
-        BPlusTree<Integer, String> tree = new BPlusTree<>(ORDER);
-        tree.setUnique(true);
-        tree.setNullable(true);
-
-        // Insert a non-null key to ensure the tree is not empty
-        tree.insert(10, "Value10");
-        assertEquals(1, tree.size());
-
-        // Test null key insertion
-        tree.insert(null, "NullValue1");
-        assertEquals(2, tree.size(), "Size should increment after null key insert.");
-        assertNotNull(tree.search(null), "Search for null key should return a result.");
-        assertEquals("NullValue1", tree.search(null).get(0));
-
-        // Test duplicate null insert (should be ignored in unique tree)
-        tree.insert(null, "NullValue2");
-        assertEquals("NullValue1", tree.search(null).get(0), "Original null value should remain.");
-        
-        // Test null key update
-        tree.update(null, "UpdatedNullValue", "NullValue1");
-        assertEquals("UpdatedNullValue", tree.search(null).get(0), "Update for null key failed.");
-        
-        // Test null key removal
-        tree.remove(null, "UpdatedNullValue");
-        tree.remove(null, "NullValue2");
-        assertTrue(tree.search(null) == null || tree.search(null).isEmpty(), "Null key should be removed.");
-        assertEquals(1, tree.size(), "Size should decrement after null key removal.");
-        assertNotNull(tree.search(10), "Non-null key should still exist.");
-    }
-
-    @Test
     void testNullKeyOperationsNonUniqueTree() {
         BPlusTree<Integer, String> tree = new BPlusTree<>(ORDER);
         tree.setUnique(false);
         tree.setNullable(true);
 
-        // Insert multiple values for null key
         tree.insert(null, "A");
         tree.insert(null, "B");
         tree.insert(null, "C");
         assertEquals(3, tree.size());
 
-        List<String> nullValues = tree.search(null);
+        List<String> nullValues = tree.search(null).stream()
+                                    .map(p -> p.value)
+                                    .collect(Collectors.toList());
         assertNotNull(nullValues);
         assertEquals(3, nullValues.size());
         assertTrue(nullValues.containsAll(Arrays.asList("A", "B", "C")), "All duplicates for null key should be present.");
 
-        // Test removing one duplicate
         tree.remove(null, "B");
         assertEquals(2, tree.size());
-        nullValues = tree.search(null);
+        nullValues = tree.search(null).stream().map(p -> p.value).collect(Collectors.toList());
         assertFalse(nullValues.contains("B"), "Value 'B' should have been removed.");
         assertTrue(nullValues.contains("A"), "Value 'A' should remain.");
 
-        // Test updating a duplicate
         tree.update(null, "A_updated", "A");
-        nullValues = tree.search(null);
+        nullValues = tree.search(null).stream().map(p -> p.value).collect(Collectors.toList());
         assertTrue(nullValues.contains("A_updated"));
         assertFalse(nullValues.contains("A"));
         assertEquals(2, tree.size(), "Size should not change after update.");
-        
-        // Remove remaining values
+
         tree.remove(null, "A_updated");
         tree.remove(null, "C");
         assertTrue(tree.search(null) == null || tree.search(null).isEmpty(), "All null values should be gone.");

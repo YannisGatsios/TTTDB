@@ -38,7 +38,7 @@ class TablePageTest {
         fileIOThread = new FileIOThread();
         fileIOThread.start();
         TableConfig config = new TableConfig("test", SCHEMA, null);
-        Database database = new Database("testdb");
+        Database database = new Database("testdb",null);
         database.createTable(config);
         table = database.getTable("test");
         database.create();

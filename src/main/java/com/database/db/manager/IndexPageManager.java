@@ -5,6 +5,7 @@ import java.util.List;
 import com.database.db.index.BTreeSerialization;
 import com.database.db.index.BTreeSerialization.BlockPointer;
 import com.database.db.index.BTreeSerialization.PointerPair;
+import com.database.db.index.Pair;
 import com.database.db.page.Entry;
 import com.database.db.page.IndexCache;
 import com.database.db.page.IndexPage;
@@ -20,10 +21,10 @@ public class IndexPageManager {
 
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> BlockPointer findIndexPointer(BTreeSerialization<?> index, K key, BlockPointer tablePointer){
-        List<PointerPair> pointerList = ((BTreeSerialization<K>)index).search(key);
+        List<Pair<K, PointerPair>> pointerList = ((BTreeSerialization<K>)index).search(key);
         BlockPointer result = null;
-        for (PointerPair pointerPair : pointerList) {
-            if(tablePointer.equals(pointerPair.tablePointer())) result = pointerPair.indexPointer();
+        for (Pair<K, PointerPair> pair : pointerList) {
+            if(tablePointer.equals(pair.value.tablePointer())) result = pair.value.indexPointer();
         }
         return result;
     }

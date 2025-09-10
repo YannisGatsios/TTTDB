@@ -32,7 +32,7 @@ public interface BTree<K extends Comparable<? super K>, V> {
      * @param key Key to search for
      * @return Pair containing key and value, or null if not found
      */
-    List<V> search(K key);
+    List<Pair<K, V>> search(K key);
 
     /**
      * Performs a range search between two keys (inclusive).

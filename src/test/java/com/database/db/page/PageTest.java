@@ -74,7 +74,7 @@ class PageTest {
         Schema schema = new Schema()
             .column("id").type(DataType.INT).endColumn()
             .column("name").type(DataType.CHAR).size(50).endColumn();
-        Database database = new Database("mockDB");
+        Database database = new Database("mockDB",null);
         TableConfig config = new TableConfig("mockTable", schema,null);
         database.createTable(config);
         mockTable = database.getTable("mockTable");

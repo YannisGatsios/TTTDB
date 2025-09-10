@@ -23,6 +23,12 @@ public abstract class Page {
         this.sizeOfEntry = sizeOfEntry;
     }
 
+    public void set(int index, Entry entry){
+        assert index >= 0 && index < numOfEntries;
+        entries[index] = entry;
+        dirty = true;
+    }
+
     // ==========ADDING_ENTRIES==========
     public int add(Entry entry){
         return this.add(this.numOfEntries, entry);

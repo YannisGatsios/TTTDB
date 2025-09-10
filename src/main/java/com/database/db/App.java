@@ -10,6 +10,7 @@ import com.database.db.api.DBMS.*;
 import com.database.db.table.DataType;
 import com.database.db.api.Schema;
 import com.database.db.api.DBMS.Record;
+import com.database.db.api.ForeignKey;
 import com.database.db.api.DBMS;
 import com.database.db.api.UpdateFields;
 import com.database.db.api.Condition.WhereClause;
@@ -69,7 +70,7 @@ public class App {
                 entryData.add(ind%100+18);
                 entryData.add((ind%25)==0 ? null : "_HELLO_");
                 entryData.add(data);
-                InsertQuery query = new InsertQuery("users", new String[]{"username","num","message","data"},entryData.toArray());
+                InsertQuery query = new InsertQuery("users", "username,num,message,data",entryData.toArray());
                 db.insert(query);
                 ind++;
             }
@@ -103,7 +104,7 @@ public class App {
                 ind++;
             }
         }
-        SelectQuery query = new SelectQuery("users",new String[]{"id","username"},null,0,-1);
+        SelectQuery query = new SelectQuery("users","id,username",null,0,-1);
         db.commit();
         List<Record> result = db.select(query);
         //db.dropDatabase();

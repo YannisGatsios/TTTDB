@@ -158,12 +158,6 @@ public class Schema {
             ColumnInner column = cols[i];
             Object value = values[i];
 
-            // Default values
-            if (value == null && column.defaultValue() != null) {
-                values[i] = column.defaultValue();
-                value = values[i];
-            }
-
             // NOT NULL check
             if (column.constraints().contains(Constraint.NOT_NULL) && value == null) {
                 throw new IllegalArgumentException("Column " + column.name() + " cannot be NULL.");
@@ -201,21 +195,6 @@ public class Schema {
                     throw new IllegalArgumentException(
                         "Duplicate value for UNIQUE column " + column.name()
                     );
-                }
-            }
-
-            // AUTO_INCREMENT
-            int columnIndex = this.getColumnIndex(column.name());
-            if (column.constraints().contains(Constraint.AUTO_INCREMENT)) {
-                if (value == null) {
-                    long nextVal = table.nextAutoIncrementValue(columnIndex);
-                    values[i] = nextVal;
-                } else {
-                    long provided = (long) value;
-                    long current = table.getAutoIncrementValue(columnIndex);
-                    if (provided > current) {
-                        table.setAutoIncrementValue(columnIndex, provided);
-                    }
                 }
             }
         }

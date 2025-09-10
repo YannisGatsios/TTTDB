@@ -133,13 +133,28 @@ public class Entry {
         // Fill defaults for null values
         for (int i = 0; i < entry.length; i++) {
             if(schema.getAutoIncrementIndex()[i]){
-                entry[i] = table.nextAutoIncrementValue(i);
+                if (entry[i] == null) {
+                    long nextVal = table.nextAutoIncrementValue(i);
+                    entry[i] = nextVal;
+                } else {
+                    long provided = (long) entry[i];
+                    long current = table.getAutoIncrementValue(i);
+                    if (provided > current) {
+                        table.setAutoIncrementValue(i, provided);
+                    }
+                }
             }
-            if (entry[i] == null) {
+            if (entry[i] == null && !isSetColumn(columnNames, schema, i)) {
                 entry[i] = schema.getDefaults()[i];
             }
         }
         return new Entry(entry, schema.getNumOfColumns()).setBitMap(schema.getNotNull());
+    }
+    private static boolean isSetColumn(String[] columns, SchemaInner schema, int columnIndex){
+        for (String string : columns) {
+            if(schema.getColumnIndex(string) == columnIndex) return true;
+        }
+        return false;
     }
     private static Object[] setEntry(String[] columnNames, Object[] entry, Table table){
         Object[] result = new Object[table.getSchema().getNumOfColumns()];

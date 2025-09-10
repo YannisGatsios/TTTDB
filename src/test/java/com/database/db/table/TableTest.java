@@ -38,7 +38,7 @@ public class TableTest {
         TableConfig tableConf = new TableConfig(tableName, new Schema()
             .column("username").type(DataType.CHAR).size(10).primaryKey().endColumn()
             .column("num").type(DataType.INT).index().endColumn(), null);
-        database = new Database(databaseName);
+        database = new Database(databaseName,null);
         database.setPath(testPath);
         database.createTable(tableConf);
         database.create();
@@ -89,7 +89,7 @@ public class TableTest {
         TableConfig config = new TableConfig("testTable", new Schema()
             .column("username").type(DataType.CHAR).size(10).primaryKey().endColumn()
             .column("num").type(DataType.INT).index().endColumn(), null);
-        Database db = new Database("testDB");
+        Database db = new Database("testDB",null);
         db.setPath(testPath);
         db.createTable(config);
         db.create();

@@ -421,15 +421,15 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
 
     // ==========! SEARCHING !===========
     // Core Operation (see interface docs for details)
-    public List<V> search(K key) {
-        if(key == null && this.isNullable && this.nullPair != null) return this.nullPair.getValues();
+    public List<Pair<K, V>> search(K key) {
+        if(key == null && this.isNullable && this.nullPair != null) return this.nullPair.getAllPairs();
         if(key == null && this.isNullable && this.nullPair == null) return new ArrayList<>();
         Node<K, V> node = this.findNode(key);
         if (node == null)
             return null;
         int idx = Collections.binarySearch(node.pairs, new Pair<>(key, null), keyComparator);
         if (idx >= 0) {
-            return node.pairs.get(idx).getValues();
+            return node.pairs.get(idx).getAllPairs();
         }
         return new ArrayList<>();
     }

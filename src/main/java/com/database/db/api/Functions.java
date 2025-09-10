@@ -28,6 +28,12 @@ public class Functions {
         }
     }
 
+    public record setDefault() implements InnerFunctions{
+        public Object apply(SchemaInner schema, Object[] data,int columnIndex){
+            return Functions.setDefault(schema, columnIndex);
+        }
+    }
+
     // Number based functions
 
     public record operationData(String expression) implements InnerFunctions {
@@ -202,9 +208,13 @@ public class Functions {
 
     private static Object set(SchemaInner schema, Object value, int columnIndex){
         DataType type = schema.getTypes()[columnIndex];
-        if(!type.getJavaClass().isInstance(value))
-            throw new IllegalArgumentException("Type mismatch to set expected: "+type.name());
+        if(value != null && !type.getJavaClass().isInstance(value))
+            throw new IllegalArgumentException("Type mismatch to set expected: " + type.name());
         return value;
+    }
+
+    private static Object setDefault(SchemaInner schema, int columnIndex){
+        return schema.getDefaults()[columnIndex];
     }
 
     private static Number getOperationResult(SchemaInner schema, Object[] data, String expression, int columnIndex){

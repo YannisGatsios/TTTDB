@@ -105,32 +105,36 @@ public class IndexManager {
     }
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> List<Pair<K,PointerPair>> findRangeIndex(K upper, K lower, int columnIndex){
-        if(this.indexes[columnIndex] == null) return this.sequentialRangeSearch(columnIndex);
+        if(this.indexes[columnIndex] == null) return this.sequentialRangeSearch(upper, lower, columnIndex);
         return ((BTreeSerialization<K>) this.indexes[columnIndex]).rangeSearch(upper, lower);
     }
     @SuppressWarnings("unchecked")
-    private <K extends Comparable<? super K>> List<Pair<K,PointerPair>> sequentialRangeSearch(int columnIndex){
-        List<Pair<K,PointerPair>> result = new ArrayList<>();
-        for(int i = 0;i<table.getPages();i++){
-            TablePage page = table.getCache().tableCache.get(i);
-            for(int y = 0;y<page.size();y++){
-                Entry entry = page.get(y);
-                PointerPair value = new PointerPair(new BlockPointer(i,(short)y),null);
-                Pair<K,PointerPair> pair = new Pair<>((K)entry.get(columnIndex),value);
-                result.add(pair);
-            }
-        }
-        return result;
-    }
-    @SuppressWarnings("unchecked")
-    public <K extends Comparable<? super K>> List<PointerPair> findBlock(K key, int columnIndex){
-        if(this.indexes[columnIndex] == null) return null;
+    public <K extends Comparable<? super K>> List<Pair<K, PointerPair>> findBlock(K key, int columnIndex){
+        if(this.indexes[columnIndex] == null) return this.sequentialRangeSearch(key, key, columnIndex);
         return ((BTreeSerialization<K>)this.indexes[columnIndex]).search(key);
     }
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> boolean isKeyFound(K key, int columnIndex){
-        if(this.indexes[columnIndex] == null) return false;
+        if(this.indexes[columnIndex] == null) return this.sequentialRangeSearch(key, key, columnIndex).size()==0?false:true;
         return ((BTreeSerialization<K>)this.indexes[columnIndex]).isKey(key);
+    }
+    @SuppressWarnings("unchecked")
+    private <K extends Comparable<? super K>> List<Pair<K,PointerPair>> sequentialRangeSearch(K upper, K lower, int columnIndex){
+        List<Pair<K,PointerPair>> result = new ArrayList<>();
+        for(int i = 0; i < table.getPages(); i++){
+            TablePage page = table.getCache().tableCache.get(i);
+            for(int y = 0; y < page.size(); y++){
+                Entry entry = page.get(y);
+                K value = (K) entry.get(columnIndex);
+
+                // Filter by range
+                if((lower == null || value.compareTo(lower) >= 0) && (upper == null || value.compareTo(upper) <= 0)){
+                    PointerPair pointer = new PointerPair(new BlockPointer(i, (short)y), null);
+                    result.add(new Pair<>(value, pointer));
+                }
+            }
+        }
+        return result;
     }
 
     @SuppressWarnings("unchecked")
@@ -138,18 +142,10 @@ public class IndexManager {
         for (BTreeSerialization<?> index : this.indexes) {
             if(index == null) continue;
             int columnIndex = index.getColumnIndex();
-            Object key = entry.get(columnIndex);
-            DataType type = schema.getTypes()[columnIndex];
-            Class<?> expectedClass = type.getJavaClass();
-            if(key == null && !index.isNullable()) throw new IllegalArgumentException("Null key not allowed at column " + columnIndex);
-            if(key != null && !expectedClass.isInstance(key)) 
-                throw new IllegalArgumentException(
-                "Invalid secondary key type at column " + columnIndex + 
-                ": expected " + expectedClass.getName() + 
-                ", but got " + key.getClass().getName());
+            K key = this.getValidatedKey(entry, index, columnIndex);
             BlockPointer indexPointer = this.pageManager.insert(tablePointer, key, index.getColumnIndex());
             PointerPair value = new PointerPair(tablePointer,indexPointer);
-            ((BPlusTree<K,PointerPair>) index).insert((K) key, value);
+            ((BPlusTree<K,PointerPair>) index).insert(key, value);
         }
     }
 
@@ -158,16 +154,8 @@ public class IndexManager {
         for (BTreeSerialization<?> index : this.indexes) {
             if(index == null) continue;
             int columnIndex = index.getColumnIndex();
-            Object key = entry.get(columnIndex);
-            DataType type = schema.getTypes()[columnIndex];
-            Class<?> expectedClass = type.getJavaClass();
-            if(key == null && !index.isNullable()) throw new IllegalArgumentException("Null key not allowed at column " + columnIndex);
-            if (key != null && !expectedClass.isInstance(key)) 
-                throw new IllegalArgumentException(
-                "Invalid secondary key type at column " + columnIndex + 
-                ": expected " + expectedClass.getName() + 
-                ", but got " + key.getClass().getName());
-            BlockPointer indexPointer = pageManager.findIndexPointer(index, (K)key, blockPointer);
+            K key = this.getValidatedKey(entry, index, columnIndex);
+            BlockPointer indexPointer = pageManager.findIndexPointer(index, key, blockPointer);
             PointerPair value = new PointerPair(blockPointer, indexPointer);
             RemoveResult result = pageManager.remove(value, index.getColumnIndex());
             ((BTreeSerialization<K>) index).remove((K) key, value);
@@ -200,22 +188,32 @@ public class IndexManager {
         for (BTreeSerialization<?> index : this.indexes) {
             if(index == null) continue;
             int columnIndex = index.getColumnIndex();
-            Object key = entry.get(columnIndex);
-            DataType type = schema.getTypes()[columnIndex];
-            Class<?> expectedClass = type.getJavaClass();
-            if(key == null && !index.isNullable()) throw new IllegalArgumentException("Null key not allowed at column " + columnIndex);
-            if (key != null && !expectedClass.isInstance(key)) 
-                throw new IllegalArgumentException(
-                "Invalid secondary key type at column " + columnIndex + 
-                ": expected " + expectedClass.getName() + 
-                ", but got " + key.getClass().getName());
+            K key = this.getValidatedKey(entry, index, columnIndex);
             BlockPointer indexPointer = pageManager.findIndexPointer(index, (K) key, oldBlockPointer);
             pageManager.update(indexPointer , newBlockPointer, key, columnIndex);
             PointerPair newValue = new PointerPair(newBlockPointer, indexPointer);
             PointerPair oldValue = new PointerPair(oldBlockPointer, indexPointer);
-            if(index.isUnique())((BTreeSerialization<K>) index).update((K) key, newValue);
-            else ((BTreeSerialization<K>) index).update((K) key, newValue, oldValue);
+            if(index.isUnique())((BTreeSerialization<K>) index).update(key, newValue);
+            else ((BTreeSerialization<K>) index).update(key, newValue, oldValue);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private <K extends Comparable<? super K>> K getValidatedKey(Entry entry, BTreeSerialization<?> index, int columnIndex) {
+        Object key = entry.get(columnIndex);
+        DataType type = schema.getTypes()[columnIndex];
+        Class<?> expectedClass = type.getJavaClass();
+        if (key == null && !index.isNullable()) {
+            throw new IllegalArgumentException("Null key not allowed at column " + columnIndex);
+        }
+        if (key != null && !expectedClass.isInstance(key)) {
+            throw new IllegalArgumentException(
+                "Invalid secondary key type at column " + columnIndex +
+                ": expected " + expectedClass.getName() +
+                ", but got " + key.getClass().getName()
+            );
+        }
+        return (K) key;
     }
 
     public BTreeSerialization<?>[] getIndexes(){return this.indexes;}

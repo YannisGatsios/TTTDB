@@ -13,6 +13,7 @@ import java.util.logging.Logger;
 import com.database.db.Database;
 import com.database.db.api.Condition.WhereClause;
 import com.database.db.manager.EntryManager;
+import com.database.db.manager.ForeignKeyManager;
 import com.database.db.page.Entry;
 import com.database.db.table.Table;
 
@@ -39,16 +40,34 @@ public class DBMS {
             }
             throw new IllegalArgumentException("Invalid column name "+columnName);
         }
-        public Object get(int index){
-            return values[index];
-        }
-        public Object[] getAll(){
-            return values;
+        public Object get(int index) { return values[index]; }
+        public Object[] getAll() { return values; }
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder("{");
+            for (int i = 0; i < columnNames.length; i++) {
+                sb.append(columnNames[i]).append("=").append(values[i]);
+                if (i < columnNames.length - 1) sb.append(", ");
+            }
+            sb.append("}");
+            return sb.toString();
         }
     }
 
-    public record SelectQuery(String tableName, String[] resultColumns, WhereClause whereClause, int begin, int limit){}
-    public record InsertQuery(String tableName, String[] columns, Object[] values){}
+    public record SelectQuery(String tableName, String resultColumns, WhereClause whereClause, int begin, int limit){
+        public String[] getColumns(Table table){
+            if(resultColumns == null) return table.getSchema().getNames();
+            if(resultColumns.isBlank()) return new String[0];
+            return resultColumns.split("\\s*,\\s*");
+        }
+    }
+    public record InsertQuery(String tableName, String columns, Object[] values){
+        public String[] getColumns(Table table){
+            if(columns == null) return table.getSchema().getNames();
+            if(columns.isBlank()) return new String[0];
+            return columns.split("\\s*,\\s*");
+        }
+    }
     public record DeleteQuery(String tableName, WhereClause whereClause, int limit){}
     public record UpdateQuery(String tableName, WhereClause whereClause, int limit, UpdateFields updateFields){}
 
@@ -67,9 +86,10 @@ public class DBMS {
         return this;
     }
     public DBMS addDatabase(String databaseName){
-        Database database = new Database(databaseName);
+        Database database = new Database(databaseName, this);
         database.setPath(this.path);
         this.databases.put(databaseName, database);
+        this.selected = database;
         return this;
     }
     public DBMS create(){
@@ -109,21 +129,22 @@ public class DBMS {
         this.entryManager.selectDatabase(selected);
         this.entryManager.selectTable(query.tableName);
         List<Entry> result = this.entryManager.selectEntriesAscending(query.whereClause, query.begin, query.limit);
-        return this.prepareSelectResult(query.resultColumns, result);
+        return this.prepareSelectResult(query.getColumns(entryManager.getTable()), result);
     }
     public List<Record> selectDescending(SelectQuery query){
         if(this.selected == null) throw new IllegalArgumentException("Can not perform select statement when no Database selected.");
         this.entryManager.selectDatabase(selected);
         this.entryManager.selectTable(query.tableName);
         List<Entry> result = this.entryManager.selectEntriesDescending(query.whereClause, query.begin, query.limit);
-        return this.prepareSelectResult(query.resultColumns, result);
+        return this.prepareSelectResult(query.getColumns(entryManager.getTable()), result);
     }
     public void insert(InsertQuery query){
         if(this.selected == null) throw new IllegalArgumentException("Can not perform insert statement when no Database selected.");
         this.entryManager.selectDatabase(selected);
         this.entryManager.selectTable(query.tableName);
-        Entry entry = Entry.prepareEntry(query.columns, query.values, this.selected.getTable(query.tableName));
+        Entry entry = Entry.prepareEntry(query.getColumns(entryManager.getTable()), query.values, this.selected.getTable(query.tableName));
         this.selected.getSchema(query.tableName).isValidEntry(entry, this.entryManager.getTable());
+        ForeignKeyManager.foreignKeyCheck(this, selected, query.tableName, entry);
         this.entryManager.insertEntry(entry);
     }
     public int delete(DeleteQuery query){

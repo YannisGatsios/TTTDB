@@ -13,7 +13,6 @@ public class ForeignKey {
         CASCADE,
         SET_NULL,
         SET_DEFAULT,
-        NO_ACTION
     }
     private final String name;
     private Schema schema;
@@ -136,7 +135,7 @@ public class ForeignKey {
             }
         }
         // Validate type compatibility
-        ColumnInner[] childCols = schema.get(database);
+        ColumnInner[] childCols = schema.getColumns();
         for (int i = 0; i < childColumns.size(); i++) {
             ColumnInner childCol = childCols[schema.getColumnIndex(childColumns.get(i))];
             ColumnInner parentCol = parentCols[parentSchema.getColumnIndex(referenceColumns.get(i))];

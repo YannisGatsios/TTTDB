@@ -10,6 +10,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import com.database.db.Database;
+import com.database.db.Database.TableReference;
 import com.database.db.FileIOThread;
 import com.database.db.api.Condition;
 import com.database.db.api.Condition.*;
@@ -27,18 +28,19 @@ import com.database.db.page.TablePage;
 public class Table {
     private Database database;
     private String tableName;
+    private String path = "";
     private SchemaInner schema;
     private Cache cache;
     private Cache tmpCache;//Used for transactions.
     private IndexManager indexes;
-
-    private int numberOfPages;
-
     private AutoIncrementing[] autoIncrementing;
-
     public CacheCapacity cacheCapacity = new CacheCapacity(2,2);
-    private String path = "";
     private FileIOThread fileIOThread;
+
+    private TableReference parent;
+    private List<TableReference> children = new ArrayList<>();
+    
+    private int numberOfPages;
 
     public Table(Database database, TableConfig config) {
         this.database = database;
@@ -83,7 +85,6 @@ public class Table {
         }
         return result;
     }
-
     private long getMaxSequential(int columnIndex){
         long max = 0;
         for (int i = 0;i<this.numberOfPages;i++){
@@ -96,7 +97,7 @@ public class Table {
         return max;
     }
 
-    public long nextAutoIncrementValue(int columnIndex){
+    public AutoIncrementing getAutoIncrementing(int columnIndex){
         if (columnIndex < 0 || columnIndex >= autoIncrementing.length) {
             throw new IllegalArgumentException("Invalid column index: " + columnIndex);
         }
@@ -104,28 +105,16 @@ public class Table {
         if (result == null) {
             throw new IllegalStateException("Column " + columnIndex + " is not auto-incrementing.");
         }
-        return result.getNextKey();
+        return result;
     }
-
+    public long nextAutoIncrementValue(int columnIndex){
+        return this.getAutoIncrementing(columnIndex).getNextKey();
+    }
     public long getAutoIncrementValue(int columnIndex){
-        if (columnIndex < 0 || columnIndex >= autoIncrementing.length) {
-            throw new IllegalArgumentException("Invalid column index: " + columnIndex);
-        }
-        AutoIncrementing result = autoIncrementing[columnIndex];
-        if (result == null) {
-            throw new IllegalStateException("Column " + columnIndex + " is not auto-incrementing.");
-        }
-        return result.getKey();
+        return this.getAutoIncrementing(columnIndex).getKey();
     }
     public void setAutoIncrementValue(int columnIndex, long value){
-        if (columnIndex < 0 || columnIndex >= autoIncrementing.length) {
-            throw new IllegalArgumentException("Invalid column index: " + columnIndex);
-        }
-        AutoIncrementing result = autoIncrementing[columnIndex];
-        if (result == null) {
-            throw new IllegalStateException("Column " + columnIndex + " is not auto-incrementing.");
-        }
-        result.setNextKey(value);;
+        this.getAutoIncrementing(columnIndex).setNextKey(value);;
     }
 
     public void startTransaction(){
@@ -165,16 +154,13 @@ public class Table {
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> List<IndexRecord<K>> findRangeIndex(WhereClause whereClause) {
         if (whereClause == null) return this.noCondition();
-        
         Object start = null;
         Object end   = null;
         List<Map.Entry<Clause, Condition<WhereClause>>> clauses = whereClause.getConditions();
         List<IndexRecord<K>> previousPairList = new ArrayList<>();
-        
         for (Map.Entry<Clause, Condition<WhereClause>> conditionEntry : clauses) {
             Condition<WhereClause> condition = conditionEntry.getValue();
             EnumMap<Conditions, Object> conditionList = condition.getConditions();
-
             if (conditionList.containsKey(Conditions.IS_BIGGER)) 
                 start = conditionList.get(Conditions.IS_BIGGER);
             if (conditionList.containsKey(Conditions.IS_SMALLER)) 
@@ -183,26 +169,21 @@ public class Table {
                 start = conditionList.get(Conditions.IS_BIGGER_OR_EQUAL);
             if (conditionList.containsKey(Conditions.IS_SMALLER_OR_EQUAL)) 
                 end = conditionList.get(Conditions.IS_SMALLER_OR_EQUAL);
-
             if (!conditionList.containsKey(Conditions.IS_BIGGER) &&
                 !conditionList.containsKey(Conditions.IS_SMALLER) &&
                 !conditionList.containsKey(Conditions.IS_BIGGER_OR_EQUAL) &&
                 !conditionList.containsKey(Conditions.IS_SMALLER_OR_EQUAL) &&
                 conditionList.containsKey(Conditions.IS_EQUAL)) {
-                
                 start = conditionList.get(Conditions.IS_EQUAL);
                 end   = conditionList.get(Conditions.IS_EQUAL);
             }
-
             int columnIndex = this.schema.getColumnIndex(condition.getColumnName());
             List<Pair<K, PointerPair>> indexResult = this.indexes.findRangeIndex((K) start, (K) end, columnIndex);
-
             List<IndexRecord<K>> resultInner = new ArrayList<>();
             for (Pair<K, PointerPair> pair : indexResult) {
                 if (!condition.isApplicable(pair.key)) continue;
                 resultInner.add(new IndexRecord<K>(pair.key, pair.value, columnIndex));
             }
-
             switch (conditionEntry.getKey()) {
                 case FIRST:
                     previousPairList = resultInner;
@@ -255,7 +236,7 @@ public class Table {
         return this.indexes.isKeyFound((K)key, columnIndex);
     }
     @SuppressWarnings("unchecked")
-    public <K extends Comparable<? super K>> List<PointerPair> searchIndex(Object key, int columnIndex){
+    public <K extends Comparable<? super K>> List<Pair<K, PointerPair>> searchIndex(Object key, int columnIndex){
         return this.indexes.findBlock((K)key, columnIndex);
     }
     public void insertIndex(Entry entry, BlockPointer blockPointer){
@@ -268,18 +249,23 @@ public class Table {
         this.indexes.updateIndex(entry, newValue, oldValue);
     }
 
-    public String getDatabaseName(){return database.getName();}
-    public String getName(){return this.tableName;}
-    public SchemaInner getSchema(){return this.schema;}
-    public Cache getCache(){return this.cache;}
-    public FileIOThread getFileIOThread() {return this.fileIOThread;}
-    public IndexManager getIndexManager(){return this.indexes;}
+    public String getDatabaseName() { return database.getName(); }
+    public String getName() { return this.tableName; }
+    public SchemaInner getSchema() { return this.schema; }
+    public Cache getCache() { return this.cache; }
+    public FileIOThread getFileIOThread() { return this.fileIOThread; }
+    public IndexManager getIndexManager() { return this.indexes; }
+
+    public void addParent(TableReference parent) { this.parent = parent; }
+    public TableReference getParent() { return this.parent; }
+    public void addChild(TableReference child) { this.children.add(child); }
+    public List<TableReference> getChildren() { return this.children; }
 
     //Get Index and Table file paths for this Table. 
-    public String getPath(){return this.path+database.getName()+"."+this.getName()+".table";}
-    public String getIndexPath(int columnIndex){return this.path+database.getName()+"."+this.getName()+"."+this.schema.getNames()[columnIndex]+".index";}
+    public String getPath() { return this.path+database.getName()+"."+this.getName()+".table"; }
+    public String getIndexPath(int columnIndex) { return this.path+database.getName()+"."+this.getName()+"."+this.schema.getNames()[columnIndex]+".index"; }
 
-    public int getPages(){return this.numberOfPages;}
-    public void addOnePage(){this.numberOfPages++;}
-    public void removeOnePage(){this.numberOfPages--;}
+    public int getPages() { return this.numberOfPages; }
+    public void addOnePage() { this.numberOfPages++; }
+    public void removeOnePage() { this.numberOfPages--; }
 }

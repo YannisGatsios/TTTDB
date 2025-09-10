@@ -1,6 +1,7 @@
 package com.database.db.manager;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -123,7 +124,13 @@ public class EntryManager {
         int deletedCount = 0;
         for (IndexRecord<K> value : indexResult) {
             if(!deleteAll && deletedCount>=limit)return deletedCount;
-            PointerPair pointer = table.searchIndex(value.key(), value.columnIndex()).get(0);
+            PointerPair pointer = table.searchIndex(value.key(), value.columnIndex()).get(0).value;
+            Entry entryToDelete = table.getCache().tableCache
+                    .get(pointer.tablePointer().BlockID())
+                    .get(pointer.tablePointer().RowOffset());
+            boolean allowed = ForeignKeyManager.foreignKeyDeletion(this, table, entryToDelete);
+            if (!allowed) 
+                throw new IllegalStateException("Foreign key RESTRICT violation on delete.");
             TablePage page = this.deletionProcess(pointer.tablePointer());
             if(page == null) continue;
             deletedCount++;
@@ -200,20 +207,28 @@ public class EntryManager {
         }
         return result;
     }
-    private void updateProcess(TablePage page, BlockPointer tablePointer,  List<InnerFunctions> updates) {
-        BlockPointer oldBlockPointer = new BlockPointer(page.getPageID(), (short)(page.size()-1));
-        Entry removed = page.remove(tablePointer.RowOffset());
-        table.removeIndex(removed, tablePointer);
-        if(tablePointer.RowOffset() != page.size())
-            table.updateIndex(page.get(tablePointer.RowOffset()), tablePointer, oldBlockPointer);
-        Object[] values = removed.getEntry();
-        this.applyUpdates(values, updates);
-        Entry updatedEntry = new Entry(values,this.schema.getNumOfColumns())
+    private void updateProcess(TablePage page, BlockPointer tablePointer, List<InnerFunctions> updates) {
+        Entry oldEntry = page.get(tablePointer.RowOffset());
+        table.removeIndex(oldEntry, tablePointer);
+        Entry newEntry;
+        try{
+            newEntry = this.newEntry(page, oldEntry, tablePointer, updates);
+        }catch(Exception e){
+            table.insertIndex(oldEntry, tablePointer);
+            throw e;
+        }
+        page.set(tablePointer.RowOffset(),newEntry);
+        table.insertIndex(newEntry, tablePointer);
+    }
+    private Entry newEntry(TablePage page, Entry oldEntry, BlockPointer pointer, List<InnerFunctions> updates){
+        Object[] newValues = Arrays.copyOf(oldEntry.getEntry(), oldEntry.getEntry().length);
+        this.applyUpdates(newValues, updates);
+        Entry newEntry = new Entry(newValues,this.schema.getNumOfColumns())
             .setBitMap(this.table.getSchema().getNotNull());
-        database.getSchema(table.getName()).isValidEntry(updatedEntry, table);
-        page.add(updatedEntry);
-        BlockPointer newPointer = new BlockPointer(page.getPageID(),(short)(page.size()-1));
-        table.insertIndex(updatedEntry, newPointer);
+        database.getSchema(table.getName()).isValidEntry(newEntry, table);
+        ForeignKeyManager.foreignKeyCheck(database.getDBMS(), database, table.getName(), newEntry);
+        ForeignKeyManager.foreignKeyUpdate(this, table, oldEntry, newValues);
+        return newEntry;
     }
     private void applyUpdates(Object[] values, List<InnerFunctions> updates){
         int columnsIndex = -1;
