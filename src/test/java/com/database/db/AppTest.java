@@ -35,14 +35,6 @@ public class AppTest {
         db = new DBMS("test_database", "");
     }
 
-    @AfterAll
-    void teardown() {
-        if (db != null) {
-            db.dropDatabase();
-            db.close();
-        }
-    }
-
     @Test
     @Order(1)
     void testRandomInsertUpdateDelete() throws Exception {
@@ -59,7 +51,7 @@ public class AppTest {
             .endCheck();
 
         TableConfig tableConf = new TableConfig("users", schema, new CacheCapacity(0,0));
-        db.addTable(tableConf).create().selectDatabase("test_database");
+        db.addTable(tableConf).create();
 
         Random random = new Random(); 
         ArrayList<String> keysList = new ArrayList<>(400);
@@ -126,6 +118,8 @@ public class AppTest {
         SelectQuery query = new SelectQuery("users","id,username",null,0,-1);
         List<Record> result = db.select(query);
         Assertions.assertFalse(result.isEmpty(), "Users table should not be empty after insert/update/delete.");
+        db.dropDatabase();
+        db.close();
     }
 
     @Test
@@ -223,5 +217,7 @@ public class AppTest {
         List<Record> remainingUsers = db.select(new SelectQuery("users", "username,age", null, 0, -1));
         Assertions.assertTrue(remainingUsers.stream().anyMatch(r -> r.get("username").equals("DefaultUser")),
             "DefaultUser should exist after SET_DEFAULT action");
+        db.dropDatabase();
+        db.close();
     }
 }

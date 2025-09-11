@@ -32,7 +32,6 @@ public class DBMS {
 
     public record TableConfig(String tableName, Schema schema, CacheCapacity cacheCapacity){}
     public record CacheCapacity(int tableCapacity, int indexCapacity){}
-
     public record Record(String[] columnNames, Object[] values){
         public Object get(String columnName){
             for (int i =0;i<columnNames.length;i++) {

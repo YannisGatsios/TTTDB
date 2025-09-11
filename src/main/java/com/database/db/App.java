@@ -10,7 +10,6 @@ import com.database.db.api.DBMS.*;
 import com.database.db.table.DataType;
 import com.database.db.api.Schema;
 import com.database.db.api.DBMS.Record;
-import com.database.db.api.ForeignKey;
 import com.database.db.api.DBMS;
 import com.database.db.api.UpdateFields;
 import com.database.db.api.Condition.WhereClause;

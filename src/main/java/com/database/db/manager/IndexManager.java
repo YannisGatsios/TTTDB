@@ -12,10 +12,8 @@ import com.database.db.index.Pair;
 import com.database.db.index.PrimaryKey;
 import com.database.db.index.BTreeSerialization.BlockPointer;
 import com.database.db.index.BTreeSerialization.PointerPair;
-import com.database.db.manager.IndexPageManager.RemoveResult;
 import com.database.db.page.Entry;
 import com.database.db.page.IndexPage;
-import com.database.db.page.Page;
 import com.database.db.page.TablePage;
 import com.database.db.table.SchemaInner;
 import com.database.db.table.Table;
@@ -157,29 +155,8 @@ public class IndexManager {
             K key = this.getValidatedKey(entry, index, columnIndex);
             BlockPointer indexPointer = pageManager.findIndexPointer(index, key, blockPointer);
             PointerPair value = new PointerPair(blockPointer, indexPointer);
-            RemoveResult result = pageManager.remove(value, index.getColumnIndex());
+            pageManager.remove(index, value, index.getColumnIndex());
             ((BTreeSerialization<K>) index).remove((K) key, value);
-            if (result.swappedEntry() != null && result.previousPosition() != indexPointer.RowOffset()) {
-                Entry swapped = result.swappedEntry();
-                K keyOfSwapped = (K) swapped.get(1);
-                PointerPair oldValue = new PointerPair(
-                    (BlockPointer) swapped.get(0),
-                    new BlockPointer(value.indexPointer().BlockID(), result.previousPosition())
-                );
-                PointerPair newValue = new PointerPair((BlockPointer) swapped.get(0), indexPointer);
-                if (index.isUnique()) ((BTreeSerialization<K>) index).update(keyOfSwapped, newValue);
-                else ((BTreeSerialization<K>) index).update(keyOfSwapped, newValue, oldValue);
-            }
-            if(result.replacedEntry() != null){
-                K keyOfReplaced = (K)result.replacedEntry().get(1);
-                short pageCapacity = Page.getPageCapacity(IndexPage.sizeOfEntry(table, columnIndex));
-                PointerPair newValue = new  PointerPair((BlockPointer)result.replacedEntry().get(0),
-                    new BlockPointer(value.indexPointer().BlockID(),(short)(pageCapacity-1)));
-                PointerPair oldValue = new PointerPair((BlockPointer)result.replacedEntry().get(0),
-                    result.lastEntryPointer());
-                if(index.isUnique()) ((BTreeSerialization<K>) index).update( keyOfReplaced, newValue);
-                else ((BTreeSerialization<K>) index).update( keyOfReplaced, newValue, oldValue);
-            }
         }
     }
 

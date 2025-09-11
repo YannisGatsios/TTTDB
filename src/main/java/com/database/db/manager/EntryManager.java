@@ -13,7 +13,6 @@ import com.database.db.api.Functions.endConditionalUpdate;
 import com.database.db.api.Functions.selectColumn;
 import com.database.db.api.UpdateFields;
 import com.database.db.index.BTreeSerialization.BlockPointer;
-import com.database.db.index.BTreeSerialization.PointerPair;
 import com.database.db.page.Entry;
 import com.database.db.page.TablePage;
 import com.database.db.table.SchemaInner;
@@ -124,54 +123,71 @@ public class EntryManager {
         int deletedCount = 0;
         for (IndexRecord<K> value : indexResult) {
             if(!deleteAll && deletedCount>=limit)return deletedCount;
-            PointerPair pointer = table.searchIndex(value.key(), value.columnIndex()).get(0).value;
+            BlockPointer pointer = table.searchIndex(value.key(), value.columnIndex()).get(0).value.tablePointer();
             Entry entryToDelete = table.getCache().tableCache
-                    .get(pointer.tablePointer().BlockID())
-                    .get(pointer.tablePointer().RowOffset());
+                    .get(pointer.BlockID())
+                    .get(pointer.RowOffset());
             boolean allowed = ForeignKeyManager.foreignKeyDeletion(this, table, entryToDelete);
             if (!allowed) 
                 throw new IllegalStateException("Foreign key RESTRICT violation on delete.");
-            TablePage page = this.deletionProcess(pointer.tablePointer());
-            if(page == null) continue;
+            TablePage page = deletionProcess(pointer);
             deletedCount++;
-            if (page.isLastPage()) {
-                if (page.size() == 0) 
-                    table.getCache().tableCache.deleteLastPage(page);
-                else
-                    table.getCache().tableCache.put(page);
+            if (page.isLastPage() && page.size() == 0) {
+                table.getCache().tableCache.deleteLastPage(page);
                 continue;
             }
-            this.replaceLastEntry(page);
+            // --- Handle replacements ---
+            this.replaceWithLast(page, pointer);
+            table.getCache().tableCache.put(page);
         }
         return deletedCount;
     }
-    private TablePage deletionProcess(BlockPointer blockPointer) {
-        TablePage page = table.getCache().tableCache.get(blockPointer.BlockID());
-        if(page == null) return null;
-        Entry removed = page.remove(blockPointer.RowOffset());
-        table.removeIndex(removed, blockPointer);
-        if(blockPointer.RowOffset() != page.size()){
-            Entry swapped = page.get(blockPointer.RowOffset());//On removal last entry gets the place of the removed one
-            BlockPointer oldValue = new BlockPointer(page.getPageID(), page.size());
-            table.updateIndex(swapped, blockPointer, oldValue);
+    private TablePage deletionProcess(BlockPointer pointer){
+        TablePage page = table.getCache().tableCache.get(pointer.BlockID());
+        // --- Remove entry + indexes ---
+        Entry removed = page.get(pointer.RowOffset());
+        table.removeIndex(removed, pointer);
+        page.remove(pointer.RowOffset());
+        // Reverse internal swap if not last page
+        if (!page.isLastPage() && pointer.RowOffset() != page.size()) {
+            page.swap(pointer.RowOffset(), page.size());
         }
         return page;
     }
-    private void replaceLastEntry(TablePage page){
-        TablePage lastPage = table.getCache().tableCache.getLast();
-        Entry lastEntry = lastPage.removeLast();
-        page.add(lastEntry);
-        BlockPointer oldPointer = new BlockPointer(lastPage.getPageID(), lastPage.size());
-        BlockPointer newPointer = new BlockPointer(page.getPageID(),(short)(page.size()-1));
-        table.updateIndex(lastEntry, newPointer, oldPointer);
-        table.getCache().tableCache.put(page);
-        if (lastPage.size() == 0) {
-            table.getCache().tableCache.deleteLastPage(lastPage);
-        }else{
-            table.getCache().tableCache.put(lastPage);
+    private void replaceWithLast(TablePage page, BlockPointer pointer){
+    if (page.isLastPage()) {
+            // Case A: deleted from middle of last page -> update swapped entry
+            if (pointer.RowOffset() != page.size()) {
+                Entry moved = page.get(pointer.RowOffset());
+
+                // old location was last slot BEFORE removal
+                BlockPointer oldValue = new BlockPointer(page.getPageID(), (short) page.size());
+
+                table.updateIndex(moved, pointer, oldValue);
+            }
+        } else {
+            // Case B: deleted from non-last page -> move last entry of last page here
+            TablePage lastPage = table.getCache().tableCache.getLast();
+            int lastOffset = lastPage.size() - 1;
+            Entry lastEntry = lastPage.get(lastOffset);
+            BlockPointer oldPointer = new BlockPointer(lastPage.getPageID(), (short) lastOffset);
+
+            lastPage.removeLast();
+
+            // ✅ overwrite freed slot directly (your add does NOT shift)
+            page.add(pointer.RowOffset(), lastEntry);
+
+            // update index mapping for lastEntry
+            table.updateIndex(lastEntry, pointer, oldPointer);
+
+            // save changes
+            if (lastPage.size() == 0) {
+                table.getCache().tableCache.deleteLastPage(lastPage);
+            } else {
+                table.getCache().tableCache.put(lastPage);
+            }
         }
     }
-
     //==UPDATING==
     /**
      * Updates entries in the table that fall within a specified range on a given column.

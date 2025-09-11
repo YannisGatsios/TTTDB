@@ -49,9 +49,7 @@ public abstract class Page {
         if (index >= this.numOfEntries || index < 0)
             throw new IllegalArgumentException("Out of bounds Index you gave: " + index+" Maximum: "+this.numOfEntries);
         Entry result = this.entries[index];
-        if(result == null)
-            throw new IllegalArgumentException("Null Entry to remove for Index: "+index+" Maximum: "+this.numOfEntries);
-        this.swapWithLast(index);
+        this.swap(index,numOfEntries-1);
         this.entries[this.numOfEntries-1] = null;
         this.spaceInUse -= this.sizeOfEntry;
         this.numOfEntries--;
@@ -61,10 +59,10 @@ public abstract class Page {
     public Entry removeLast(){
         return this.remove(this.numOfEntries-1);
     }
-    public void swapWithLast(int index){
-        Entry result = this.entries[this.numOfEntries-1];
-        this.entries[this.numOfEntries-1] = this.entries[index];
-        this.entries[index] = result;
+    public void swap(int from, int to){
+        Entry result = this.entries[to];
+        this.entries[to] = this.entries[from];
+        this.entries[from] = result;
     }
 
     // ===========SEARCHING_ENTRIES===============

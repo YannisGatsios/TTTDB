@@ -45,43 +45,59 @@ public class IndexPageManager {
         this.cache[columnIndex].put(page);
         return new BlockPointer(page.getPageID(), (short)(page.size()-1));
     }
-    public record RemoveResult(Entry swappedEntry, short previousPosition, Entry replacedEntry, BlockPointer lastEntryPointer){}
-    public RemoveResult remove(PointerPair pairPointer, int columnIndex){
-        IndexPage page = this.cache[columnIndex].get(pairPointer.indexPointer().BlockID());
 
-        int removedPos = pairPointer.indexPointer().RowOffset();
-        Entry removedEntry = page.remove(removedPos);
-
-        if (!removedEntry.get(0).equals(pairPointer.tablePointer()))
-            throw new IllegalArgumentException("Mismatching table pointer from removed index entry");
-        Entry swappedEntry = null;
-        short previousPosition = -1;
-
-        if (removedPos < page.size()) {
-            swappedEntry = page.get(removedPos);
-            previousPosition = page.size();
+    public <K extends Comparable<? super K>> void remove(BTreeSerialization<K> index, PointerPair pointerPair, int columnIndex){
+        BlockPointer indexPointer = pointerPair.indexPointer();
+        IndexPage page = this.removalProcess(pointerPair, columnIndex);
+        if (page.isLastPage() && page.size() == 1) {
+            page.remove(indexPointer.RowOffset());
+            this.cache[columnIndex].deleteLastPage(page);
+            return;
         }
-
-        Entry replacedEntry = null;
-        BlockPointer lastEntryPointer = null;
-        if (!page.isLastPage()) {
+        this.replaceWithLast(index, page, indexPointer, columnIndex);
+        this.cache[columnIndex].put(page);
+    }
+    private IndexPage removalProcess(PointerPair pointerPair, int columnIndex){
+        BlockPointer indexPointer = pointerPair.indexPointer();
+        IndexPage page = this.cache[columnIndex].get(pointerPair.indexPointer().BlockID());
+        Entry removedEntry = page.get(indexPointer.RowOffset());
+        page.set(indexPointer.RowOffset(), null);
+        if (!removedEntry.get(0).equals(pointerPair.tablePointer()))
+            throw new IllegalArgumentException("Mismatching table pointer from removed index entry");
+        return page;
+    }
+    @SuppressWarnings("unchecked")
+    private <K extends Comparable<? super K>> void replaceWithLast(BTreeSerialization<K> index, IndexPage page, BlockPointer indexPointer, int columnIndex){
+        if(page.isLastPage()){
+            page.remove(indexPointer.RowOffset());
+            if(indexPointer.RowOffset() != page.size()){
+                Entry swapped = page.get(indexPointer.RowOffset());
+                BlockPointer oldPointer = new BlockPointer(page.getPageID(),page.size());
+                PointerPair oldPair = new PointerPair((BlockPointer)swapped.get(0), oldPointer);
+                PointerPair newPair = new PointerPair((BlockPointer)swapped.get(0), indexPointer);
+                if(index.isUnique())index.update((K)swapped.get(1), newPair);
+                else index.update((K)swapped.get(1), newPair, oldPair);
+            }
+        }else{
             IndexPage lastPage = this.cache[columnIndex].getLast();
-            lastEntryPointer = new BlockPointer(lastPage.getPageID(), (short)(lastPage.size()-1));
-            replacedEntry = lastPage.removeLast();
-            page.add(replacedEntry);
-            this.cache[columnIndex].put(lastPage);
+            int lastOffset = lastPage.size() - 1;
+            Entry lastEntry = lastPage.get(lastOffset);
+            BlockPointer oldPointer = new BlockPointer(lastPage.getPageID(), (short)lastOffset);
+            PointerPair oldPair = new PointerPair((BlockPointer)lastEntry.get(0), oldPointer);
 
-            if (lastPage.size() == 0) {
+            lastPage.removeLast();
+
+            page.set(indexPointer.RowOffset(), lastEntry);
+            PointerPair newPair = new PointerPair((BlockPointer) lastEntry.get(0), 
+                                      new BlockPointer(page.getPageID(), (short) indexPointer.RowOffset()));
+            if(index.isUnique())index.update((K)lastEntry.get(1), newPair);
+            else index.update((K)lastEntry.get(1), newPair, oldPair);
+            if(lastPage.size() == 0){
                 this.cache[columnIndex].deleteLastPage(lastPage);
+            }else{
+                this.cache[columnIndex].put(lastPage);
             }
         }
-
-        this.cache[columnIndex].put(page);
-
-        if (page.size() == 0) {
-            this.cache[columnIndex].deleteLastPage(page);
-        }
-        return new RemoveResult(swappedEntry, previousPosition, replacedEntry, lastEntryPointer);
     }
     public void update(BlockPointer IndexPointer, BlockPointer newPointer, Object newValue, int columnIndex){
         if (IndexPointer == null) throw new IllegalArgumentException("IndexPointer is null");
