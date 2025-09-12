@@ -1,10 +1,11 @@
 package com.database.db.page;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -17,25 +18,25 @@ public class TableCache {
 
     private final FileIO fileIO;
     private final Table table;
+    private int truncationCount = 0;
+    private final Set<Integer> deletedPages = ConcurrentHashMap.newKeySet();
 
     // LRU cache using LinkedHashMap
     private final Map<Integer, TablePage> cache;
 
+    private int capacity;
+
     public TableCache(Table table, int capacity, FileIO fileIO){
         this.fileIO = fileIO;
         this.table = table;
+        this.capacity = capacity;
         if(capacity == -1) this.cache = new HashMap<>();
         else{
             this.cache = new LinkedHashMap<>(capacity, 0.75f, true) {
                 @Override
                 protected boolean removeEldestEntry(Map.Entry<Integer, TablePage> eldest) {
                     if (size() > capacity) {
-                        try {
-                            writePage(eldest.getValue());
-                        } catch (IOException e) {
-                            logger.log(Level.SEVERE, String.format("Failed to evict page ID %d from table '%s'.", eldest.getKey(), table.getName()), e);
-                            throw new RuntimeException("Eviction failed for page ID: " + eldest.getKey(), e);
-                        }
+                        writePage(eldest.getValue());
                         return true;
                     }
                     return false;
@@ -45,7 +46,7 @@ public class TableCache {
     }
 
     /** Write the given page to disk if needed and remove it from cache. */
-    public void writePage(TablePage page) throws IOException {
+    public void writePage(TablePage page){
         if (page.isDirty()) {
             fileIO.writePage(table.getPath(), page.toBytes(), page.getPagePos());
         }
@@ -57,14 +58,11 @@ public class TableCache {
         for (Map.Entry<Integer, TablePage> entry : sortedCache.entrySet()) {
             TablePage page = entry.getValue();
             if (page.isDirty()) {
-                try {
-                    fileIO.writePage(table.getPath(), page.toBytes(), page.getPagePos());
-                } catch (IOException e) {
-                    logger.log(Level.WARNING, String.format("Failed to write page ID %d to disk for table '%s'.", entry.getKey(), table.getName()), e);
-                }
+                fileIO.writePage(table.getPath(), page.toBytes(), page.getPagePos());
             }
         }
         this.cache.clear();
+        if(truncationCount > 0) truncate();
         logger.info(String.format("Cache flushed and cleared for table '%s'.", table.getName()));
     }
 
@@ -75,6 +73,12 @@ public class TableCache {
     /** Load a page into cache, evicting LRU if necessary. */
     public TablePage loadPage(int pageID) {
         TablePage newPage = new TablePage(pageID, table);
+        if(deletedPages.contains(pageID)){
+            deletedPages.remove(pageID);
+            cache.put(pageID, newPage);
+            if(truncationCount > 0)truncationCount--;
+            return newPage;
+        }
         try {
             byte[] pageBuffer = fileIO.readPage(table.getPath(), newPage.getPagePos(),newPage.sizeInBytes());
             if(pageBuffer != null) newPage.fromBytes(pageBuffer);
@@ -115,15 +119,22 @@ public class TableCache {
 
     public void deleteLastPage(TablePage page) {
         this.cache.remove(page.getPageID());
-        FileIO fileIO = new FileIO(table.getFileIOThread());
+        deletedPages.add(page.getPageID());
+        table.removeOnePage();
+        truncationCount++;
+        if(capacity<0)return;
+        if(truncationCount >= capacity) truncate();
+    }
+    private void truncate(){
+        if (truncationCount == 0) return;
         try {
-            fileIO.truncateFile(table.getPath(), page.sizeInBytes());
+            fileIO.truncateFile(table.getPath(), truncationCount*Page.pageSizeInBytes(TablePage.sizeOfEntry(table)));
+            truncationCount = 0;
         } catch (ExecutionException e) {
             logger.log(Level.SEVERE, "ExecutionException while truncating file for removing last page.", e);
         } catch (InterruptedException e) {
             logger.log(Level.SEVERE, "InterruptedException while truncating file for removing last page.", e);
             Thread.currentThread().interrupt(); // good practice to reset interrupt status
         }
-        table.removeOnePage();
     }
 }

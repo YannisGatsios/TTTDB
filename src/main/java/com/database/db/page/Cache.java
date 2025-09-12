@@ -5,7 +5,6 @@ import com.database.db.api.DBMS.CacheCapacity;
 import com.database.db.table.Table;
 
 public class Cache {
-
     private final Table table;
     private final FileIO fileIO;
     private final CacheCapacity capacity;

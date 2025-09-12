@@ -28,19 +28,14 @@ public class IndexPage extends Page{
     }
 
     public byte[] toBytes() {
-        ByteBuffer headBuffer = Page.headerToBytes(this);
+        ByteBuffer combinedArray = ByteBuffer.allocate(this.sizeInBytes());
+        Page.headerToBytes(this, combinedArray);
         // Add entries
-        ByteBuffer bodyBuffer = ByteBuffer.allocate(this.sizeOfEntries());
         Entry[] entryList = this.getAll();
         for (int i = 0;i<this.size();i++) {
             Entry entry = entryList[i];
-            bodyBuffer.put(entry.toBytes(table, columnIndex));
+            combinedArray.put(entry.toBytes(table, columnIndex));
         }
-        bodyBuffer.flip();
-        // Get the remaining bytes from buffer1 and buffer2 into the combinedArray
-        ByteBuffer combinedArray = ByteBuffer.allocate(this.sizeInBytes());
-        combinedArray.put(headBuffer.array());
-        combinedArray.put(bodyBuffer.array());
         combinedArray.flip();
         // Return the underlying byte array
         return combinedArray.array();

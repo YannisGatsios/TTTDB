@@ -185,6 +185,7 @@ public class EntryManagerTest {
         database.commit();
         ind = 0;
         CRUD.deleteEntry(null, -1);
+        database.commit();
     }
 
     @AfterAll

@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -18,14 +20,18 @@ public class IndexCache {
     private final FileIO fileIO;
     private final Table table;
     private final int columnIndex;
-
+    private int truncationCount = 0;
+    private int capacity;
+    
     // LRU cache using LinkedHashMap
     private final Map<Integer, IndexPage> cache;
+    private final Set<Integer> deletedPages = ConcurrentHashMap.newKeySet();
 
     public IndexCache(Table table, int capacity, FileIO fileIO, int columnIndex){
         this.fileIO = fileIO;
         this.table = table;
         this.columnIndex = columnIndex;
+        this.capacity = capacity;
         if(capacity == -1) this.cache = new HashMap<>();
         else{
             this.cache = new LinkedHashMap<>(capacity, 0.75f, true) {
@@ -66,12 +72,20 @@ public class IndexCache {
             }
         }
         this.cache.clear();
+        if(truncationCount > 0) truncate();
+        truncationCount=0;
         logger.info(String.format("Cache flushed and cleared for table '%s'.", table.getName()));
     }
 
     /** Load a page into cache, evicting LRU if necessary. */
     public IndexPage loadPage(int pageID) {
         IndexPage newPage = new IndexPage(pageID, table, columnIndex);
+        if(deletedPages.contains(pageID)){
+            deletedPages.remove(pageID);
+            cache.put(pageID, newPage);
+            if(truncationCount > 0)truncationCount--;
+            return newPage;
+        }
         try {
             byte[] pageBuffer = fileIO.readPage(table.getIndexPath(columnIndex), newPage.getPagePos(),newPage.sizeInBytes());
             if(pageBuffer != null) newPage.fromBytes(pageBuffer);
@@ -112,15 +126,22 @@ public class IndexCache {
 
     public void deleteLastPage(IndexPage page) {
         this.cache.remove(page.getPageID());
-        FileIO fileIO = new FileIO(table.getFileIOThread());
+        deletedPages.add(page.getPageID());
+        table.getIndexManager().removeOnePage(columnIndex);
+        truncationCount++;
+        if(capacity<0)return;
+        if(truncationCount >= capacity) truncate();
+    }
+    private void truncate(){
+        if (truncationCount == 0) return;
         try {
-            fileIO.truncateFile(table.getIndexPath(columnIndex), page.sizeInBytes());
+            fileIO.truncateFile(table.getIndexPath(columnIndex), truncationCount*Page.pageSizeInBytes(IndexPage.sizeOfEntry(table,columnIndex)));
+            truncationCount = 0;
         } catch (ExecutionException e) {
             logger.log(Level.SEVERE, "ExecutionException while truncating file for removing last page.", e);
         } catch (InterruptedException e) {
             logger.log(Level.SEVERE, "InterruptedException while truncating file for removing last page.", e);
-            Thread.currentThread().interrupt(); // good practice to reset interrupt status
+            Thread.currentThread().interrupt();
         }
-        table.getIndexManager().removeOnePage(columnIndex);
     }
 }

@@ -98,16 +98,13 @@ public abstract class Page {
                 "\n\tSpace in Use :            [ " + this.spaceInUse + "/" + this.sizeOfEntries() + " ]";
     }
 
-    public static ByteBuffer headerToBytes(Page page){
-        ByteBuffer buffer = ByteBuffer.allocate(page.sizeOfHeader());
+    public static void headerToBytes(Page page, ByteBuffer buffer){
         // Add primitive fields
         buffer.putInt(page.getPageID()); // Serialize pageID as 4 bytes (int)
         buffer.putShort(page.size()); // Serialize numOfEntries as 2 bytes (short)
         buffer.putInt(page.getSpaceInUse()); // Serialize spaceInUse as 4 bytes (int)
-        buffer.flip();
-        return buffer;
     }
-    public record HeaderValues(int numOfEntries, int spaceInUse){}
+    public record HeaderValues(short numOfEntries, int spaceInUse){}
     public static HeaderValues headerFromBytes(ByteBuffer buffer, Page page){
         int pageID = buffer.getInt();
         page.setPageID(pageID);

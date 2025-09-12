@@ -81,23 +81,15 @@ public class FileIO {
     public void truncateFile(String path, int pageSize) throws ExecutionException, InterruptedException {
         if (pageSize <= 0 || pageSize % 4096 != 0)
             throw new IllegalArgumentException("Page size must be a positive multiple of 4096");
-
-        FutureTask<Boolean> future = new FutureTask<>(() -> {
+        fileIOThread.submit(() -> {
             try (FileChannel channel = FileChannel.open(Path.of(path), StandardOpenOption.WRITE)) {
-                long currentSize = channel.size();
-                long newSize = currentSize - pageSize;
-                if (newSize < 0)
-                    throw new IOException("File too small to truncate.");
+                long newSize = channel.size() - pageSize;
+                if (newSize < 0) throw new IOException("File too small");
                 channel.truncate(newSize);
-                logger.fine(
-                        String.format("Truncated last %d bytes from %s. New size: %d bytes.", pageSize, path, newSize));
-                return true;
+                logger.fine("Truncated " + pageSize + " bytes from " + path);
             } catch (IOException e) {
                 logger.log(Level.SEVERE, "Failed to truncate file: " + path, e);
-                throw new RuntimeException("Failed to truncate file", e);
             }
         });
-        fileIOThread.submit(future);
-        future.get();
     }
 }
