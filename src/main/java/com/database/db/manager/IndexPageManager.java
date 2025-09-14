@@ -7,16 +7,13 @@ import com.database.db.index.BTreeSerialization.BlockPointer;
 import com.database.db.index.BTreeSerialization.PointerPair;
 import com.database.db.index.Pair;
 import com.database.db.page.Entry;
-import com.database.db.page.IndexCache;
 import com.database.db.page.IndexPage;
 import com.database.db.table.Table;
 
 public class IndexPageManager {
     private final Table table;
-    private final IndexCache[] cache;
     public IndexPageManager(Table table){
         this.table = table;
-        this.cache = table.getCache().indexCaches;
     }
 
     @SuppressWarnings("unchecked")
@@ -31,7 +28,7 @@ public class IndexPageManager {
 
     public BlockPointer insert(BlockPointer pointer, Object value, int columnIndex){
         if(table.getIndexManager().getPages(columnIndex)==0)table.getIndexManager().addOnePage(columnIndex);
-        IndexPage page = this.cache[columnIndex].getLast();
+        IndexPage page = table.getCache().getLastIndexPage(columnIndex);
         Object[] values = {pointer, value};
         boolean isNotNullable = table.getSchema().getNotNull()[columnIndex];
         int numOfNulls = !isNotNullable? 1:0;
@@ -39,10 +36,10 @@ public class IndexPageManager {
             .setBitMap(new boolean[]{true,isNotNullable});
         if(page.size() >= page.getCapacity()){
             this.table.getIndexManager().addOnePage(columnIndex);
-            page = this.cache[columnIndex].getLast();
+            page = table.getCache().getLastIndexPage(columnIndex);
         }
         page.add(entry);
-        this.cache[columnIndex].put(page);
+        table.getCache().putIndexPage(page);
         return new BlockPointer(page.getPageID(), (short)(page.size()-1));
     }
 
@@ -51,15 +48,15 @@ public class IndexPageManager {
         IndexPage page = this.removalProcess(pointerPair, columnIndex);
         if (page.isLastPage() && page.size() == 1) {
             page.remove(indexPointer.RowOffset());
-            this.cache[columnIndex].deleteLastPage(page);
+            table.getCache().deleteLastIndexPage(page);
             return;
         }
         this.replaceWithLast(index, page, indexPointer, columnIndex);
-        this.cache[columnIndex].put(page);
+        table.getCache().putIndexPage(page);
     }
     private IndexPage removalProcess(PointerPair pointerPair, int columnIndex){
         BlockPointer indexPointer = pointerPair.indexPointer();
-        IndexPage page = this.cache[columnIndex].get(pointerPair.indexPointer().BlockID());
+        IndexPage page = table.getCache().getIndexPage(pointerPair.indexPointer().BlockID(), columnIndex);
         Entry removedEntry = page.get(indexPointer.RowOffset());
         page.set(indexPointer.RowOffset(), null);
         if (!removedEntry.get(0).equals(pointerPair.tablePointer()))
@@ -79,7 +76,7 @@ public class IndexPageManager {
                 else index.update((K)swapped.get(1), newPair, oldPair);
             }
         }else{
-            IndexPage lastPage = this.cache[columnIndex].getLast();
+            IndexPage lastPage = table.getCache().getLastIndexPage(columnIndex);
             int lastOffset = lastPage.size() - 1;
             Entry lastEntry = lastPage.get(lastOffset);
             BlockPointer oldPointer = new BlockPointer(lastPage.getPageID(), (short)lastOffset);
@@ -93,15 +90,15 @@ public class IndexPageManager {
             if(index.isUnique())index.update((K)lastEntry.get(1), newPair);
             else index.update((K)lastEntry.get(1), newPair, oldPair);
             if(lastPage.size() == 0){
-                this.cache[columnIndex].deleteLastPage(lastPage);
+                table.getCache().deleteLastIndexPage(lastPage);
             }else{
-                this.cache[columnIndex].put(lastPage);
+                table.getCache().putIndexPage(lastPage);
             }
         }
     }
     public void update(BlockPointer IndexPointer, BlockPointer newPointer, Object newValue, int columnIndex){
         if (IndexPointer == null) throw new IllegalArgumentException("IndexPointer is null");
-        IndexPage page = this.cache[columnIndex].get(IndexPointer.BlockID());
+        IndexPage page = table.getCache().getIndexPage(IndexPointer.BlockID(),columnIndex);
         int row = IndexPointer.RowOffset();
         if (row < 0 || row >= page.size()) {
             throw new IndexOutOfBoundsException("Invalid index pointer: " + row + " page size: " + page.size());
@@ -109,6 +106,6 @@ public class IndexPageManager {
         Entry updated = page.get(row);
         updated.set(0, newPointer);
         updated.set(1, newValue);
-        this.cache[columnIndex].put(page);
+        table.getCache().putIndexPage(page);
     }
 }

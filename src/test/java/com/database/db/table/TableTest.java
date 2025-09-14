@@ -37,8 +37,8 @@ public class TableTest {
         
         TableConfig tableConf = new TableConfig(tableName, new Schema()
             .column("username").type(DataType.CHAR).size(10).primaryKey().endColumn()
-            .column("num").type(DataType.INT).index().endColumn(), null);
-        database = new Database(databaseName,null);
+            .column("num").type(DataType.INT).index().endColumn());
+        database = new Database(databaseName,null,10);
         database.setPath(testPath);
         database.createTable(tableConf);
         database.create();
@@ -84,12 +84,12 @@ public class TableTest {
         // Create test file with 3 blocks (12288 bytes)
         Path tablePath = tempDir.resolve("testDB.testTable.table");
         Files.write(tablePath, new byte[12288]);
-        FileIOThread file = new FileIOThread();
+        FileIOThread file = new FileIOThread("testThread");
         file.start();
         TableConfig config = new TableConfig("testTable", new Schema()
             .column("username").type(DataType.CHAR).size(10).primaryKey().endColumn()
-            .column("num").type(DataType.INT).index().endColumn(), null);
-        Database db = new Database("testDB",null);
+            .column("num").type(DataType.INT).index().endColumn());
+        Database db = new Database("testDB",null,10);
         db.setPath(testPath);
         db.createTable(config);
         db.create();
@@ -112,7 +112,7 @@ public class TableTest {
         // Create schema with auto-increment column
         TableConfig config = new TableConfig("aiTable", new Schema()
             .column("id").autoIncrementing().endColumn()
-            .column("name").type(DataType.CHAR).size(20).endColumn(), null);
+            .column("name").type(DataType.CHAR).size(20).endColumn());
         database.createTable(config);
         database.create();
 

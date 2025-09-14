@@ -44,14 +44,20 @@ class PageTest {
         }
 
         @Override
-        public byte[] toBytes() throws IOException {
+        public byte[] toBytes() {
             // Minimal implementation as per instruction, not relevant for abstract Page logic tests
             return new byte[0];
         }
 
         @Override
-        public void fromBytes(byte[] bufferData) throws IOException {
+        public void fromBytes(byte[] bufferData) {
             // Minimal implementation as per instruction, not relevant for abstract Page logic tests
+        }
+
+        @Override
+        public String getFilePath() {
+            // Minimal implementation as per instruction, not relevant for abstract Page logic tests
+            return null;
         }
     }
 
@@ -74,8 +80,8 @@ class PageTest {
         Schema schema = new Schema()
             .column("id").type(DataType.INT).endColumn()
             .column("name").type(DataType.CHAR).size(50).endColumn();
-        Database database = new Database("mockDB",null);
-        TableConfig config = new TableConfig("mockTable", schema,null);
+        Database database = new Database("mockDB",null,10);
+        TableConfig config = new TableConfig("mockTable", schema);
         database.createTable(config);
         mockTable = database.getTable("mockTable");
         page = new ConcretePage(PAGE_ID, mockTable);

@@ -4,6 +4,8 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.database.db.index.BPlusTree;
 import com.database.db.index.BTreeSerialization;
@@ -26,21 +28,42 @@ public class IndexManager {
     SchemaInner schema;
     private final BTreeSerialization<?>[] indexes;
     private final int[] numOfPages;
+    private  int[] numOfDeletedPages;
+    private  Set<String>[] deletedPages;
+    private  int[] tmpNumOfDeletedPages;
+    private  Set<String>[] tmpDeletedPages;
     public IndexPageManager pageManager;
 
+    @SuppressWarnings("unchecked")
     public IndexManager(Table table) {
         this.table = table;
         this.schema = table.getSchema();
         this.indexes = new BTreeSerialization<?>[schema.getNumOfColumns()];
         this.numOfPages = this.prepareNumOfPages();
+        int cols = schema.getNumOfColumns();
+
+        this.numOfDeletedPages = new int[cols];
+        this.deletedPages = new Set[cols];
+        this.tmpNumOfDeletedPages = new int[cols];
+        this.tmpDeletedPages = new Set[cols];
+
+        for (int i = 0; i < cols; i++) {
+            deletedPages[i] = ConcurrentHashMap.newKeySet();
+            tmpDeletedPages[i] = ConcurrentHashMap.newKeySet();
+        }
         this.pageManager = new IndexPageManager(table);
         int PrimaryKeyIndex = schema.getPrimaryKeyIndex();
         boolean[] unIndexes = schema.getUniqueIndex();
         boolean[] inIndexes = schema.getIndexIndex();
         for (int i = 0;i<this.indexes.length;i++) {
-            if(PrimaryKeyIndex == i) this.indexes[i] = this.newPrimaryKey(i).initialize(table);
-            else if (unIndexes[i]) this.indexes[i] = this.newUnique(i).initialize(table);
-            else if (inIndexes[i]) this.indexes[i] = this.newIndex(i).initialize(table);
+            if(PrimaryKeyIndex == i) this.indexes[i] = this.newPrimaryKey(i);
+            else if (unIndexes[i]) this.indexes[i] = this.newUnique(i);
+            else if (inIndexes[i]) this.indexes[i] = this.newIndex(i);
+        }
+    }
+    public void initialize(){
+        for (BTreeSerialization<?> index : indexes) {
+            if(index != null) index.initialize(table);
         }
     }
     private int[] prepareNumOfPages(){
@@ -53,6 +76,7 @@ public class IndexManager {
         }
         return result;
     }
+
     private PrimaryKey<?> newPrimaryKey(int pkIndex) {
         DataType pkType = schema.getTypes()[pkIndex];
         return switch (pkType) {
@@ -120,7 +144,7 @@ public class IndexManager {
     private <K extends Comparable<? super K>> List<Pair<K,PointerPair>> sequentialRangeSearch(K upper, K lower, int columnIndex){
         List<Pair<K,PointerPair>> result = new ArrayList<>();
         for(int i = 0; i < table.getPages(); i++){
-            TablePage page = table.getCache().tableCache.get(i);
+            TablePage page = table.getCache().getTablePage(i);
             for(int y = 0; y < page.size(); y++){
                 Entry entry = page.get(y);
                 K value = (K) entry.get(columnIndex);
@@ -193,8 +217,29 @@ public class IndexManager {
         return (K) key;
     }
 
-    public BTreeSerialization<?>[] getIndexes(){return this.indexes;}
-    public int getPages(int columnIndex){return this.numOfPages[columnIndex];}
-    public void addOnePage(int columnIndex){this.numOfPages[columnIndex]++;}
-    public void removeOnePage(int columnIndex){this.numOfPages[columnIndex]--;}
+    public BTreeSerialization<?>[] getIndexes() { return this.indexes; }
+    public int getPages(int columnIndex) { return this.numOfPages[columnIndex]; }
+    public void addOnePage(int columnIndex) { this.numOfPages[columnIndex]++; }
+    public void removeOnePage(int columnIndex) { this.numOfPages[columnIndex]--; }
+
+    public Set<String> getDeletedPagesSet(int columnIndex) { return this.tmpDeletedPages[columnIndex]; }
+    public int getDeletedPages(int columnIndex) { return this.tmpNumOfDeletedPages[columnIndex]; }
+    public void addOneDeletedPage(int columnIndex) { this.tmpNumOfDeletedPages[columnIndex]++; }
+    public void removeOneDeleted(int columnIndex) { this.tmpNumOfDeletedPages[columnIndex]--; }
+    public void setDeletedPage(int columnIndex, int value) { this.tmpNumOfDeletedPages[columnIndex] = value; }
+    public void commitDeletedPages() {
+        for (int i = 0; i < tmpDeletedPages.length; i++) {
+            numOfDeletedPages[i] = tmpNumOfDeletedPages[i];
+            // deep copy so committed and temp are independent
+            deletedPages[i] = ConcurrentHashMap.newKeySet();
+            deletedPages[i].addAll(tmpDeletedPages[i]);
+        }
+    }
+    public void rollBackDeletedPages() {
+        for (int i = 0; i < deletedPages.length; i++) {
+            tmpNumOfDeletedPages[i] = numOfDeletedPages[i];
+            tmpDeletedPages[i] = ConcurrentHashMap.newKeySet();
+            tmpDeletedPages[i].addAll(deletedPages[i]);
+        }
+    }
 }

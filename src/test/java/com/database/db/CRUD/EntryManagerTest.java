@@ -52,7 +52,7 @@ public class EntryManagerTest {
 
     @BeforeAll
     void setup() throws ExecutionException, InterruptedException, IOException, Exception {
-        database = new Database("test_database",null);
+        database = new Database("test_database",null,100);
         
         Schema schema = new Schema()
             .column("username").type(DataType.CHAR).size(50).primaryKey().endColumn()
@@ -60,7 +60,7 @@ public class EntryManagerTest {
             .column("message").type(DataType.CHAR).size(10).endColumn()
             .column("data").type(DataType.BYTE).size(10).notNull().defaultValue(new byte[10]).endColumn();
 
-        config = new TableConfig("test_table", schema, new CacheCapacity(50,10));
+        config = new TableConfig("test_table", schema);
         database.createTable(config);
         database.create();
         table = database.getTable("test_table");
@@ -183,7 +183,6 @@ public class EntryManagerTest {
             ind++;
         }
         database.commit();
-        ind = 0;
         CRUD.deleteEntry(null, -1);
         database.commit();
     }

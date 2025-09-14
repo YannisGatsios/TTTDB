@@ -8,6 +8,7 @@ import java.nio.file.Paths;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.database.db.FileIOThread;
 import com.database.db.table.SchemaInner;
 import com.database.db.table.Table;
 
@@ -47,20 +48,24 @@ public class SchemaManager {
     }
 
     public static void dropTable(Table table) {
-        Path tablePath = Paths.get(table.getPath());
-        boolean[] isIndexed = table.getSchema().isIndexed();
-        try {
-            Files.delete(tablePath);
-            
-            for (int i = 0; i < isIndexed.length; i++) {
-                if (isIndexed[i]) {
-                    Path secondaryKeyPath = Paths.get(table.getIndexPath(i));
-                    Files.delete(secondaryKeyPath);
+        FileIOThread ioThread = table.getFileIOThread();
+        ioThread.submit(() -> {
+            Path tablePath = Paths.get(table.getPath());
+            boolean[] isIndexed = table.getSchema().isIndexed();
+
+            try {
+                Files.deleteIfExists(tablePath);
+
+                for (int i = 0; i < isIndexed.length; i++) {
+                    if (isIndexed[i]) {
+                        Path secondaryKeyPath = Paths.get(table.getIndexPath(i));
+                        Files.deleteIfExists(secondaryKeyPath);
+                    }
                 }
+                logger.fine("Table and Index files deleted successfully: " + tablePath);
+            } catch (IOException e) {
+                logger.log(Level.SEVERE, "Error deleting Table or Index files.", e);
             }
-            logger.fine("Table and Index Files deleted successfully: " + tablePath);
-        } catch (IOException e) {
-            logger.log(Level.SEVERE, "An error occurred while deleting a Table or Index file.", e);
-        }
+        });
     }
 }

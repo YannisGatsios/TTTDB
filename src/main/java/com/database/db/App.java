@@ -44,8 +44,9 @@ public class App {
                 .isSmaller(130).end()
             .endCheck();
 
-        TableConfig tableConf = new TableConfig("users", schema, new CacheCapacity(0,0));
-        DBMS db = new DBMS("test_database","")
+        TableConfig tableConf = new TableConfig("users", schema);
+        DBMS db = new DBMS("test_database",100)
+            .setPath("")
             .addTable(tableConf)
         .create()
         .selectDatabase("test_database");
@@ -86,7 +87,7 @@ public class App {
                 ind++;
             }
         }
-        db.startTransaction();
+        db.startTransaction("update transaction");
         ind = 0;
         while (ind < 100) {
             int randInd = random.nextInt(300-ind);
@@ -106,7 +107,7 @@ public class App {
         SelectQuery query = new SelectQuery("users","id,username",null,0,-1);
         db.commit();
         List<Record> result = db.select(query);
-        //db.dropDatabase();
+        db.dropDatabase();
         db.close();
     }
 }

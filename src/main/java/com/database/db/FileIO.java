@@ -6,6 +6,10 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.logging.Level;
@@ -16,10 +20,11 @@ import com.database.db.page.Page;
 public class FileIO {
     private static final Logger logger = Logger.getLogger(FileIO.class.getName());
 
-    private final FileIOThread fileIOThread;
+    private FileIOThread fileIOThread;
 
-    public FileIO(FileIOThread thread) {
-        this.fileIOThread = thread;
+    public FileIO() {}
+    public void setFileIOThread(FileIOThread fileIOThread){
+        this.fileIOThread = fileIOThread;
     }
 
     public void writePage(String path, byte[] pageBuffer, int pagePosition) {
@@ -36,6 +41,32 @@ public class FileIO {
             } catch (IOException e) {
                 logger.log(Level.SEVERE, "Error writing page to file: " + path + " pos=" + pagePosition, e);
                 throw new RuntimeException(e);
+            }
+        });
+    }
+
+    public void writePages(List<Page> pages) {
+        fileIOThread.submit(() -> {
+            Map<String, List<Page>> pagesByFile = new HashMap<>();
+
+            // Group pages by file path
+            for (Page page : pages) {
+                String path = page.getFilePath(); // Table path or index path
+                pagesByFile.computeIfAbsent(path, _ -> new ArrayList<>()).add(page);
+            }
+
+            // Write pages grouped by file
+            for (Map.Entry<String, List<Page>> entry : pagesByFile.entrySet()) {
+                String path = entry.getKey();
+                List<Page> filePages = entry.getValue();
+                try (RandomAccessFile raf = new RandomAccessFile(path, "rw")) {
+                    for (Page page : filePages) {
+                        raf.seek(page.getPagePos());
+                        raf.write(page.toBytes());
+                    }
+                } catch (IOException e) {
+                    logger.log(Level.SEVERE, "Error writing pages to file: " + path, e);
+                }
             }
         });
     }

@@ -32,7 +32,7 @@ public class AppTest {
 
     @BeforeAll
     void setup() {
-        db = new DBMS("test_database", "");
+        db = new DBMS("test_database", 10);
     }
 
     @Test
@@ -50,7 +50,7 @@ public class AppTest {
                 .AND().column("num").isSmaller(130).end()
             .endCheck();
 
-        TableConfig tableConf = new TableConfig("users", schema, new CacheCapacity(0,0));
+        TableConfig tableConf = new TableConfig("users", schema);
         db.addTable(tableConf).create();
 
         Random random = new Random(); 
@@ -94,7 +94,7 @@ public class AppTest {
         }
 
         // Update 100 entries
-        db.startTransaction();
+        db.startTransaction("update transaction");
         ind = 0;
         while (ind < 100) {
             int randInd = random.nextInt(300-ind);
@@ -129,7 +129,7 @@ public class AppTest {
                 .column("username").type(DataType.CHAR).size(15).primaryKey().endColumn()
                 .column("age").type(DataType.INT).defaultValue(18).endColumn();
 
-        TableConfig userTable = new TableConfig("users", userSchema, new CacheCapacity(0, 0));
+        TableConfig userTable = new TableConfig("users", userSchema);
 
         Schema postCascadeSchema = new Schema()
                 .column("id").type(DataType.LONG).autoIncrementing().primaryKey().endColumn()
@@ -141,7 +141,7 @@ public class AppTest {
                     .onDelete(ForeignKey.ForeignKeyAction.CASCADE)
                 .endForeignKey();
 
-        TableConfig postCascadeTable = new TableConfig("posts_cascade", postCascadeSchema, new CacheCapacity(0,0));
+        TableConfig postCascadeTable = new TableConfig("posts_cascade", postCascadeSchema);
 
         Schema postSetNullSchema = new Schema()
                 .column("id").type(DataType.LONG).autoIncrementing().primaryKey().endColumn()
@@ -153,7 +153,7 @@ public class AppTest {
                     .onDelete(ForeignKey.ForeignKeyAction.SET_NULL)
                 .endForeignKey();
 
-        TableConfig postSetNullTable = new TableConfig("posts_setnull", postSetNullSchema, new CacheCapacity(0,0));
+        TableConfig postSetNullTable = new TableConfig("posts_setnull", postSetNullSchema);
 
         Schema postSetDefaultSchema = new Schema()
                 .column("id").type(DataType.LONG).autoIncrementing().primaryKey().endColumn()
@@ -165,7 +165,7 @@ public class AppTest {
                     .onDelete(ForeignKey.ForeignKeyAction.SET_DEFAULT)
                 .endForeignKey();
 
-        TableConfig postSetDefaultTable = new TableConfig("posts_setdefault", postSetDefaultSchema, new CacheCapacity(0,0));
+        TableConfig postSetDefaultTable = new TableConfig("posts_setdefault", postSetDefaultSchema);
 
         Schema postRestrictSchema = new Schema()
                 .column("id").type(DataType.LONG).autoIncrementing().primaryKey().endColumn()
@@ -177,9 +177,9 @@ public class AppTest {
                     .onDelete(ForeignKey.ForeignKeyAction.RESTRICT)
                 .endForeignKey();
 
-        TableConfig postRestrictTable = new TableConfig("posts_restrict", postRestrictSchema, new CacheCapacity(0,0));
+        TableConfig postRestrictTable = new TableConfig("posts_restrict", postRestrictSchema);
 
-        db.addDatabase("test_fk_cases");
+        db.addDatabase("test_fk_cases",0);
         db.addTable(userTable);
         db.addTable(postCascadeTable);
         db.addTable(postSetNullTable);

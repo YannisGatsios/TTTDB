@@ -9,7 +9,5 @@ public class PrimaryKey<K extends Comparable<? super K>> extends BTreeSerializat
     public PrimaryKey(Table table, int columnIndex) {
         super(Page.getPageCapacity(TablePage.sizeOfEntry(table)));
         this.columnIndex = columnIndex;
-        if (table.getPages() == 0)return;
-        this.initialize(table);
     }
 }

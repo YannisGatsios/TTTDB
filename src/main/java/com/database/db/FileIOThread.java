@@ -9,8 +9,13 @@ public class FileIOThread extends Thread {
     private static final Logger logger = Logger.getLogger(FileIOThread.class.getName());
 
     private final BlockingQueue<Runnable> taskQueue = new LinkedBlockingQueue<>();
-    private volatile boolean running = true;
     private volatile boolean acceptingTasks = true;
+
+    private static final Runnable POISON_PILL = () -> { };
+
+    public FileIOThread(String tableName) {
+        super("FileIOThread-" + tableName);
+    }
 
     public void submit(Runnable task) {
         if (!acceptingTasks) {
@@ -26,16 +31,16 @@ public class FileIOThread extends Thread {
 
     public void shutdown() throws InterruptedException {
         acceptingTasks = false;
-        running = false;
-        this.interrupt(); // In case it's blocked on take()
+        taskQueue.put(POISON_PILL);
         this.join();      // Wait for thread to finish
     }
 
     @Override
     public void run() {
-        while (running || !taskQueue.isEmpty()) {
+        while (true) {
             try {
                 Runnable task = taskQueue.take();
+                if (task == POISON_PILL) break;
                 try {
                     task.run();
                 } catch (Exception e) {

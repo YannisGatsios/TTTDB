@@ -24,14 +24,6 @@ public class SchemaInner {
         }
         return names;
     }
-    public int getNameIndex(String columnName){
-        int result = 0;
-        for (ColumnInner column : this.columns) {
-            if(column.name().equals(columnName)) return result;
-            result++;
-        }
-        throw new IllegalArgumentException("Invalid column name identifier");
-    }
     public DataType[] getTypes() {
     DataType[] types = new DataType[columns.length];
     for (int i = 0; i < columns.length; i++) {

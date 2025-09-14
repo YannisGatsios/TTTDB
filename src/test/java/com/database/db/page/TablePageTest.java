@@ -35,10 +35,10 @@ class TablePageTest {
         file.createNewFile();
         file1.createNewFile();
         file2.createNewFile();
-        fileIOThread = new FileIOThread();
+        fileIOThread = new FileIOThread("testThread");
         fileIOThread.start();
-        TableConfig config = new TableConfig("test", SCHEMA, null);
-        Database database = new Database("testdb",null);
+        TableConfig config = new TableConfig("test", SCHEMA);
+        Database database = new Database("testdb",null,10);
         database.createTable(config);
         table = database.getTable("test");
         database.create();
@@ -127,9 +127,9 @@ class TablePageTest {
         emptyPage();
         page.add(entry1);
         page.add(entry2);
-        table.getCache().tableCache.writePage(page);
+        table.getCache().putTablePage(page);
         
-        TablePage newPage = table.getCache().tableCache.get(0);
+        TablePage newPage = table.getCache().getTablePage(0);
         //newPage.bufferToPage(buffer, table);
         
         assertEquals(page.size(), newPage.size());
@@ -150,9 +150,9 @@ class TablePageTest {
         emptyPage();
         page.add(entry1);
         page.add(entry3);
-        table.getCache().tableCache.writePage(page);
+        table.getCache().putTablePage(page);
         
-        TablePage newPage = table.getCache().tableCache.get(0);
+        TablePage newPage = table.getCache().getTablePage(0);
         assertEquals(page.size(), newPage.size());
         assertEquals(page.getSpaceInUse(), newPage.getSpaceInUse());
         arePageEntriesEqual(page,newPage);

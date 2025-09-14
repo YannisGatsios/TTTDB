@@ -30,8 +30,7 @@ public class DBMS {
     private String path = "";
     private final EntryManager entryManager;
 
-    public record TableConfig(String tableName, Schema schema, CacheCapacity cacheCapacity){}
-    public record CacheCapacity(int tableCapacity, int indexCapacity){}
+    public record TableConfig(String tableName, Schema schema){}
     public record Record(String[] columnNames, Object[] values){
         public Object get(String columnName){
             for (int i =0;i<columnNames.length;i++) {
@@ -74,18 +73,17 @@ public class DBMS {
         this.databases = new HashMap<>();
         this.entryManager = new EntryManager();
     }
-    public DBMS(String databaseName, String path){
+    public DBMS(String databaseName, int cacheCapacity){
         this();
         this.setPath(path);
-        this.addDatabase(databaseName);
-        this.selectDatabase(databaseName);
+        this.addDatabase(databaseName, cacheCapacity);
     }
     public DBMS setPath(String path){
         this.path = path;
         return this;
     }
-    public DBMS addDatabase(String databaseName){
-        Database database = new Database(databaseName, this);
+    public DBMS addDatabase(String databaseName, int cacheCapacity){
+        Database database = new Database(databaseName, this, cacheCapacity);
         database.setPath(this.path);
         this.databases.put(databaseName, database);
         this.selected = database;
@@ -158,9 +156,9 @@ public class DBMS {
         this.entryManager.selectTable(query.tableName);
         return this.entryManager.updateEntry(query.whereClause, query.limit, query.updateFields);
     }
-    public void startTransaction(){
+    public void startTransaction(String name){
         if(this.selected == null) throw new IllegalArgumentException("Can not start transaction when no Database selected.");
-        this.selected.startTransaction();
+        this.selected.startTransaction(name);
     }
     public void rollBack(){
         if(this.selected == null) throw new IllegalArgumentException("Can not roll back when no Database selected.");
@@ -179,7 +177,7 @@ public class DBMS {
     public boolean containsValue(String tableName, String columnName, Object value){
         if(this.selected == null) throw new IllegalArgumentException("Can not use containsValue when no Database selected.");
         Table table = this.selected.getTable(tableName);
-        int index = table.getSchema().getNameIndex(columnName);
+        int index = table.getSchema().getColumnIndex(columnName);
         return table.isKeyFound(value, index);
     }
     public int[] getColumnSizes(String tableName){
@@ -192,7 +190,7 @@ public class DBMS {
             Object[] values = new Object[resultColumns.length];
             for(int i = 0;i<resultColumns.length;i++){
                 String name = resultColumns[i];
-                int index = schema.getNameIndex(name);
+                int index = schema.getColumnIndex(name);
                 if(index == -1) throw new IllegalArgumentException("Invalid result column");
                 values[i] = entry.get(index);
             }

@@ -99,7 +99,7 @@ public class ForeignKey {
             }
         }
         // Validate parent table exists
-        if (!database.getTables().containsKey(referenceTable)) {
+        if (database.getTable(referenceTable) == null) {
             throw new IllegalStateException(
                 "Foreign key '" + name + "' references missing table '" + referenceTable + "'."
             );

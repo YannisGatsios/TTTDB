@@ -12,7 +12,5 @@ public class Index<K extends Comparable<? super K>> extends BTreeSerialization<K
         this.setUnique(false);
         this.setNullable(true);
         this.columnIndex = columnIndex;
-        if (table.getPages() == 0) return;
-        this.initialize(table);
     }
 }

@@ -34,7 +34,7 @@ public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTr
         IndexPage page;
         Entry[] list;
         for(int i = 0;i < numberOfPages;i++){
-            page = table.getCache().indexCaches[columnIndex].get(i);
+            page = table.getCache().getIndexPage(i, columnIndex);
             list = page.getAll();
             for (short j = 0; j < page.size(); j++) {
                 Entry entry = list[j];

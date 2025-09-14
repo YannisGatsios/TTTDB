@@ -1,6 +1,5 @@
 package com.database.db.page;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import com.database.db.table.DataType;
@@ -9,10 +8,12 @@ import com.database.db.table.Table;
 public class TablePage extends Page{
 
     private final Table table;
+    private final String filePath;
 
     public TablePage(int PageID, Table table) {
         super(PageID, TablePage.sizeOfEntry(table));
         this.table = table;
+        this.filePath = table.getPath();
     }
 
     public static int sizeOfEntry(Table table){
@@ -62,5 +63,6 @@ public class TablePage extends Page{
         if(result.numOfEntries() != this.size()) throw new IllegalArgumentException("Mismatch between expected and actual numOfEntries and Page.size().");
     }
 
-    public boolean isLastPage(){return (this.getPageID() == table.getPages()-1);}
+    public boolean isLastPage() { return (this.getPageID() == table.getPages()-1); }
+    public String getFilePath() { return this.filePath; }
 }

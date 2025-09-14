@@ -14,47 +14,48 @@ import com.database.db.Database.TableReference;
 import com.database.db.FileIOThread;
 import com.database.db.api.Condition;
 import com.database.db.api.Condition.*;
-import com.database.db.api.DBMS.CacheCapacity;
 import com.database.db.api.DBMS.TableConfig;
+import com.database.db.cache.TableCache;
 import com.database.db.index.BTreeSerialization.BlockPointer;
 import com.database.db.index.BTreeSerialization.PointerPair;
 import com.database.db.index.Pair;
 import com.database.db.manager.IndexManager;
-import com.database.db.page.Cache;
 import com.database.db.page.Entry;
 import com.database.db.page.Page;
 import com.database.db.page.TablePage;
 
 public class Table {
-    private Database database;
-    private String tableName;
+    private final Database database;
+    private final String tableName;
     private String path = "";
-    private SchemaInner schema;
-    private Cache cache;
-    private Cache tmpCache;//Used for transactions.
-    private IndexManager indexes;
+    private final SchemaInner schema;
+    private TableCache cache;
+    private IndexManager indexManager;
     private AutoIncrementing[] autoIncrementing;
-    public CacheCapacity cacheCapacity = new CacheCapacity(2,2);
     private FileIOThread fileIOThread;
+    private Set<String> deletedPages = new HashSet<>();
+    private Set<String> tmpDeletedPages = new HashSet<>();
 
     private TableReference parent;
     private List<TableReference> children = new ArrayList<>();
     
     private int numberOfPages;
+    private int numOfDeletedPages = 0;
+    private int tmpNumOfDeletedPages = 0;
 
     public Table(Database database, TableConfig config) {
         this.database = database;
-        this.path = database.getPath();
+        this.path = this.database.getPath();
         this.tableName = config.tableName();
         this.schema = new SchemaInner(config.schema().get(database));
-        if(config.cacheCapacity() != null) this.cacheCapacity = config.cacheCapacity();
+        this.cache = new TableCache(this, database);
+        this.indexManager = new IndexManager(this);
     }
     public void start(){
-        this.fileIOThread = new FileIOThread();
+        this.fileIOThread = new FileIOThread(this.tableName);
         this.fileIOThread.start();
-        this.cache = new Cache(this);
         this.numberOfPages = Table.getNumOfPages(this.getPath(),TablePage.sizeOfEntry(this));
-        this.indexes = new IndexManager(this);
+        this.indexManager.initialize();
         this.autoIncrementing = this.getAutoIncrementing();
     }
     public void close() throws InterruptedException{
@@ -74,9 +75,9 @@ public class Table {
         for (int i = 0;i<result.length;i++){
             if(isAutoIncrementing[i]){
                 long max;
-                Object maxValue = this.indexes.getMax(i);
-                if(this.indexes.isIndexed(i) && maxValue != null) max = (long)maxValue;
-                else if (this.indexes.isIndexed(i) && maxValue == null) max = 0;
+                Object maxValue = this.indexManager.getMax(i);
+                if(this.indexManager.isIndexed(i) && maxValue != null) max = (long)maxValue;
+                else if (this.indexManager.isIndexed(i) && maxValue == null) max = 0;
                 else{
                     max = this.getMaxSequential(i);
                 }
@@ -88,7 +89,7 @@ public class Table {
     private long getMaxSequential(int columnIndex){
         long max = 0;
         for (int i = 0;i<this.numberOfPages;i++){
-            TablePage page = this.cache.tableCache.get(i);
+            TablePage page = this.cache.getTablePage(i);
             Entry[] entries = page.getAll();
             for (Entry entry : entries) {
                 if(max < (long)entry.get(columnIndex)) max = (long)entry.get(columnIndex);
@@ -117,28 +118,6 @@ public class Table {
         this.getAutoIncrementing(columnIndex).setNextKey(value);;
     }
 
-    public void startTransaction(){
-        this.commit();
-        if(this.tmpCache == null)this.tmpCache = this.cache;
-        this.cacheCapacity = new CacheCapacity(-1,-1);
-        this.cache = new Cache(this);
-    }
-    public void rollBack(){
-        if(this.tmpCache != null){
-            this.cache = this.tmpCache;
-            this.tmpCache = null;
-            this.cacheCapacity = this.cache.getCacheCapacity();
-        }
-        this.cache.rollBack();
-    }
-    public void commit(){
-        this.cache.clear();
-        if(this.tmpCache != null){
-            this.cache = this.tmpCache;
-            this.tmpCache = null;
-            this.cacheCapacity = this.cache.getCacheCapacity();
-        }
-    }
     public record IndexRecord<K>(K key, PointerPair value, int columnIndex) {
             @Override
         public boolean equals(Object o) {
@@ -178,7 +157,7 @@ public class Table {
                 end   = conditionList.get(Conditions.IS_EQUAL);
             }
             int columnIndex = this.schema.getColumnIndex(condition.getColumnName());
-            List<Pair<K, PointerPair>> indexResult = this.indexes.findRangeIndex((K) start, (K) end, columnIndex);
+            List<Pair<K, PointerPair>> indexResult = this.indexManager.findRangeIndex((K) start, (K) end, columnIndex);
             List<IndexRecord<K>> resultInner = new ArrayList<>();
             for (Pair<K, PointerPair> pair : indexResult) {
                 if (!condition.isApplicable(pair.key)) continue;
@@ -224,7 +203,7 @@ public class Table {
             }
         }
         if(columnIndex == -1) columnIndex = 0;
-        List<Pair<K, PointerPair>> indexResult = this.indexes.findRangeIndex(null, null, columnIndex);
+        List<Pair<K, PointerPair>> indexResult = this.indexManager.findRangeIndex(null, null, columnIndex);
         List<IndexRecord<K>> result = new ArrayList<>();
         for (Pair<K, PointerPair> pair : indexResult) {
             result.add(new IndexRecord<K>(pair.key, pair.value, columnIndex));
@@ -233,28 +212,28 @@ public class Table {
     }
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> boolean isKeyFound(Object key, int columnIndex){
-        return this.indexes.isKeyFound((K)key, columnIndex);
+        return this.indexManager.isKeyFound((K)key, columnIndex);
     }
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> List<Pair<K, PointerPair>> searchIndex(Object key, int columnIndex){
-        return this.indexes.findBlock((K)key, columnIndex);
+        return this.indexManager.findBlock((K)key, columnIndex);
     }
     public void insertIndex(Entry entry, BlockPointer blockPointer){
-        this.indexes.insertIndex(entry, blockPointer);
+        this.indexManager.insertIndex(entry, blockPointer);
     }
     public void removeIndex(Entry entry, BlockPointer blockPointer){
-        this.indexes.removeIndex(entry, blockPointer);
+        this.indexManager.removeIndex(entry, blockPointer);
     }
     public void updateIndex(Entry entry, BlockPointer newValue, BlockPointer oldValue){
-        this.indexes.updateIndex(entry, newValue, oldValue);
+        this.indexManager.updateIndex(entry, newValue, oldValue);
     }
 
     public String getDatabaseName() { return database.getName(); }
     public String getName() { return this.tableName; }
     public SchemaInner getSchema() { return this.schema; }
-    public Cache getCache() { return this.cache; }
+    public TableCache getCache() { return this.cache; }
     public FileIOThread getFileIOThread() { return this.fileIOThread; }
-    public IndexManager getIndexManager() { return this.indexes; }
+    public IndexManager getIndexManager() { return this.indexManager; }
 
     public void addParent(TableReference parent) { this.parent = parent; }
     public TableReference getParent() { return this.parent; }
@@ -268,4 +247,18 @@ public class Table {
     public int getPages() { return this.numberOfPages; }
     public void addOnePage() { this.numberOfPages++; }
     public void removeOnePage() { this.numberOfPages--; }
+
+    public Set<String> getDeletedPagesSet() { return this.tmpDeletedPages; }
+    public int getDeletedPages() { return this.tmpNumOfDeletedPages; }
+    public void setDeletedPages(int numOfDeletedPages) { this.tmpNumOfDeletedPages = numOfDeletedPages; }
+    public void addOneDeletedPage() { this.tmpNumOfDeletedPages++; }
+    public void removeOneDeletedPage() { this.tmpNumOfDeletedPages--; }
+    public void commitDeletedPages() { 
+        this.numOfDeletedPages = this.tmpNumOfDeletedPages; 
+        this.deletedPages = new HashSet<>(this.tmpDeletedPages);
+    }
+    public void rollBackDeletedPages() { 
+        this.tmpNumOfDeletedPages = this.numOfDeletedPages; 
+        this.tmpDeletedPages = new HashSet<>(this.deletedPages);
+    }
 }

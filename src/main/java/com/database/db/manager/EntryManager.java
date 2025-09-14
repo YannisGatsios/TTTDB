@@ -70,7 +70,7 @@ public class EntryManager {
             BlockPointer blockPointer = pair.value().tablePointer();
             if(index++ < begin) continue;
             if(!selectAll && index>=limit+begin) break;
-            TablePage page = table.getCache().tableCache.get(blockPointer.BlockID());
+            TablePage page = table.getCache().getTablePage(blockPointer.BlockID());
             result.add(page.get(blockPointer.RowOffset()));
         }
         return result;
@@ -93,19 +93,19 @@ public class EntryManager {
      */
     public void insertEntry(Entry entry) {
         if(table.getPages()==0) table.addOnePage();
-        TablePage page = table.getCache().tableCache.getLast();
+        TablePage page = table.getCache().getLastTablePage();
         if(page.size() < page.getCapacity()){
             this.insertionProcess(entry, page);
             return;
         }
         table.addOnePage();
-        page = table.getCache().tableCache.getLast();
+        page = table.getCache().getLastTablePage();
         this.insertionProcess(entry, page);
     }
     private void insertionProcess(Entry entry, TablePage page) {
         page.add(entry);
         table.insertIndex(entry, new BlockPointer(page.getPageID(), (short)(page.size()-1)));
-        table.getCache().tableCache.put(page);
+        table.getCache().putTablePage(page);
     }
     //==DELETION==
     /**
@@ -124,8 +124,8 @@ public class EntryManager {
         for (IndexRecord<K> value : indexResult) {
             if(!deleteAll && deletedCount>=limit)return deletedCount;
             BlockPointer pointer = table.searchIndex(value.key(), value.columnIndex()).get(0).value.tablePointer();
-            Entry entryToDelete = table.getCache().tableCache
-                    .get(pointer.BlockID())
+            Entry entryToDelete = table.getCache()
+                    .getTablePage(pointer.BlockID())
                     .get(pointer.RowOffset());
             boolean allowed = ForeignKeyManager.foreignKeyDeletion(this, table, entryToDelete);
             if (!allowed) 
@@ -133,17 +133,17 @@ public class EntryManager {
             TablePage page = deletionProcess(pointer);
             deletedCount++;
             if (page.isLastPage() && page.size() == 0) {
-                table.getCache().tableCache.deleteLastPage(page);
+                table.getCache().deleteLastTablePage(page);
                 continue;
             }
             // --- Handle replacements ---
             this.replaceWithLast(page, pointer);
-            table.getCache().tableCache.put(page);
+            table.getCache().putTablePage(page);
         }
         return deletedCount;
     }
     private TablePage deletionProcess(BlockPointer pointer){
-        TablePage page = table.getCache().tableCache.get(pointer.BlockID());
+        TablePage page = table.getCache().getTablePage(pointer.BlockID());
         // --- Remove entry + indexes ---
         Entry removed = page.get(pointer.RowOffset());
         table.removeIndex(removed, pointer);
@@ -167,7 +167,7 @@ public class EntryManager {
             }
         } else {
             // Case B: deleted from non-last page -> move last entry of last page here
-            TablePage lastPage = table.getCache().tableCache.getLast();
+            TablePage lastPage = table.getCache().getLastTablePage();
             int lastOffset = lastPage.size() - 1;
             Entry lastEntry = lastPage.get(lastOffset);
             BlockPointer oldPointer = new BlockPointer(lastPage.getPageID(), (short) lastOffset);
@@ -182,9 +182,9 @@ public class EntryManager {
 
             // save changes
             if (lastPage.size() == 0) {
-                table.getCache().tableCache.deleteLastPage(lastPage);
+                table.getCache().deleteLastTablePage(lastPage);
             } else {
-                table.getCache().tableCache.put(lastPage);
+                table.getCache().putTablePage(lastPage);
             }
         }
     }
@@ -215,10 +215,10 @@ public class EntryManager {
         for (IndexRecord<K> pair : indexResult) {
             index++;
             if(!updateAll && index>=limit)return result;
-            TablePage page = table.getCache().tableCache.get(pair.value().tablePointer().BlockID());
+            TablePage page = table.getCache().getTablePage(pair.value().tablePointer().BlockID());
             if (page == null) continue;
             this.updateProcess(page, pair.value().tablePointer(), updates.getFunctionsList());
-            table.getCache().tableCache.put(page);
+            table.getCache().putTablePage(page);
             result++;
         }
         return result;

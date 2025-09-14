@@ -10,11 +10,13 @@ public class IndexPage extends Page{
 
     private final Table table;
     private final int columnIndex;
+    private final String filePath;
 
     public IndexPage(int PageID, Table table, int columnIndex) {
         super(PageID, IndexPage.sizeOfEntry(table, columnIndex));
         this.table = table;
         this.columnIndex = columnIndex;
+        this.filePath = table.getIndexPath(columnIndex);
     }
 
     public static int sizeOfEntry(Table table, int columnIndex){
@@ -62,6 +64,7 @@ public class IndexPage extends Page{
         if(result.numOfEntries() != this.size()) throw new IllegalArgumentException("Mismatch between expected and actual numOfEntries and Page.size().");
     }
 
-    public int getColumnIndex(){return this.columnIndex;}
-    public boolean isLastPage(){return (this.getPageID() == table.getIndexManager().getPages(columnIndex)-1);}
+    public int getColumnIndex() { return this.columnIndex; }
+    public boolean isLastPage() { return (this.getPageID() == table.getIndexManager().getPages(columnIndex)-1); }
+    public String getFilePath() { return this.filePath; }
 }

@@ -9,7 +9,5 @@ public class Unique<K extends Comparable<? super K>> extends BTreeSerialization<
         super(Page.getPageCapacity(TablePage.sizeOfEntry(table)));
         this.setNullable(true);
         this.columnIndex = columnIndex;
-        if (table.getPages() == 0) return;
-        this.initialize(table);
     }
 }

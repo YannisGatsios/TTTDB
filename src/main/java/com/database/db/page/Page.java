@@ -1,6 +1,5 @@
 package com.database.db.page;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public abstract class Page {
@@ -127,8 +126,9 @@ public abstract class Page {
         return ((total + BLOCK_SIZE - 1) / BLOCK_SIZE) * BLOCK_SIZE;
     }
 
-    public abstract byte[] toBytes() throws IOException;
-    public abstract void fromBytes(byte[] bufferData) throws IOException;
+    public abstract byte[] toBytes();
+    public abstract void fromBytes(byte[] bufferData);
+    public abstract String getFilePath();
 
     public int getPageID() {return this.pageID;}
     public void setPageID(int newPageID) {this.pageID = newPageID;}
