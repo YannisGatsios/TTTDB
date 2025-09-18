@@ -10,9 +10,7 @@ import com.database.db.table.DataType;
 import com.database.db.table.SchemaInner;
 import com.database.db.table.Table;
 
-
 public class Entry {
-    
     private Object[] values;
     private BitSet nullsBitMap;
 
@@ -33,6 +31,15 @@ public class Entry {
             }
         }
         return this;
+    }
+
+    public Entry deepCopy() {
+        // clone the values array and the BitSet
+        Object[] valuesCopy = Arrays.copyOf(this.values, this.values.length);
+        BitSet bitmapCopy = (BitSet) this.nullsBitMap.clone();
+        Entry copy = new Entry(valuesCopy, bitmapCopy.length());
+        copy.nullsBitMap = bitmapCopy;
+        return copy;
     }
 
     public int size(){return this.values.length;}

@@ -5,8 +5,11 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
+import com.database.db.cache.IndexSnapshot;
+import com.database.db.cache.TableSnapshot;
+import com.database.db.cache.IndexSnapshot.Operation;
+import com.database.db.cache.IndexSnapshot.OperationEnum;
 import com.database.db.index.BPlusTree;
 import com.database.db.index.BTreeSerialization;
 import com.database.db.index.Index;
@@ -27,30 +30,15 @@ public class IndexManager {
     private final Table table;
     SchemaInner schema;
     private final BTreeSerialization<?>[] indexes;
-    private final int[] numOfPages;
-    private  int[] numOfDeletedPages;
-    private  Set<String>[] deletedPages;
-    private  int[] tmpNumOfDeletedPages;
-    private  Set<String>[] tmpDeletedPages;
-    public IndexPageManager pageManager;
+    public final IndexPageManager pageManager;
+    private final TableSnapshot[] tableSnapshots;
+    private final IndexSnapshot indexSnapshot;
 
-    @SuppressWarnings("unchecked")
     public IndexManager(Table table) {
         this.table = table;
         this.schema = table.getSchema();
         this.indexes = new BTreeSerialization<?>[schema.getNumOfColumns()];
-        this.numOfPages = this.prepareNumOfPages();
-        int cols = schema.getNumOfColumns();
 
-        this.numOfDeletedPages = new int[cols];
-        this.deletedPages = new Set[cols];
-        this.tmpNumOfDeletedPages = new int[cols];
-        this.tmpDeletedPages = new Set[cols];
-
-        for (int i = 0; i < cols; i++) {
-            deletedPages[i] = ConcurrentHashMap.newKeySet();
-            tmpDeletedPages[i] = ConcurrentHashMap.newKeySet();
-        }
         this.pageManager = new IndexPageManager(table);
         int PrimaryKeyIndex = schema.getPrimaryKeyIndex();
         boolean[] unIndexes = schema.getUniqueIndex();
@@ -60,21 +48,26 @@ public class IndexManager {
             else if (unIndexes[i]) this.indexes[i] = this.newUnique(i);
             else if (inIndexes[i]) this.indexes[i] = this.newIndex(i);
         }
+
+        int cols = schema.getNumOfColumns();
+        this.tableSnapshots = new TableSnapshot[cols];
+        this.indexSnapshot = new IndexSnapshot();
+        for (int i = 0; i < cols; i++) {
+            if(isIndexed(i)){
+                this.tableSnapshots[i] = new TableSnapshot();
+            }
+        }
     }
     public void initialize(){
         for (BTreeSerialization<?> index : indexes) {
             if(index != null) index.initialize(table);
         }
-    }
-    private int[] prepareNumOfPages(){
-        boolean[] isIndexed = table.getSchema().isIndexed();
-        int[] result = new int[this.indexes.length];
         for (int i = 0;i<this.indexes.length;i++) {
-            if(isIndexed[i]){
-                result[i] = Table.getNumOfPages(table.getIndexPath(i), IndexPage.sizeOfEntry(table, i));
+            if(this.isIndexed(i)){
+                int numOfPages =  Table.getNumOfPages(table.getIndexPath(i), IndexPage.sizeOfEntry(table, i));
+                tableSnapshots[i].setNumOfPages(numOfPages);
             }
         }
-        return result;
     }
 
     private PrimaryKey<?> newPrimaryKey(int pkIndex) {
@@ -161,6 +154,8 @@ public class IndexManager {
 
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> void insertIndex(Entry entry, BlockPointer tablePointer){
+        Object[] keys = new Object[indexes.length];
+        PointerPair[] values = new PointerPair[indexes.length];
         for (BTreeSerialization<?> index : this.indexes) {
             if(index == null) continue;
             int columnIndex = index.getColumnIndex();
@@ -168,24 +163,42 @@ public class IndexManager {
             BlockPointer indexPointer = this.pageManager.insert(tablePointer, key, index.getColumnIndex());
             PointerPair value = new PointerPair(tablePointer,indexPointer);
             ((BPlusTree<K,PointerPair>) index).insert(key, value);
+            keys[columnIndex] = key;
+            values[columnIndex] = value;
         }
+        Operation operation = new Operation(OperationEnum.INSERT, keys, values,null);
+        indexSnapshot.addOperation(operation);
     }
 
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> void removeIndex(Entry entry, BlockPointer blockPointer){
+        Object[] keys = new Object[indexes.length];
+        PointerPair[] values = new PointerPair[indexes.length];
+        Object[] updatedKeys = new Object[indexes.length];
+        PointerPair[] updatedValues = new PointerPair[indexes.length];
+        PointerPair[] updatedOldValues = new PointerPair[indexes.length];
         for (BTreeSerialization<?> index : this.indexes) {
             if(index == null) continue;
             int columnIndex = index.getColumnIndex();
             K key = this.getValidatedKey(entry, index, columnIndex);
             BlockPointer indexPointer = pageManager.findIndexPointer(index, key, blockPointer);
             PointerPair value = new PointerPair(blockPointer, indexPointer);
-            pageManager.remove(index, value, index.getColumnIndex());
+            pageManager.remove(index, value, index.getColumnIndex(),updatedKeys,updatedValues,updatedOldValues);
             ((BTreeSerialization<K>) index).remove((K) key, value);
+            keys[columnIndex] = key;
+            values[columnIndex] = value;
         }
+        Operation updatedOperation = new Operation(OperationEnum.UPDATE, updatedKeys, updatedValues,updatedOldValues);
+        Operation operation = new Operation(OperationEnum.REMOVE, keys, values,null);
+        indexSnapshot.addOperation(updatedOperation);
+        indexSnapshot.addOperation(operation);
     }
 
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> void updateIndex(Entry entry, BlockPointer newBlockPointer, BlockPointer oldBlockPointer){
+        Object[] keys = new Object[indexes.length];
+        PointerPair[] values = new PointerPair[indexes.length];
+        PointerPair[] oldValues = new PointerPair[indexes.length];
         for (BTreeSerialization<?> index : this.indexes) {
             if(index == null) continue;
             int columnIndex = index.getColumnIndex();
@@ -196,7 +209,12 @@ public class IndexManager {
             PointerPair oldValue = new PointerPair(oldBlockPointer, indexPointer);
             if(index.isUnique())((BTreeSerialization<K>) index).update(key, newValue);
             else ((BTreeSerialization<K>) index).update(key, newValue, oldValue);
+            keys[columnIndex] = key;
+            values[columnIndex] = newValue;
+            oldValues[columnIndex] = oldValue;
         }
+        Operation operation = new Operation(OperationEnum.UPDATE, keys, values, oldValues);
+        indexSnapshot.addOperation(operation);
     }
 
     @SuppressWarnings("unchecked")
@@ -218,28 +236,46 @@ public class IndexManager {
     }
 
     public BTreeSerialization<?>[] getIndexes() { return this.indexes; }
-    public int getPages(int columnIndex) { return this.numOfPages[columnIndex]; }
-    public void addOnePage(int columnIndex) { this.numOfPages[columnIndex]++; }
-    public void removeOnePage(int columnIndex) { this.numOfPages[columnIndex]--; }
-
-    public Set<String> getDeletedPagesSet(int columnIndex) { return this.tmpDeletedPages[columnIndex]; }
-    public int getDeletedPages(int columnIndex) { return this.tmpNumOfDeletedPages[columnIndex]; }
-    public void addOneDeletedPage(int columnIndex) { this.tmpNumOfDeletedPages[columnIndex]++; }
-    public void removeOneDeleted(int columnIndex) { this.tmpNumOfDeletedPages[columnIndex]--; }
-    public void setDeletedPage(int columnIndex, int value) { this.tmpNumOfDeletedPages[columnIndex] = value; }
-    public void commitDeletedPages() {
-        for (int i = 0; i < tmpDeletedPages.length; i++) {
-            numOfDeletedPages[i] = tmpNumOfDeletedPages[i];
-            // deep copy so committed and temp are independent
-            deletedPages[i] = ConcurrentHashMap.newKeySet();
-            deletedPages[i].addAll(tmpDeletedPages[i]);
-        }
+    public int getPages(int columnIndex) { 
+        return this.tableSnapshots[columnIndex].getNumOfPages(); 
     }
-    public void rollBackDeletedPages() {
-        for (int i = 0; i < deletedPages.length; i++) {
-            tmpNumOfDeletedPages[i] = numOfDeletedPages[i];
-            tmpDeletedPages[i] = ConcurrentHashMap.newKeySet();
-            tmpDeletedPages[i].addAll(deletedPages[i]);
+    public void addOnePage(int columnIndex) { 
+        this.tableSnapshots[columnIndex].addOnePage();
+    }
+    public void removeOnePage(int columnIndex) { 
+        this.tableSnapshots[columnIndex].removeOnePage();
+    }
+
+    public Set<String> getDeletedPagesSet(int columnIndex) { 
+        return this.tableSnapshots[columnIndex].getDeletedPageIDSet(); 
+    }
+    public int getDeletedPages(int columnIndex) { 
+        return this.tableSnapshots[columnIndex].getDeletedPages(); 
+    }
+    public void addOneDeletedPage(String pageKey, int columnIndex) { 
+        this.tableSnapshots[columnIndex].addDeletedPage(pageKey); 
+    }
+    public void removeOneDeleted(String pageKey, int columnIndex) { this.tableSnapshots[columnIndex].removeDeletedPage(pageKey); }
+    public void clearDeletedPages(int columnIndex) { this.tableSnapshots[columnIndex].clearDeletedPages(); }
+    public void beginTransaction(){
+        for (int i = 0; i < tableSnapshots.length; i++) {
+            if(tableSnapshots[i] == null) continue;
+            tableSnapshots[i].beginTransaction();
+        }
+        indexSnapshot.beginTransaction();
+    }
+    public void commit() {
+        for (int i = 0; i < tableSnapshots.length; i++) {
+            if(tableSnapshots[i] == null) continue;
+            tableSnapshots[i].commit();
+        }
+        indexSnapshot.commit();
+    }
+    public void rollback() {
+        indexSnapshot.rollback(indexes);
+        for (int i = 0; i < tableSnapshots.length; i++) {
+            if(tableSnapshots[i] == null) continue;
+            tableSnapshots[i].rollback();
         }
     }
 }

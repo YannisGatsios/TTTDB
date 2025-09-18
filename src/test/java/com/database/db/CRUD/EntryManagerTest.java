@@ -183,7 +183,10 @@ public class EntryManagerTest {
             ind++;
         }
         database.commit();
+        database.startTransaction("====================");
         CRUD.deleteEntry(null, -1);
+        database.rollBack();
+        List<Entry> result = CRUD.selectEntriesAscending(null, 0, -1);
         database.commit();
     }
 

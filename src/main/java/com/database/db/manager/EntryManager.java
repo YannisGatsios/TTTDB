@@ -101,6 +101,7 @@ public class EntryManager {
         table.addOnePage();
         page = table.getCache().getLastTablePage();
         this.insertionProcess(entry, page);
+
     }
     private void insertionProcess(Entry entry, TablePage page) {
         page.add(entry);
@@ -118,6 +119,18 @@ public class EntryManager {
     * @return the number of entries successfully deleted
     */
     public <K extends Comparable<? super K>> int deleteEntry(WhereClause whereClause, int limit){
+        int result = -1;
+        database.startTransaction("Deletion Process");
+        try{
+            result = this.deletion(whereClause, limit);
+        }catch(Exception e){
+            database.rollBack();
+            throw e;
+        }
+        database.commit();
+        return result;
+    }
+    private <K extends Comparable<? super K>> int deletion(WhereClause whereClause, int limit){
         List<IndexRecord<K>> indexResult = table.findRangeIndex(whereClause);
         boolean deleteAll = limit < 0;
         int deletedCount = 0;
@@ -136,7 +149,6 @@ public class EntryManager {
                 table.getCache().deleteLastTablePage(page);
                 continue;
             }
-            // --- Handle replacements ---
             this.replaceWithLast(page, pointer);
             table.getCache().putTablePage(page);
         }
@@ -144,11 +156,9 @@ public class EntryManager {
     }
     private TablePage deletionProcess(BlockPointer pointer){
         TablePage page = table.getCache().getTablePage(pointer.BlockID());
-        // --- Remove entry + indexes ---
         Entry removed = page.get(pointer.RowOffset());
         table.removeIndex(removed, pointer);
         page.remove(pointer.RowOffset());
-        // Reverse internal swap if not last page
         if (!page.isLastPage() && pointer.RowOffset() != page.size()) {
             page.swap(pointer.RowOffset(), page.size());
         }
@@ -156,31 +166,19 @@ public class EntryManager {
     }
     private void replaceWithLast(TablePage page, BlockPointer pointer){
     if (page.isLastPage()) {
-            // Case A: deleted from middle of last page -> update swapped entry
             if (pointer.RowOffset() != page.size()) {
                 Entry moved = page.get(pointer.RowOffset());
-
-                // old location was last slot BEFORE removal
                 BlockPointer oldValue = new BlockPointer(page.getPageID(), (short) page.size());
-
                 table.updateIndex(moved, pointer, oldValue);
             }
         } else {
-            // Case B: deleted from non-last page -> move last entry of last page here
             TablePage lastPage = table.getCache().getLastTablePage();
             int lastOffset = lastPage.size() - 1;
             Entry lastEntry = lastPage.get(lastOffset);
             BlockPointer oldPointer = new BlockPointer(lastPage.getPageID(), (short) lastOffset);
-
             lastPage.removeLast();
-
-            // ✅ overwrite freed slot directly (your add does NOT shift)
             page.add(pointer.RowOffset(), lastEntry);
-
-            // update index mapping for lastEntry
             table.updateIndex(lastEntry, pointer, oldPointer);
-
-            // save changes
             if (lastPage.size() == 0) {
                 table.getCache().deleteLastTablePage(lastPage);
             } else {
@@ -208,6 +206,18 @@ public class EntryManager {
      * @throws IllegalArgumentException if any updated entry is invalid or if a column name in updates is not found
      */
     public <K extends Comparable<? super K>> int updateEntry(WhereClause whereClause, int limit, UpdateFields updates) {
+        database.startTransaction("Updating Process");
+        int result = -1;
+        try{
+            result = this.updating(whereClause, limit, updates);
+        }catch(Exception e){
+            database.rollBack();
+            throw e;
+        }
+        database.commit();
+        return result;
+    }
+    private <K extends Comparable<? super K>> int updating(WhereClause whereClause, int limit, UpdateFields updates){
         int result = 0;
         List<IndexRecord<K>> indexResult = table.findRangeIndex(whereClause);
         boolean updateAll = limit < 0;

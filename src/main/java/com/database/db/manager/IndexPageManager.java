@@ -43,7 +43,7 @@ public class IndexPageManager {
         return new BlockPointer(page.getPageID(), (short)(page.size()-1));
     }
 
-    public <K extends Comparable<? super K>> void remove(BTreeSerialization<K> index, PointerPair pointerPair, int columnIndex){
+    public <K extends Comparable<? super K>> void remove(BTreeSerialization<K> index, PointerPair pointerPair, int columnIndex, Object[] keys, PointerPair[] values, PointerPair[] oldValues){
         BlockPointer indexPointer = pointerPair.indexPointer();
         IndexPage page = this.removalProcess(pointerPair, columnIndex);
         if (page.isLastPage() && page.size() == 1) {
@@ -51,7 +51,7 @@ public class IndexPageManager {
             table.getCache().deleteLastIndexPage(page);
             return;
         }
-        this.replaceWithLast(index, page, indexPointer, columnIndex);
+        this.replaceWithLast(index, page, indexPointer, columnIndex,keys,values,oldValues);
         table.getCache().putIndexPage(page);
     }
     private IndexPage removalProcess(PointerPair pointerPair, int columnIndex){
@@ -64,7 +64,7 @@ public class IndexPageManager {
         return page;
     }
     @SuppressWarnings("unchecked")
-    private <K extends Comparable<? super K>> void replaceWithLast(BTreeSerialization<K> index, IndexPage page, BlockPointer indexPointer, int columnIndex){
+    private <K extends Comparable<? super K>> void replaceWithLast(BTreeSerialization<K> index, IndexPage page, BlockPointer indexPointer, int columnIndex, Object[] keys, PointerPair[] values, PointerPair[] oldValues){
         if(page.isLastPage()){
             page.remove(indexPointer.RowOffset());
             if(indexPointer.RowOffset() != page.size()){
@@ -74,6 +74,9 @@ public class IndexPageManager {
                 PointerPair newPair = new PointerPair((BlockPointer)swapped.get(0), indexPointer);
                 if(index.isUnique())index.update((K)swapped.get(1), newPair);
                 else index.update((K)swapped.get(1), newPair, oldPair);
+                keys[columnIndex] = swapped.get(1);
+                values[columnIndex] = newPair;
+                oldValues[columnIndex] = oldPair;
             }
         }else{
             IndexPage lastPage = table.getCache().getLastIndexPage(columnIndex);
@@ -89,6 +92,9 @@ public class IndexPageManager {
                                       new BlockPointer(page.getPageID(), (short) indexPointer.RowOffset()));
             if(index.isUnique())index.update((K)lastEntry.get(1), newPair);
             else index.update((K)lastEntry.get(1), newPair, oldPair);
+            keys[columnIndex] = lastEntry.get(1);
+            values[columnIndex] = newPair;
+            oldValues[columnIndex] = oldPair;
             if(lastPage.size() == 0){
                 table.getCache().deleteLastIndexPage(lastPage);
             }else{

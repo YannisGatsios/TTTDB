@@ -99,7 +99,12 @@ public class App {
                     .leftPad( 10, "x")
                     .selectColumn("data")
                     .set(new byte[10]));
-                db.update(query);
+                try{
+                    db.update(query);
+                }catch(Exception e){
+                    db.rollBack();
+                    break;
+                }
                 keysList.remove(randInd);
                 ind++;
             }
@@ -107,7 +112,7 @@ public class App {
         SelectQuery query = new SelectQuery("users","id,username",null,0,-1);
         db.commit();
         List<Record> result = db.select(query);
-        db.dropDatabase();
+        //db.dropDatabase();
         db.close();
     }
 }

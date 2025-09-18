@@ -16,6 +16,7 @@ import com.database.db.api.Condition;
 import com.database.db.api.Condition.*;
 import com.database.db.api.DBMS.TableConfig;
 import com.database.db.cache.TableCache;
+import com.database.db.cache.TableSnapshot;
 import com.database.db.index.BTreeSerialization.BlockPointer;
 import com.database.db.index.BTreeSerialization.PointerPair;
 import com.database.db.index.Pair;
@@ -33,15 +34,10 @@ public class Table {
     private IndexManager indexManager;
     private AutoIncrementing[] autoIncrementing;
     private FileIOThread fileIOThread;
-    private Set<String> deletedPages = new HashSet<>();
-    private Set<String> tmpDeletedPages = new HashSet<>();
+    private TableSnapshot tableSnapshot;
 
     private TableReference parent;
     private List<TableReference> children = new ArrayList<>();
-    
-    private int numberOfPages;
-    private int numOfDeletedPages = 0;
-    private int tmpNumOfDeletedPages = 0;
 
     public Table(Database database, TableConfig config) {
         this.database = database;
@@ -50,11 +46,13 @@ public class Table {
         this.schema = new SchemaInner(config.schema().get(database));
         this.cache = new TableCache(this, database);
         this.indexManager = new IndexManager(this);
+        this.tableSnapshot = new TableSnapshot();
     }
     public void start(){
         this.fileIOThread = new FileIOThread(this.tableName);
         this.fileIOThread.start();
-        this.numberOfPages = Table.getNumOfPages(this.getPath(),TablePage.sizeOfEntry(this));
+        int numOfPages = Table.getNumOfPages(this.getPath(),TablePage.sizeOfEntry(this));
+        this.tableSnapshot.setNumOfPages(numOfPages);
         this.indexManager.initialize();
         this.autoIncrementing = this.getAutoIncrementing();
     }
@@ -88,7 +86,7 @@ public class Table {
     }
     private long getMaxSequential(int columnIndex){
         long max = 0;
-        for (int i = 0;i<this.numberOfPages;i++){
+        for (int i = 0;i<this.tableSnapshot.getNumOfPages();i++){
             TablePage page = this.cache.getTablePage(i);
             Entry[] entries = page.getAll();
             for (Entry entry : entries) {
@@ -244,21 +242,23 @@ public class Table {
     public String getPath() { return this.path+database.getName()+"."+this.getName()+".table"; }
     public String getIndexPath(int columnIndex) { return this.path+database.getName()+"."+this.getName()+"."+this.schema.getNames()[columnIndex]+".index"; }
 
-    public int getPages() { return this.numberOfPages; }
-    public void addOnePage() { this.numberOfPages++; }
-    public void removeOnePage() { this.numberOfPages--; }
+    public int getPages() { return this.tableSnapshot.getNumOfPages(); }
+    public void addOnePage() { this.tableSnapshot.addOnePage(); }
+    public void removeOnePage() { this.tableSnapshot.removeOnePage(); }
 
-    public Set<String> getDeletedPagesSet() { return this.tmpDeletedPages; }
-    public int getDeletedPages() { return this.tmpNumOfDeletedPages; }
-    public void setDeletedPages(int numOfDeletedPages) { this.tmpNumOfDeletedPages = numOfDeletedPages; }
-    public void addOneDeletedPage() { this.tmpNumOfDeletedPages++; }
-    public void removeOneDeletedPage() { this.tmpNumOfDeletedPages--; }
-    public void commitDeletedPages() { 
-        this.numOfDeletedPages = this.tmpNumOfDeletedPages; 
-        this.deletedPages = new HashSet<>(this.tmpDeletedPages);
+    public Set<String> getDeletedPagesSet() { return this.tableSnapshot.getDeletedPageIDSet(); }
+    public int getDeletedPages() { return this.tableSnapshot.getDeletedPages(); }
+    public void clearDeletedPages() { this.tableSnapshot.clearDeletedPages(); }
+    public void addDeletedPage(String pageKey) { this.tableSnapshot.addDeletedPage(pageKey); }
+    public void removeDeletedPage(String pageKey) { this.tableSnapshot.removeDeletedPage(pageKey); }
+    public void beginTransaction(){
+        this.tableSnapshot.beginTransaction();
+        this.indexManager.beginTransaction();
     }
-    public void rollBackDeletedPages() { 
-        this.tmpNumOfDeletedPages = this.numOfDeletedPages; 
-        this.tmpDeletedPages = new HashSet<>(this.deletedPages);
+    public void commit() { 
+        this.tableSnapshot.commit();
+    }
+    public void rollback() { 
+        this.tableSnapshot.rollback();
     }
 }

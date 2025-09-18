@@ -28,6 +28,16 @@ public class TablePage extends Page{
         return result;
     }
 
+    public TablePage deepCopy() {
+        TablePage clone = new TablePage(this.getPageID(), this.table);
+        for (int i = 0; i < this.size(); i++) {
+            clone.add(this.get(i).deepCopy());
+        }
+        // copy bookkeeping fields
+        clone.setDirty(this.isDirty());
+        return clone;
+    }
+
     public byte[] toBytes() {
         ByteBuffer combinedArray = ByteBuffer.allocate(this.sizeInBytes());
         Page.headerToBytes(this,combinedArray);
@@ -43,8 +53,8 @@ public class TablePage extends Page{
     }
 
     public void fromBytes(byte[] bufferData) {
-        if (bufferData == null || bufferData.length == 0) throw new IllegalArgumentException("Buffer data cannot be null or empty.");
-        if (bufferData.length%4096 != 0) throw new IllegalArgumentException("Buffer data must be a modulo of a Blocks Size(4096 BYTES) you gave : "+bufferData.length);
+        if (bufferData == null || bufferData.length == 0) throw new IllegalArgumentException("PageID: "+pageID+" Buffer data cannot be null or empty.");
+        if (bufferData.length%4096 != 0) throw new IllegalArgumentException("PageID: "+pageID+" Buffer data must be a modulo of a Blocks Size(4096 BYTES) you gave : "+bufferData.length);
         ByteBuffer buffer = ByteBuffer.wrap(bufferData);
         //Reading The Header
         HeaderValues result = Page.headerFromBytes(buffer, this);
@@ -58,9 +68,9 @@ public class TablePage extends Page{
             this.add(newEntry);
         }
         if(result.spaceInUse() != this.getSpaceInUse()){
-            throw new IllegalArgumentException("Mismatch between expected and actual space in use for Page. newBlock:"+this.getSpaceInUse()+" oldBlock:"+ result.spaceInUse()+" BlockID:"+this.getPageID());
+            throw new IllegalArgumentException("PageID: "+pageID+" Mismatch between expected and actual space in use for Page. newBlock:"+this.getSpaceInUse()+" oldBlock:"+ result.spaceInUse()+" BlockID:"+this.getPageID());
         }
-        if(result.numOfEntries() != this.size()) throw new IllegalArgumentException("Mismatch between expected and actual numOfEntries and Page.size().");
+        if(result.numOfEntries() != this.size()) throw new IllegalArgumentException("PageID: "+pageID+" Mismatch between expected and actual numOfEntries and Page.size().");
     }
 
     public boolean isLastPage() { return (this.getPageID() == table.getPages()-1); }

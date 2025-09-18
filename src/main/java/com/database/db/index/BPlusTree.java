@@ -537,6 +537,7 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements BTree<K, V
 
     private boolean updateNull(K key, V newValue, V oldValue){
         if(!this.isNullable) return false;
+        if(this.nullPair == null) return false;
         if(key == null){
             if (this.nullPair.value.equals(oldValue)) {
                 this.nullPair.value = newValue;

@@ -126,7 +126,7 @@ class PageTest {
         assertEquals(pageCapacity, page.size());
 
         Exception exception = assertThrows(IllegalArgumentException.class, () -> page.add(entry1));
-        assertEquals("Index out of bounds: " + pageCapacity, exception.getMessage());
+        assertEquals("PageID: 1 Index out of bounds: " + pageCapacity, exception.getMessage());
     }
 
     @Test
@@ -138,7 +138,7 @@ class PageTest {
     void testAddEntry_ThrowsExceptionForExistingIndex() {
         page.add(entry1);
         Exception exception = assertThrows(IllegalArgumentException.class, () -> page.add(0, entry2));
-        assertEquals("Entry already exists at index 0 can not add a new one", exception.getMessage());
+        assertEquals("PageID: 1 Entry already exists at index 0 can not add a new one", exception.getMessage());
     }
 
     @Test

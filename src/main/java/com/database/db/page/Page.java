@@ -4,7 +4,7 @@ import java.nio.ByteBuffer;
 
 public abstract class Page {
 
-    private int pageID;
+    protected int pageID;
     private short numOfEntries;
     private int spaceInUse;
     private final Entry[] entries;
@@ -33,9 +33,9 @@ public abstract class Page {
         return this.add(this.numOfEntries, entry);
     }
     public int add(int index, Entry entry) {
-        if (entry == null) throw new IllegalArgumentException("Cannot add null Entry.");
-        if (index < 0 || index >= this.entries.length) throw new IllegalArgumentException("Index out of bounds: " + index);
-        if (this.entries[index] != null) throw new IllegalArgumentException("Entry already exists at index " + index+" can not add a new one");
+        if (entry == null) throw new IllegalArgumentException("PageID: "+pageID+" Cannot add null Entry.");
+        if (index < 0 || index >= this.entries.length) throw new IllegalArgumentException("PageID: "+pageID+" Index out of bounds: " + index);
+        if (this.entries[index] != null) throw new IllegalArgumentException("PageID: "+pageID+" Entry already exists at index " + index+" can not add a new one");
         this.numOfEntries++;
         this.entries[index] = entry;
         this.spaceInUse += this.sizeOfEntry;
@@ -46,7 +46,7 @@ public abstract class Page {
     // ===========REMOVING_ENTRIES===============
     public Entry remove(int index) {
         if (index >= this.numOfEntries || index < 0)
-            throw new IllegalArgumentException("Out of bounds Index you gave: " + index+" Maximum: "+this.numOfEntries);
+            throw new IllegalArgumentException("PageID: "+pageID+" Out of bounds Index you gave: " + index+" Maximum: "+this.numOfEntries);
         Entry result = this.entries[index];
         this.swap(index,numOfEntries-1);
         this.entries[this.numOfEntries-1] = null;
@@ -66,7 +66,7 @@ public abstract class Page {
 
     // ===========SEARCHING_ENTRIES===============
     public Entry get(int index) {
-        if (index < 0 || index >= this.numOfEntries) throw new IndexOutOfBoundsException("invalid index You gave :" + index+" Size :"+this.numOfEntries);
+        if (index < 0 || index >= this.numOfEntries) throw new IndexOutOfBoundsException("PageID: "+pageID+" invalid index You gave :" + index+" Size :"+this.numOfEntries);
         return this.entries[index];
     }
     public boolean contains(Entry entry){

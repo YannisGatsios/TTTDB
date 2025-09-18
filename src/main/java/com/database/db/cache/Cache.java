@@ -20,6 +20,7 @@ public class Cache {
 
     private final FileIO fileIO;
     private final Database database;
+    protected String name = "Main Cache";
 
 
     // LRU cache using LinkedHashMap
@@ -49,18 +50,19 @@ public class Cache {
     }
 
     public void commit(){
-        // Write all pages in alphabetical order
+        logger.info(name + ": Starting commit operation...");
         cache.entrySet().stream()
             .sorted(Map.Entry.comparingByKey())
             .forEach(entry -> {
                 try {
                     writePage(entry);
                 } catch (Exception e) {
-                    logger.log(Level.SEVERE, "Failed to write page: " + entry.getKey(), e);
+                    logger.log(Level.SEVERE, name+": Failed to write page: " + entry.getKey(), e);
                 }
             });
         // Truncate tables and indexes
         for (Table table : database.getAllTablesList()) {
+            logger.info(name + ": Truncating table: " + table.getName());
             truncateTable(table);
             for (int i = 0; i < table.getSchema().getNumOfColumns(); i++) {
                 if (table.getIndexManager().isIndexed(i)) {
@@ -70,13 +72,19 @@ public class Cache {
         }
         // Clear cache aft
         cache.clear();
+        logger.info(name + ": Commit operation completed. Cache cleared.");
     }
     public void rollback(){
+        logger.info(name + ": Starting rollback operation...");
         cache.clear();
+        logger.info(name + ": Cache cleared.");
         for (Table table : database.getAllTablesList()) {
-            table.rollBackDeletedPages();
-            table.getIndexManager().rollBackDeletedPages();
+            logger.info(name + ": Rolling back table: " + table.getName());
+            table.rollback();
+            table.getIndexManager().rollback();
+            logger.info(name + ": Rolled back indexes for table: " + table.getName());
         }
+        logger.info(name + ": Rollback operation completed.");
     }
 
     //== Writing Pages ==
@@ -98,7 +106,7 @@ public class Cache {
         if(table.getDeletedPagesSet().contains(pageKey)){
             table.getDeletedPagesSet().remove(pageKey);
             cache.put(pageKey, newPage);
-            if(table.getDeletedPages() > 0)table.removeOneDeletedPage();
+            if(table.getDeletedPages() > 0)table.removeDeletedPage(pageKey);
             return newPage;
         }
         try {
@@ -109,9 +117,9 @@ public class Cache {
             return newPage;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.log(Level.SEVERE, String.format("Interrupted while loading page ID %d for table '%s'.", pageID, table.getName()), e);
+            logger.log(Level.SEVERE, String.format(name+": Interrupted while loading page ID %d for table '%s'.", pageID, table.getName()), e);
         } catch (ExecutionException e) {
-            logger.log(Level.SEVERE, String.format("Execution failed while loading page ID %d for table '%s'.", pageID, table.getName()), e);
+            logger.log(Level.SEVERE, String.format(name+": Execution failed while loading page ID %d for table '%s'.", pageID, table.getName()), e);
         }
         return null;
     }
@@ -125,7 +133,7 @@ public class Cache {
         if(indexManager.getDeletedPagesSet(columnIndex).contains(pageKey)){
             indexManager.getDeletedPagesSet(columnIndex).remove(pageKey);
             cache.put(pageKey, newPage);
-            if(table.getIndexManager().getDeletedPages(columnIndex) > 0)table.getIndexManager().removeOneDeleted(columnIndex);;
+            if(indexManager.getDeletedPages(columnIndex) > 0)indexManager.removeOneDeleted(pageKey, columnIndex);
             return newPage;
         }
         try {
@@ -136,9 +144,9 @@ public class Cache {
             return newPage;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.log(Level.SEVERE, String.format("Interrupted while loading page ID %d for index '%s'.", pageID, keyParts[1]), e);
+            logger.log(Level.SEVERE, String.format(name+": Interrupted while loading page ID %d for index '%s'.", pageID, keyParts[1]), e);
         } catch (ExecutionException e) {
-            logger.log(Level.SEVERE, String.format("Execution failed while loading page ID %d for index '%s'.", pageID, keyParts[1]), e);
+            logger.log(Level.SEVERE, String.format(name+": Execution failed while loading page ID %d for index '%s'.", pageID, keyParts[1]), e);
         }
         return null;
     }
@@ -149,7 +157,7 @@ public class Cache {
         if (page != null) {
             return page;
         } else {
-            logger.fine(String.format("Cache miss for Table page ID %s. Loading...", pageKey));
+            logger.fine(String.format(name+": Cache miss for Table page ID %s. Loading...", pageKey));
             return loadTablePage(pageKey);
         }
     }
@@ -158,7 +166,7 @@ public class Cache {
         if (page != null) {
             return page;
         } else {
-            logger.fine(String.format("Cache miss for Index page ID %s. Loading...", pageKey));
+            logger.fine(String.format(name+": Cache miss for Index page ID %s. Loading...", pageKey));
             return loadIndexPage(pageKey);
         }
     }
@@ -187,7 +195,7 @@ public class Cache {
         this.cache.remove(pageKey);
         table.getDeletedPagesSet().add(pageKey);
         table.removeOnePage();
-        table.addOneDeletedPage();
+        table.addDeletedPage(pageKey);
         if(CAPACITY == -1)return;
         if(table.getDeletedPages() >= DELETION_CAPACITY) truncateTable(table);
     }
@@ -196,12 +204,12 @@ public class Cache {
         try {
             fileIO.setFileIOThread(table.getFileIOThread());
             fileIO.truncateFile(table.getPath(), table.getDeletedPages()*Page.pageSizeInBytes(TablePage.sizeOfEntry(table)));
-            table.setDeletedPages(0);
+            table.clearDeletedPages();
             table.getDeletedPagesSet().clear();
         } catch (ExecutionException e) {
-            logger.log(Level.SEVERE, "ExecutionException while truncating file for removing "+table.getDeletedPages()+" last table pages.", e);
+            logger.log(Level.SEVERE, name+": ExecutionException while truncating file for removing "+table.getDeletedPages()+" last table pages.", e);
         } catch (InterruptedException e) {
-            logger.log(Level.SEVERE, "InterruptedException while truncating file for removing "+table.getDeletedPages()+" last table pages.", e);
+            logger.log(Level.SEVERE, name+": InterruptedException while truncating file for removing "+table.getDeletedPages()+" last table pages.", e);
             Thread.currentThread().interrupt();
         }
     }
@@ -211,7 +219,7 @@ public class Cache {
         IndexManager indexManager = table.getIndexManager();
         indexManager.getDeletedPagesSet(columnIndex).add(pageKey);
         indexManager.removeOnePage(columnIndex);
-        indexManager.addOneDeletedPage(columnIndex);
+        indexManager.addOneDeletedPage(pageKey, columnIndex);
         if(CAPACITY == -1)return;
         if(indexManager.getDeletedPages(columnIndex) >= DELETION_CAPACITY) truncateIndex(table,columnIndex);
     }
@@ -221,12 +229,12 @@ public class Cache {
         try {
             fileIO.setFileIOThread(table.getFileIOThread());
             fileIO.truncateFile(table.getIndexPath(columnIndex), indexManager.getDeletedPages(columnIndex)*Page.pageSizeInBytes(IndexPage.sizeOfEntry(table, columnIndex)));
-            indexManager.setDeletedPage(columnIndex, 0);
+            indexManager.clearDeletedPages(columnIndex);
             indexManager.getDeletedPagesSet(columnIndex).clear();
         } catch (ExecutionException e) {
-            logger.log(Level.SEVERE, "ExecutionException while truncating file for removing "+indexManager.getDeletedPages(columnIndex)+" last index pages.", e);
+            logger.log(Level.SEVERE, name+": ExecutionException while truncating file for removing "+indexManager.getDeletedPages(columnIndex)+" last index pages.", e);
         } catch (InterruptedException e) {
-            logger.log(Level.SEVERE, "InterruptedException while truncating file for removing "+indexManager.getDeletedPages(columnIndex)+" last index page.", e);
+            logger.log(Level.SEVERE, name+": InterruptedException while truncating file for removing "+indexManager.getDeletedPages(columnIndex)+" last index page.", e);
             Thread.currentThread().interrupt();
         }
     }

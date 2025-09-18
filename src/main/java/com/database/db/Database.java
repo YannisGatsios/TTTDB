@@ -136,6 +136,9 @@ public class Database {
     public void startTransaction(String name){
         if(this.currentCache == null) this.currentCache = new TransactionCache(this, this.mainCache, name);
         else this.currentCache = new TransactionCache(this, this.currentCache, name);
+        for(Table table : tables.values()){
+            table.beginTransaction();
+        }
     }
     public void rollBack(){
         if(this.currentCache == null){
