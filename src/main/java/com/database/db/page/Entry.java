@@ -151,8 +151,14 @@ public class Entry {
                     }
                 }
             }
+            // If entry is null and column was not explicitly set
             if (entry[i] == null && !isSetColumn(columnNames, schema, i)) {
-                entry[i] = schema.getDefaults()[i];
+                // Special handling for TIMESTAMP
+                if (schema.getTypes()[i] == DataType.TIMESTAMP) {
+                    entry[i] = java.time.LocalDateTime.now();
+                } else {
+                    entry[i] = schema.getDefaults()[i];
+                }
             }
         }
         return new Entry(entry, schema.getNumOfColumns()).setBitMap(schema.getNotNull());

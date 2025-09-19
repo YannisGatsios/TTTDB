@@ -8,6 +8,7 @@ import java.util.List;
 import com.database.db.Database;
 import com.database.db.api.Condition.UpdateCondition;
 import com.database.db.api.Condition.WhereClause;
+import com.database.db.api.DatabaseException;
 import com.database.db.api.Functions.InnerFunctions;
 import com.database.db.api.Functions.endConditionalUpdate;
 import com.database.db.api.Functions.selectColumn;
@@ -266,7 +267,7 @@ public class EntryManager {
                 continue;
             }
             if(columnsIndex<0)
-                throw new IllegalArgumentException("Invalid column to update");
+                throw new DatabaseException("Invalid column to update");
             if(update instanceof UpdateCondition){
                 conditionResult = ((UpdateCondition)update).isTrue(table.getSchema(), values);
                 if(conditionResult) isInCondition = true;

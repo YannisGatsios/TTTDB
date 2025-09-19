@@ -5,6 +5,7 @@ import java.util.List;
 import com.database.db.Database;
 import com.database.db.Database.TableReference;
 import com.database.db.api.Condition.WhereClause;
+import com.database.db.api.DatabaseException.ForeignKeyException;
 import com.database.db.api.DBMS;
 import com.database.db.api.UpdateFields;
 import com.database.db.page.Entry;
@@ -25,7 +26,8 @@ public class ForeignKeyManager {
             // Check if the value exists in the parent table
             if (value == null) continue;
             if (!dbms.containsValue(reference.parentTable(), parentColumn, value)) {
-                throw new IllegalStateException(
+                throw new ForeignKeyException(
+                    reference.referenceName(),
                     "Insertion failed: value '" + value + "' for column '" + childColumn + 
                     "' does not exist in parent table '" + reference.parentTable() + 
                     "' column '" + parentColumn + "'."

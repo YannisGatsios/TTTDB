@@ -8,20 +8,63 @@ import java.util.regex.Pattern;
 
 import com.database.db.api.Functions.operationData;
 import com.database.db.table.SchemaInner;
-
+/**
+ * Represents a single condition in a {@link ConditionGroup}, such as a {@link WhereClause}.
+ * 
+ * <p>Conditions are used to filter rows based on column values or custom expressions.
+ * This class provides a fluent API to define comparisons, null checks, and expressions.
+ * Generic parameter {@code T} ensures that chaining returns the proper {@link ConditionGroup} type.</p>
+ * 
+ * <p>Example usage:</p>
+ * <pre>
+ * // Simple column comparison in a WHERE clause
+ * WhereClause where = new WhereClause();
+ * where.column("age").isBiggerOrEqual(18).end()
+ *      .AND()
+ *      .column("age").isSmaller(130).end();
+ *
+ * // Expression-based condition (not allowed in WhereClause)
+ * ConditionGroup group = new ConditionGroup();
+ * group.condition().expression("age + 5 > 20").end();
+ * </pre>
+ * 
+ * @param <T> the concrete type of the condition group, used for fluent chaining
+ */
 public class Condition<T extends ConditionGroup<T>> {
     private String columnName;
     private operationData expression;
     private final EnumMap<Conditions, Object> conditionElementsList = new EnumMap<>(Conditions.class);
     private final T group;
 
+    /**
+     * Constructs a condition attached to the given group.
+     * 
+     * @param group the condition group this condition belongs to
+     */
     public Condition(T group) { this.group = group; }
 
+    /**
+     * Sets the column this condition applies to.
+     * 
+     * <p>Cannot be combined with {@link #expression(String)} in the same condition.</p>
+     * 
+     * @param column the column name
+     * @return the current {@code Condition} instance for fluent chaining
+     */
     public Condition<T> column(String column) {
         if (this.expression != null) throw new IllegalArgumentException("Can't set column when expression is set");
         this.columnName = column;
         return this;
     }
+    /**
+     * Sets a custom expression for this condition.
+     * 
+     * <p>Expressions are not allowed in {@link WhereClause}; only column-based conditions are supported there.</p>
+     * 
+     * @param expr the expression string
+     * @return the current {@code Condition} instance for fluent chaining
+     * @throws UnsupportedOperationException if used inside a {@link WhereClause}
+     */
     public Condition<T> expression(String expr) {
         // Enforce flat-only restriction: expressions are not allowed in WhereClause
         if (group instanceof WhereClause) 
@@ -32,19 +75,36 @@ public class Condition<T extends ConditionGroup<T>> {
     }
 
     // comparison builders
+    /** Checks if column value is null. */
     public Condition<T> isNull(){ conditionElementsList.put(Conditions.IS_EQUAL, null); return this; }
+    /** Checks if column value is not null. */
     public Condition<T> notNull(){ conditionElementsList.put(Conditions.IS_NOT_EQUAL, null); return this; }
+    /** Checks if column value equals the given value. */
     public Condition<T> isEqual(Object v){ conditionElementsList.put(Conditions.IS_EQUAL, v); return this; }
+    /** Checks if column value does not equal the given value. */
     public Condition<T> isNotEqual(Object v){ conditionElementsList.put(Conditions.IS_NOT_EQUAL, v); return this; }
+    /** Checks if column value is greater than the given value. */
     public Condition<T> isBigger(Object v){ conditionElementsList.put(Conditions.IS_BIGGER, v); return this; }
+    /** Checks if column value is smaller than the given value. */
     public Condition<T> isSmaller(Object v){ conditionElementsList.put(Conditions.IS_SMALLER, v); return this; }
+    /** Checks if column value is greater than or equal to the given value. */
     public Condition<T> isBiggerOrEqual(Object v){ conditionElementsList.put(Conditions.IS_BIGGER_OR_EQUAL, v); return this; }
+    /** Checks if column value is smaller than or equal to the given value. */
     public Condition<T> isSmallerOrEqual(Object v){ conditionElementsList.put(Conditions.IS_SMALLER_OR_EQUAL, v); return this; }
 
-    // return the concrete group type so chaining keeps the specific type
+    /**
+     * Ends the condition definition and returns the parent condition group.
+     * 
+     * @return the parent {@code ConditionGroup} for continued fluent chaining
+     */
     public T end() { return this.group; }
 
-    // evaluation helpers (same as your logic)
+    /**
+     * Evaluates this condition against a single value.
+     * 
+     * @param value the value to test
+     * @return {@code true} if the value satisfies all defined conditions
+     */
     @SuppressWarnings("unchecked")
     public boolean isApplicable(Object value) {
         for (Map.Entry<Conditions, Object> cond : conditionElementsList.entrySet()) {
@@ -76,7 +136,13 @@ public class Condition<T extends ConditionGroup<T>> {
         }
         return true;
     }
-
+    /**
+     * Evaluates this condition against a row of values using the schema.
+     * 
+     * @param entryValues the values of a row
+     * @param schema the schema defining column indices
+     * @return {@code true} if the condition is satisfied
+     */
     public boolean isTrue(Object[] entryValues, SchemaInner schema) {
         Object value;
         if (columnName != null) {
@@ -90,7 +156,15 @@ public class Condition<T extends ConditionGroup<T>> {
         if (value == null) return false;
         return isApplicable(value);
     }
-
+    /**
+     * Validates this condition against a schema.
+     * 
+     * <p>If a column is used, it must exist in the schema. If an expression
+     * is used, all referenced columns must exist.</p>
+     * 
+     * @param schema the schema to validate against
+     * @return {@code true} if the condition is valid
+     */
     public boolean isValid(Schema schema) {
         if (columnName != null) return schema.hasColumn(columnName);
         if (expression != null) {
@@ -106,6 +180,9 @@ public class Condition<T extends ConditionGroup<T>> {
 
     public String getColumnName() { return this.columnName; }
     public EnumMap<Conditions, Object> getConditions() { return this.conditionElementsList; }
+    /**
+     * Defines how conditions are logically connected in a clause.
+     */
     public static enum Clause{
         FIRST,
         OR,
@@ -113,7 +190,9 @@ public class Condition<T extends ConditionGroup<T>> {
         FIRST_GROUP,
         OR_GROUP,
         AND_GROUP;
-
+        /**
+         * Defines the supported comparison operations for a condition.
+         */
         public boolean isGroup() {
             return this == FIRST_GROUP || this == OR_GROUP || this == AND_GROUP;
         }
@@ -126,6 +205,21 @@ public class Condition<T extends ConditionGroup<T>> {
         IS_SMALLER_OR_EQUAL,
         IS_BIGGER_OR_EQUAL,
     }
+    /**
+     * Represents a root-level WHERE clause for filtering rows.
+     * 
+     * <p>This is a flat-only implementation of {@link ConditionGroup}. Nested groups
+     * and expressions are not supported. Only simple column-based conditions
+     * can be defined.</p>
+     * 
+     * <p>Example usage:</p>
+     * <pre>
+     * WhereClause where = new WhereClause();
+     * where.column("age").isBiggerOrEqual(18).end()
+     *      .AND()
+     *      .column("age").isSmaller(130).end();
+     * </pre>
+     */
     public static class WhereClause extends ConditionGroup<WhereClause> {
         /** Root constructor (no parent). Used for creating the main WhereClause. */
         public WhereClause() {
@@ -223,7 +317,22 @@ public class Condition<T extends ConditionGroup<T>> {
             );
         }
     }
-
+    /**
+     * Represents a conditional update used in an UPDATE statement.
+     * 
+     * <p>This class extends {@link ConditionGroup} to allow defining conditions
+     * that determine which rows will be updated. It links back to the 
+     * {@link UpdateFields} instance that initiated the conditional update,
+     * enabling fluent continuation of the API.</p>
+     * 
+     * <p>Example usage:</p>
+     * <pre>
+     * updateFields.condition()
+     *     .column("age").isBigger(18).end()
+     *     .endConditionalUpdate()
+     *     .set("status", "adult");
+     * </pre>
+     */
     public static class UpdateCondition extends ConditionGroup<UpdateCondition> implements Functions.InnerFunctions {
         private final UpdateFields updateFields;
         // Root constructor (parent == null)
@@ -242,7 +351,10 @@ public class Condition<T extends ConditionGroup<T>> {
             return new UpdateCondition(this.updateFields, this);
         }
         /**
-         * Return the UpdateFields that started this conditional update (so the fluent API can continue).
+         * Ends the conditional update and returns the {@link UpdateFields} object
+         * to continue the fluent update API.
+         * 
+         * @return the original {@link UpdateFields} instance
          */
         public UpdateFields endConditionalUpdate() {
             return this.updateFields.endConditionalUpdate();
@@ -254,8 +366,11 @@ public class Condition<T extends ConditionGroup<T>> {
             return this;
         }
         /**
-         * Helper for easier calling from outside code. Accepts parameters in order (table, rowData)
-         * and delegates to the inherited condition evaluation.
+         * Evaluates the condition against a row of data.
+         * 
+         * @param schema the schema defining column indices
+         * @param rowData the values of the row to evaluate
+         * @return true if all conditions in this group are satisfied
          */
         public boolean isTrue(SchemaInner schema, Object[] rowData) {
             return super.isTrue(rowData, schema);
@@ -270,9 +385,25 @@ public class Condition<T extends ConditionGroup<T>> {
             throw new UnsupportedOperationException("UpdateCondition is a control function; it cannot be applied as a value.");
         }
     }
+    /**
+     * Represents a condition group used for CHECK constraints on a table schema.
+     * 
+     * <p>Allows defining complex conditions for a CHECK constraint, optionally
+     * nested with child groups.</p>
+     * 
+     * <p>Example usage:</p>
+     * <pre>
+     * schema.check("age_check")
+     *       .open()
+     *          .column("num").isBiggerOrEqual(18).end()
+     *       .close()
+     *       .AND()
+     *       .column("num").isSmaller(130).end()
+     *       .endCheck();
+     * </pre>
+     */
     public static class CheckCondition extends ConditionGroup<CheckCondition> {
         private final Check check;
-
         // root constructor (parent = null)
         public CheckCondition(Check check){
             super(null);
@@ -288,6 +419,11 @@ public class Condition<T extends ConditionGroup<T>> {
             // create a child group and correctly set its parent to 'this'
             return new CheckCondition(this.check, this);
         }
+        /**
+         * Ends the CHECK condition definition and returns the parent schema.
+         * 
+         * @return the {@link Schema} that owns this check
+         */
         public Schema endCheck(){
             return this.check.endCheck();
         }

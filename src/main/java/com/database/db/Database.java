@@ -64,6 +64,7 @@ public class Database {
         this.tables.put(tableConfig.tableName(), newTable);
     }
     public record TableReference(
+        String referenceName,
         String childTable, 
         String parentTable,
         List<String> childColumns, 
@@ -77,6 +78,7 @@ public class Database {
         for (ForeignKey foreignKey : foreignKeyList) {
             Table parentTable = tables.get(foreignKey.getReferenceTable());
             TableReference tableReference = new TableReference(
+                foreignKey.getName(),
                 childTable.getName(), 
                 parentTable.getName(), 
                 foreignKey.getChildColumns(), 

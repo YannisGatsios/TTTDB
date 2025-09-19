@@ -10,6 +10,7 @@ import com.database.db.api.DBMS.*;
 import com.database.db.table.DataType;
 import com.database.db.api.Schema;
 import com.database.db.api.DBMS.Record;
+import com.database.db.api.DatabaseException.EntryValidationException;
 import com.database.db.api.DBMS;
 import com.database.db.api.UpdateFields;
 import com.database.db.api.Condition.WhereClause;
@@ -34,6 +35,7 @@ public class App {
             .column("message").type(DataType.CHAR).size(10).endColumn()
             .column("data").type(DataType.BYTE).size(10).notNull().defaultValue(new byte[10]).endColumn()
             .column("id").autoIncrementing().unique().endColumn()
+            .column("date").type(DataType.TIMESTAMP).endColumn()
             .check("age_check")
                 .open()
                     .column("num")
@@ -45,7 +47,7 @@ public class App {
             .endCheck();
 
         TableConfig tableConf = new TableConfig("users", schema);
-        DBMS db = new DBMS("test_database",100)
+        DBMS db = new DBMS("test_database",10)
             .setPath("")
             .addTable(tableConf)
         .create()
@@ -101,15 +103,16 @@ public class App {
                     .set(new byte[10]));
                 try{
                     db.update(query);
-                }catch(Exception e){
+                }catch(EntryValidationException e){
                     db.rollBack();
+                    e.printStackTrace();
                     break;
                 }
                 keysList.remove(randInd);
                 ind++;
             }
         }
-        SelectQuery query = new SelectQuery("users","id,username",null,0,-1);
+        SelectQuery query = new SelectQuery("users","id,username,date",null,0,-1);
         db.commit();
         List<Record> result = db.select(query);
         //db.dropDatabase();

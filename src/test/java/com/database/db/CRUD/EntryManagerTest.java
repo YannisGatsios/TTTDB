@@ -1,5 +1,6 @@
 package com.database.db.CRUD;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -183,11 +184,17 @@ public class EntryManagerTest {
             ind++;
         }
         database.commit();
-        database.startTransaction("====================");
-        CRUD.deleteEntry(null, -1);
+        database.startTransaction("Million Deletions");
+            CRUD.deleteEntry(null, -1);
+            List<Entry> preRollbackResult = CRUD.selectEntriesAscending(null, 0, -1);
+            assertEquals(0, preRollbackResult.size());
         database.rollBack();
-        List<Entry> result = CRUD.selectEntriesAscending(null, 0, -1);
+        List<Entry> afterRollbackResult = CRUD.selectEntriesAscending(null, 0, -1);
+        assertEquals(1000000, afterRollbackResult.size());
+        CRUD.deleteEntry(null, -1);
         database.commit();
+        List<Entry> commitDeletionsResult = CRUD.selectEntriesAscending(null, 0, -1);
+        assertEquals(0, commitDeletionsResult.size());
     }
 
     @AfterAll
