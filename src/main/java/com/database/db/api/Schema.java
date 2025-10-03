@@ -298,7 +298,7 @@ public class Schema {
             // UNIQUE check (needs table lookup)
             if ((column.constraints().contains(Constraint.PRIMARY_KEY) || column.constraints().contains(Constraint.UNIQUE))  && value != null) {
                 int idx = getColumnIndex(column.name());
-                if (table.isKeyFound(value, idx)) {
+                if (table.containsKey(value, idx)) {
                     throw new EntryValidationException(
                         "Duplicate value for UNIQUE column " + column.name()
                     );

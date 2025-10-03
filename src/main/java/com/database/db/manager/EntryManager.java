@@ -12,29 +12,16 @@ import com.database.db.api.DatabaseException;
 import com.database.db.api.Functions.InnerFunctions;
 import com.database.db.api.Functions.endConditionalUpdate;
 import com.database.db.api.Functions.selectColumn;
+import com.database.db.api.Row;
+import com.database.db.api.Schema;
 import com.database.db.api.UpdateFields;
 import com.database.db.index.BTreeSerialization.BlockPointer;
+import com.database.db.manager.IndexManager.IndexRecord;
 import com.database.db.page.Entry;
 import com.database.db.page.TablePage;
-import com.database.db.table.SchemaInner;
 import com.database.db.table.Table;
-import com.database.db.table.Table.IndexRecord;
 
 public class EntryManager {
-    private Database database;
-    private Table table;
-    private SchemaInner schema;
-    public EntryManager(){}
-    public void selectDatabase(Database database){
-        this.database = database;
-    }
-    public void selectTable(String tableName){
-        this.table = this.database.getTable(tableName);
-        this.schema = this.table.getSchema();
-    }
-    public Table getTable(){
-        return this.table;
-    }
     //==SELECTING==
     /**
      * Selects entries from the table in ascending order based on the given column and range.
@@ -45,9 +32,9 @@ public class EntryManager {
      * @param limit the maximum number of entries to return; if negative, all matching entries are returned
      * @return a list of entries matching the criteria, ordered in ascending fashion
      */
-    public <K extends Comparable<? super K>> List<Entry> selectEntriesAscending(WhereClause whereClause, int begin, int limit) {
-        List<IndexRecord<K>> blockPointerList = table.findRangeIndex(whereClause);
-        return this.selectionProcess(blockPointerList, begin, limit);
+    public static <K extends Comparable<? super K>> List<Entry> selectEntriesAscending(Table table, WhereClause whereClause, int begin, int limit) {
+        List<IndexRecord<K>> blockPointerList = table.selectIndex(whereClause);
+        return EntryManager.selectionProcess(table, blockPointerList, begin, limit);
     }
     /**
      * Selects entries from the table in descending order based on the given column and range.
@@ -58,12 +45,12 @@ public class EntryManager {
      * @param limit the maximum number of entries to return; if negative, all matching entries are returned
      * @return a list of entries matching the criteria, ordered in descending fashion
      */
-    public <K extends Comparable<? super K>> List<Entry> selectEntriesDescending(WhereClause whereClause, int begin, int limit) {
-        List<IndexRecord<K>> reversed = table.findRangeIndex(whereClause);
+    public static <K extends Comparable<? super K>> List<Entry> selectEntriesDescending(Table table, WhereClause whereClause, int begin, int limit) {
+        List<IndexRecord<K>> reversed = table.selectIndex(whereClause);
         Collections.reverse(reversed);
-        return this.selectionProcess(reversed, begin, limit);
+        return EntryManager.selectionProcess(table, reversed, begin, limit);
     }
-    private <K extends Comparable<? super K>> List<Entry> selectionProcess(List<IndexRecord<K>> indexResult, int begin, int limit){
+    private static <K extends Comparable<? super K>> List<Entry> selectionProcess(Table table, List<IndexRecord<K>> indexResult, int begin, int limit){
         List<Entry> result = new ArrayList<>();
         int index = 0;
         boolean selectAll = limit < 0;
@@ -77,6 +64,26 @@ public class EntryManager {
         return result;
     }
     //==INSERTION==
+    public static int insertEntries(Table table, List<Row> rows){
+        int result = 0;
+        Database database = table.getDatabase();
+        Schema schema = database.getSchema(table.getName());
+        database.startTransaction("Insertion Process");
+        try{
+            for (Row row : rows) {
+                Entry entry = Entry.prepareEntry(row.getColumns(), row.getValues(), table);
+                schema.isValidEntry(entry, table);
+                ForeignKeyManager.foreignKeyCheck(database.getDBMS(), database, table.getName(), entry);
+                insertEntry(table, entry);
+                result++;
+            }
+        }catch(Exception e){
+            database.rollBack();
+            throw e;
+        }
+        database.commit();
+        return result;
+    }
     /**
      * Inserts a new entry into the table. If the last page has available space, the entry
      * is added there. Otherwise, a new page is created to accommodate the entry.
@@ -92,19 +99,18 @@ public class EntryManager {
      * @param entry the entry to insert into the table
      * @throws IllegalArgumentException if the entry is invalid according to the table schema
      */
-    public void insertEntry(Entry entry) {
+    public static void insertEntry(Table table, Entry entry) {
         if(table.getPages()==0) table.addOnePage();
         TablePage page = table.getCache().getLastTablePage();
         if(page.size() < page.getCapacity()){
-            this.insertionProcess(entry, page);
+            EntryManager.insertionProcess(table, entry, page);
             return;
         }
         table.addOnePage();
         page = table.getCache().getLastTablePage();
-        this.insertionProcess(entry, page);
-
+        EntryManager.insertionProcess(table, entry, page);
     }
-    private void insertionProcess(Entry entry, TablePage page) {
+    private static void insertionProcess(Table table, Entry entry, TablePage page) {
         page.add(entry);
         table.insertIndex(entry, new BlockPointer(page.getPageID(), (short)(page.size()-1)));
         table.getCache().putTablePage(page);
@@ -119,20 +125,20 @@ public class EntryManager {
     * @param limit the maximum number of entries to delete; if negative, all matching entries are deleted
     * @return the number of entries successfully deleted
     */
-    public <K extends Comparable<? super K>> int deleteEntry(WhereClause whereClause, int limit){
+    public static <K extends Comparable<? super K>> int deleteEntry(Table table, WhereClause whereClause, int limit){
         int result = -1;
-        database.startTransaction("Deletion Process");
+        table.getDatabase().startTransaction("Deletion Process");
         try{
-            result = this.deletion(whereClause, limit);
+            result = deletion(table, whereClause, limit);
         }catch(Exception e){
-            database.rollBack();
+            table.getDatabase().rollBack();
             throw e;
         }
-        database.commit();
+        table.getDatabase().commit();
         return result;
     }
-    private <K extends Comparable<? super K>> int deletion(WhereClause whereClause, int limit){
-        List<IndexRecord<K>> indexResult = table.findRangeIndex(whereClause);
+    private static <K extends Comparable<? super K>> int deletion(Table table, WhereClause whereClause, int limit){
+        List<IndexRecord<K>> indexResult = table.selectIndex(whereClause);
         boolean deleteAll = limit < 0;
         int deletedCount = 0;
         for (IndexRecord<K> value : indexResult) {
@@ -141,21 +147,21 @@ public class EntryManager {
             Entry entryToDelete = table.getCache()
                     .getTablePage(pointer.BlockID())
                     .get(pointer.RowOffset());
-            boolean allowed = ForeignKeyManager.foreignKeyDeletion(this, table, entryToDelete);
+            boolean allowed = ForeignKeyManager.foreignKeyDeletion(table, entryToDelete);
             if (!allowed) 
                 throw new IllegalStateException("Foreign key RESTRICT violation on delete.");
-            TablePage page = deletionProcess(pointer);
+            TablePage page = deletionProcess(table, pointer);
             deletedCount++;
             if (page.isLastPage() && page.size() == 0) {
                 table.getCache().deleteLastTablePage(page);
                 continue;
             }
-            this.replaceWithLast(page, pointer);
+            replaceWithLast(table, page, pointer);
             table.getCache().putTablePage(page);
         }
         return deletedCount;
     }
-    private TablePage deletionProcess(BlockPointer pointer){
+    private static TablePage deletionProcess(Table table, BlockPointer pointer){
         TablePage page = table.getCache().getTablePage(pointer.BlockID());
         Entry removed = page.get(pointer.RowOffset());
         table.removeIndex(removed, pointer);
@@ -165,7 +171,7 @@ public class EntryManager {
         }
         return page;
     }
-    private void replaceWithLast(TablePage page, BlockPointer pointer){
+    private static void replaceWithLast(Table table, TablePage page, BlockPointer pointer){
     if (page.isLastPage()) {
             if (pointer.RowOffset() != page.size()) {
                 Entry moved = page.get(pointer.RowOffset());
@@ -206,21 +212,21 @@ public class EntryManager {
      * @return the number of entries successfully updated
      * @throws IllegalArgumentException if any updated entry is invalid or if a column name in updates is not found
      */
-    public <K extends Comparable<? super K>> int updateEntry(WhereClause whereClause, int limit, UpdateFields updates) {
-        database.startTransaction("Updating Process");
+    public static <K extends Comparable<? super K>> int updateEntry(Table table, WhereClause whereClause, int limit, UpdateFields updates) {
+        table.getDatabase().startTransaction("Updating Process");
         int result = -1;
         try{
-            result = this.updating(whereClause, limit, updates);
+            result = updating(table, whereClause, limit, updates);
         }catch(Exception e){
-            database.rollBack();
+            table.getDatabase().rollBack();
             throw e;
         }
-        database.commit();
+        table.getDatabase().commit();
         return result;
     }
-    private <K extends Comparable<? super K>> int updating(WhereClause whereClause, int limit, UpdateFields updates){
+    private static <K extends Comparable<? super K>> int updating(Table table, WhereClause whereClause, int limit, UpdateFields updates){
         int result = 0;
-        List<IndexRecord<K>> indexResult = table.findRangeIndex(whereClause);
+        List<IndexRecord<K>> indexResult = table.selectIndex(whereClause);
         boolean updateAll = limit < 0;
         int index = -1;
         for (IndexRecord<K> pair : indexResult) {
@@ -228,18 +234,18 @@ public class EntryManager {
             if(!updateAll && index>=limit)return result;
             TablePage page = table.getCache().getTablePage(pair.value().tablePointer().BlockID());
             if (page == null) continue;
-            this.updateProcess(page, pair.value().tablePointer(), updates.getFunctionsList());
+            updateProcess(table, page, pair.value().tablePointer(), updates.getFunctionsList());
             table.getCache().putTablePage(page);
             result++;
         }
         return result;
     }
-    private void updateProcess(TablePage page, BlockPointer tablePointer, List<InnerFunctions> updates) {
+    private static void updateProcess(Table table, TablePage page, BlockPointer tablePointer, List<InnerFunctions> updates) {
         Entry oldEntry = page.get(tablePointer.RowOffset());
         table.removeIndex(oldEntry, tablePointer);
         Entry newEntry;
         try{
-            newEntry = this.newEntry(page, oldEntry, tablePointer, updates);
+            newEntry = newEntry(table, page, oldEntry, tablePointer, updates);
         }catch(Exception e){
             table.insertIndex(oldEntry, tablePointer);
             throw e;
@@ -247,17 +253,18 @@ public class EntryManager {
         page.set(tablePointer.RowOffset(),newEntry);
         table.insertIndex(newEntry, tablePointer);
     }
-    private Entry newEntry(TablePage page, Entry oldEntry, BlockPointer pointer, List<InnerFunctions> updates){
+    private static Entry newEntry(Table table, TablePage page, Entry oldEntry, BlockPointer pointer, List<InnerFunctions> updates){
+        Database database = table.getDatabase();
         Object[] newValues = Arrays.copyOf(oldEntry.getEntry(), oldEntry.getEntry().length);
-        this.applyUpdates(newValues, updates);
-        Entry newEntry = new Entry(newValues,this.schema.getNumOfColumns())
-            .setBitMap(this.table.getSchema().getNotNull());
+        applyUpdates(table, newValues, updates);
+        Entry newEntry = new Entry(newValues,table.getSchema().getNumOfColumns())
+            .setBitMap(table.getSchema().getNotNull());
         database.getSchema(table.getName()).isValidEntry(newEntry, table);
         ForeignKeyManager.foreignKeyCheck(database.getDBMS(), database, table.getName(), newEntry);
-        ForeignKeyManager.foreignKeyUpdate(this, table, oldEntry, newValues);
+        ForeignKeyManager.foreignKeyUpdate(table, oldEntry, newValues);
         return newEntry;
     }
-    private void applyUpdates(Object[] values, List<InnerFunctions> updates){
+    private static void applyUpdates(Table table, Object[] values, List<InnerFunctions> updates){
         int columnsIndex = -1;
         boolean isInCondition = false;
         boolean conditionResult = false;

@@ -22,8 +22,8 @@ import org.junit.jupiter.api.TestInstance;
 
 import com.database.db.api.Condition.*;
 import com.database.db.api.DBMS.*;
+import com.database.db.api.Row;
 import com.database.db.api.Schema;
-import com.database.db.manager.EntryManager;
 import com.database.db.page.Entry;
 import com.database.db.Database;
 import com.database.db.table.DataType;
@@ -47,7 +47,6 @@ public class EntryManagerTest {
     private Database database;
     private Table table;
     private TableConfig config;
-    private EntryManager CRUD;
     private Random random;
     private String[] keysList;
 
@@ -65,10 +64,6 @@ public class EntryManagerTest {
         database.createTable(config);
         database.create();
         table = database.getTable("test_table");
-        
-        CRUD = new EntryManager();
-        CRUD.selectDatabase(database);
-        CRUD.selectTable("test_table");
 
         random = new Random();
         keysList = new String[400];
@@ -84,14 +79,14 @@ public class EntryManagerTest {
         byte[] data = new byte[10];
         entryData.add(data);
         Entry entry = new Entry(entryData.toArray(), table.getSchema().getNumOfColumns()).setBitMap(table.getSchema().getNotNull());
-        CRUD.insertEntry(entry);
+        table.insertUnsafe(entry);
     }
     @Test
     @Order(2)
     void testDeleteLastEntry() throws ExecutionException, InterruptedException, IOException {
         WhereClause clause = new WhereClause().column("username")
             .isEqual("firstEntry").end();
-        CRUD.deleteEntry(clause,-1);
+        table.delete(clause,-1);
     }
 
     @Test
@@ -101,7 +96,7 @@ public class EntryManagerTest {
         while (ind < 400) {
             int sizeOfID = random.nextInt(table.getSchema().getSizes()[table.getSchema().getPrimaryKeyIndex()]-1)+1;
             String userName = this.generateRandomString(sizeOfID);
-            if(!table.isKeyFound(userName,0)){
+            if(!table.containsKey(userName,0)){
                 keysList[ind] = userName;
                 ArrayList<Object> entryData = new ArrayList<>();
                 entryData.add(userName);
@@ -119,7 +114,7 @@ public class EntryManagerTest {
                 }
                 entryData.add(data);
                 Entry entry = new Entry(entryData.toArray(), table.getSchema().getNumOfColumns()).setBitMap(table.getSchema().getNotNull());
-                CRUD.insertEntry(entry);
+                table.insertUnsafe(entry);
                 ind++;
             }
         }
@@ -150,7 +145,7 @@ public class EntryManagerTest {
         //Checking if all previously inserted keys are included in the new tree
         for (int i = 0; i < 400; i++) {
             String key = keysList[i];
-            if(!table.isKeyFound(key,0)){
+            if(!table.containsKey(key,0)){
                 fail();
             }
         }
@@ -158,11 +153,11 @@ public class EntryManagerTest {
         int ind = 0;
         while (ind < 100) {
             int randInd = random.nextInt(400);
-            if(table.isKeyFound(keysList[randInd],0)){
+            if(table.containsKey(keysList[randInd],0)){
                 String key = keysList[randInd];
                 WhereClause clause = new WhereClause().column("username")
                     .isEqual(key).end();
-                CRUD.deleteEntry(clause,-1);
+                table.delete(clause,-1);
                 ind++;
             }
         }
@@ -171,29 +166,31 @@ public class EntryManagerTest {
     @Test
     @Order(5)
     void testOrderedEntryInsertion() throws ExecutionException, InterruptedException, IOException, Exception {
+        List<Row> rowsList = new ArrayList<>();
         int ind = 0;
         while(ind < 1000000){
-            ArrayList<Object> entryData = new ArrayList<>();
             String key = "INSERTION"+ind;
-            entryData.add(key);
-            entryData.add(ind);
-            entryData.add("TEST");
-            entryData.add(new byte[] {(byte)ind});
-            Entry entry = new Entry(entryData.toArray(), table.getSchema().getNumOfColumns()).setBitMap(table.getSchema().getNotNull());
-            CRUD.insertEntry(entry);
+            Row row = new Row("username,num,message,data");
+            row.set("username", key);
+            row.set("num", ind);
+            row.set("message", "TEST");
+            row.set("data", new byte[]{(byte) ind});
+            rowsList.add(row);
             ind++;
         }
+        table.insert(rowsList);
         database.commit();
         database.startTransaction("Million Deletions");
-            CRUD.deleteEntry(null, -1);
-            List<Entry> preRollbackResult = CRUD.selectEntriesAscending(null, 0, -1);
+            table.delete(null, -1);
+            List<Entry> preRollbackResult = table.select(null, 0, -1);
             assertEquals(0, preRollbackResult.size());
         database.rollBack();
-        List<Entry> afterRollbackResult = CRUD.selectEntriesAscending(null, 0, -1);
+        
+        List<Entry> afterRollbackResult = table.select(null, 0, -1);
         assertEquals(1000000, afterRollbackResult.size());
-        CRUD.deleteEntry(null, -1);
+        table.delete(null, -1);
         database.commit();
-        List<Entry> commitDeletionsResult = CRUD.selectEntriesAscending(null, 0, -1);
+        List<Entry> commitDeletionsResult = table.select(null, 0, -1);
         assertEquals(0, commitDeletionsResult.size());
     }
 

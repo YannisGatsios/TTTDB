@@ -12,6 +12,10 @@ import java.util.logging.Logger;
 
 import com.database.db.Database;
 import com.database.db.api.Condition.WhereClause;
+import com.database.db.api.Query.Delete;
+import com.database.db.api.Query.Select;
+import com.database.db.api.Query.SelectionType;
+import com.database.db.api.Query.Update;
 import com.database.db.manager.EntryManager;
 import com.database.db.manager.ForeignKeyManager;
 import com.database.db.page.Entry;
@@ -35,53 +39,14 @@ public class DBMS {
     private final Map<String,Database> databases;
     private Database selected;
     private String path = "";
-    private final EntryManager entryManager;
     /**
      * Represents the configuration of a table, including its name and schema.
      */
     public record TableConfig(String tableName, Schema schema){}
     /**
-     * Represents a database record with column names and their corresponding values.
-     */
-    public record Record(String[] columnNames, Object[] values){
-        /**
-         * Gets the value of the specified column by name.
-         * @param columnName the column name
-         * @return the value of the column
-         * @throws IllegalArgumentException if the column name does not exist
-         */
-        public Object get(String columnName){
-            for (int i =0;i<columnNames.length;i++) {
-                if(columnName.equals(columnNames[i])) return values[i];
-            }
-            throw new IllegalArgumentException("Invalid column name "+columnName);
-        }
-        /**
-         * Gets the value of the specified column by index.
-         * @param index the column index
-         * @return the value at the specified index
-         */
-        public Object get(int index) { return values[index]; }
-        /**
-         * Returns all values in this record.
-         * @return an array of all column values
-         */
-        public Object[] getAll() { return values; }
-        @Override
-        public String toString() {
-            StringBuilder sb = new StringBuilder("{");
-            for (int i = 0; i < columnNames.length; i++) {
-                sb.append(columnNames[i]).append("=").append(values[i]);
-                if (i < columnNames.length - 1) sb.append(", ");
-            }
-            sb.append("}");
-            return sb.toString();
-        }
-    }
-    /**
      * Represents a SELECT query.
      */
-    public record SelectQuery(String tableName, String resultColumns, WhereClause whereClause, int begin, int limit){
+    public record SelectQuery(String tableName, String resultColumns, WhereClause whereClause, int begin, int limit, SelectionType type){
         /**
          * Returns the columns to select for the given table.
          * @param table the table
@@ -91,21 +56,6 @@ public class DBMS {
             if(resultColumns == null) return table.getSchema().getNames();
             if(resultColumns.isBlank()) return new String[0];
             return resultColumns.split("\\s*,\\s*");
-        }
-    }
-    /**
-     * Represents an INSERT query.
-     */
-    public record InsertQuery(String tableName, String columns, Object[] values){
-        /**
-         * Returns the columns to insert into for the given table.
-         * @param table the table
-         * @return array of column names
-         */
-        public String[] getColumns(Table table){
-            if(columns == null) return table.getSchema().getNames();
-            if(columns.isBlank()) return new String[0];
-            return columns.split("\\s*,\\s*");
         }
     }
     /**
@@ -121,17 +71,6 @@ public class DBMS {
      */
     public DBMS(){
         this.databases = new HashMap<>();
-        this.entryManager = new EntryManager();
-    }
-    /**
-     * Creates a new DBMS instance with a database initialized.
-     * @param databaseName the name of the database
-     * @param cacheCapacity the cache capacity for the database
-     */
-    public DBMS(String databaseName, int cacheCapacity){
-        this();
-        this.setPath(path);
-        this.addDatabase(databaseName, cacheCapacity);
     }
     /**
      * Sets the path where database files will be stored.
@@ -156,10 +95,10 @@ public class DBMS {
         return this;
     }
     /**
-     * Creates all databases in this DBMS.
+     * Creates all databases or Loads them if they exist in this DBMS
      * @return the current DBMS instance
      */
-    public DBMS create(){
+    public DBMS start(){
         Set<String> databaseNames = new HashSet<>(this.databases.keySet());
         for (String databaseName : databaseNames) {
             Database database = databases.get(databaseName);
@@ -190,7 +129,6 @@ public class DBMS {
     public DBMS selectDatabase(String database){
         if(this.selected != null) this.selected.commit();
         this.selected = this.databases.get(database);
-        this.entryManager.selectDatabase(selected);
         return this;
     }
     /**
@@ -218,59 +156,107 @@ public class DBMS {
      * @param query the select query
      * @return list of records matching the query
      */
-    public List<Record> select(SelectQuery query){
+    public List<Row> select(Select select){
+        SelectQuery query = select.get();
         if(this.selected == null) throw new IllegalArgumentException("Can not perform select statement when no Database selected.");
-        this.entryManager.selectDatabase(selected);
-        this.entryManager.selectTable(query.tableName);
-        List<Entry> result = this.entryManager.selectEntriesAscending(query.whereClause, query.begin, query.limit);
-        return this.prepareSelectResult(query.getColumns(entryManager.getTable()), result);
+        Table table = selected.getTable(query.tableName);
+        List<Entry> result = table.select(query.whereClause, query.begin, query.limit);
+        return this.prepareSelectResult(table, query, result);
     }
     /**
      * Performs a SELECT query in descending order.
      * @param query the select query
      * @return list of records matching the query in descending order
      */
-    public List<Record> selectDescending(SelectQuery query){
+    public List<Row> selectDescending(Select select){
+        SelectQuery query = select.get();
         if(this.selected == null) throw new IllegalArgumentException("Can not perform select statement when no Database selected.");
-        this.entryManager.selectDatabase(selected);
-        this.entryManager.selectTable(query.tableName);
-        List<Entry> result = this.entryManager.selectEntriesDescending(query.whereClause, query.begin, query.limit);
-        return this.prepareSelectResult(query.getColumns(entryManager.getTable()), result);
+        Table table = selected.getTable(query.tableName);
+        List<Entry> result = table.select(query.whereClause, query.begin, query.limit);
+        return this.prepareSelectResult(table, query, result);
     }
     /**
-     * Performs an INSERT query.
-     * @param query the insert query
+     * Inserts a single row into the specified table.
+     *
+     * <p>This is a convenience overload of
+     * {@link #insert(String, List)} which wraps the given row
+     * into a list and delegates to it.</p>
+     *
+     * @param tableName the target table name
+     * @param newRow    the row to insert
+     * @throws IllegalArgumentException if no database is currently selected
      */
-    public void insert(InsertQuery query){
+    public void insert(String tableName, Row newRow){
+        ArrayList<Row> row = new ArrayList<>();
+        row.add(newRow);
+        insert(tableName, row);
+    }
+    /**
+     * Inserts multiple rows into the specified table in a single call.
+     *
+     * <p>This method uses the engine's normal insertion mechanism and ensures
+     * that all rows and related indexes are updated consistently. If no
+     * database has been selected, an {@link IllegalArgumentException} is thrown.</p>
+     *
+     * @param tableName the target table name
+     * @param rows      the rows to insert
+     * @throws IllegalArgumentException if no database is currently selected
+     */
+    public void insert(String tableName, List<Row> rows){
         if(this.selected == null) throw new IllegalArgumentException("Can not perform insert statement when no Database selected.");
-        this.entryManager.selectDatabase(selected);
-        this.entryManager.selectTable(query.tableName);
-        Entry entry = Entry.prepareEntry(query.getColumns(entryManager.getTable()), query.values, this.selected.getTable(query.tableName));
-        this.selected.getSchema(query.tableName).isValidEntry(entry, this.entryManager.getTable());
-        ForeignKeyManager.foreignKeyCheck(this, selected, query.tableName, entry);
-        this.entryManager.insertEntry(entry);
+        Table table = selected.getTable(tableName);
+        table.insert(rows);
+    }
+    /**
+     * Performs an "unsafe" insert of a single row into the specified table.
+     *
+     * <p><b> WARNING:</b> This method bypasses the engine's internal
+     * transactional safety. If the process crashes during the insert,
+     * the table's data and indexes may become inconsistent (for example,
+     * a row may be written but its index entry not recorded).</p>
+     *
+     * <p>This method is intended for advanced usage where the caller manages
+     * their own transaction boundaries, or when performance is prioritized
+     * over durability and consistency guarantees.</p>
+     *
+     * <p>Normal users should prefer {@link #insert(String, Row)} unless
+     * they fully understand the risks.</p>
+     *
+     * @param tableName the target table name
+     * @param newRow    the row to insert
+     * @throws IllegalArgumentException if no database is currently selected
+     * @see #insert(String, Row)
+     * @see #insert(String, List)
+     */
+    public void insertUnsafe(String tableName, Row newRow){
+        if(this.selected == null) throw new IllegalArgumentException("Can not perform insert statement when no Database selected.");
+        Table table = selected.getTable(tableName);
+        Entry entry = Entry.prepareEntry(newRow.getColumns(), newRow.getValues(), table);
+        this.selected.getSchema(tableName).isValidEntry(entry, table);
+        ForeignKeyManager.foreignKeyCheck(this, selected, tableName, entry);
+        table.insertUnsafe(entry);
     }
     /**
      * Performs a DELETE query.
      * @param query the delete query
      * @return the number of deleted entries
      */
-    public int delete(DeleteQuery query){
+    public int delete(Delete delete){
+        DeleteQuery query = delete.get();
         if(this.selected == null) throw new IllegalArgumentException("Can not perform delete statement when no Database selected.");
-        this.entryManager.selectDatabase(selected);
-        this.entryManager.selectTable(query.tableName);
-        return this.entryManager.deleteEntry(query.whereClause, query.limit);
+        Table table = selected.getTable(query.tableName);
+        return table.delete(query.whereClause, query.limit);
     }
     /**
      * Performs an UPDATE query.
      * @param query the update query
      * @return the number of updated entries
      */
-    public int update(UpdateQuery query){
+    public int update(Update update){
+        UpdateQuery query = update.get();
         if(this.selected == null) throw new IllegalArgumentException("Can not perform update statement when no Database selected.");
-        this.entryManager.selectDatabase(selected);
-        this.entryManager.selectTable(query.tableName);
-        return this.entryManager.updateEntry(query.whereClause, query.limit, query.updateFields);
+        Table table = selected.getTable(query.tableName);
+        return table.update(query.whereClause, query.limit, query.updateFields);
     }
     /**
      * Starts a transaction in the selected database.
@@ -314,7 +300,7 @@ public class DBMS {
         if(this.selected == null) throw new IllegalArgumentException("Can not use containsValue when no Database selected.");
         Table table = this.selected.getTable(tableName);
         int index = table.getSchema().getColumnIndex(columnName);
-        return table.isKeyFound(value, index);
+        return table.containsKey(value, index);
     }
     /**
      * Returns the sizes of all columns in the given table.
@@ -325,14 +311,15 @@ public class DBMS {
         return this.selected.getTable(tableName).getSchema().getSizes();
     }
     /**
-     * Prepares the result of a SELECT query as a list of {@link Record}.
+     * Prepares the result of a SELECT query as a list of {@link DBRecord}.
      * @param resultColumns the columns to include in the result
      * @param selectResult the raw entries
      * @return list of records
      */
-    private List<Record> prepareSelectResult(String[] resultColumns,List<Entry> selectResult){
-        List<Record> result = new ArrayList<>();
-        com.database.db.table.SchemaInner schema = this.entryManager.getTable().getSchema();
+    private List<Row> prepareSelectResult(Table table, SelectQuery query,List<Entry> selectResult){
+        List<Row> result = new ArrayList<>();
+        String[] resultColumns = query.getColumns(table);
+        com.database.db.table.SchemaInner schema = table.getSchema();
         for (Entry entry : selectResult) {
             Object[] values = new Object[resultColumns.length];
             for(int i = 0;i<resultColumns.length;i++){
@@ -341,7 +328,7 @@ public class DBMS {
                 if(index == -1) throw new IllegalArgumentException("Invalid result column");
                 values[i] = entry.get(index);
             }
-            result.add(new Record(resultColumns, values));
+            result.add(new Row(resultColumns, values));
         }
         return result;
     }

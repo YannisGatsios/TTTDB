@@ -9,11 +9,12 @@ import java.util.List;
 import com.database.db.api.DBMS.*;
 import com.database.db.table.DataType;
 import com.database.db.api.Schema;
-import com.database.db.api.DBMS.Record;
 import com.database.db.api.DatabaseException.EntryValidationException;
+import com.database.db.api.Query.Delete;
+import com.database.db.api.Query.Select;
+import com.database.db.api.Query.Update;
 import com.database.db.api.DBMS;
-import com.database.db.api.UpdateFields;
-import com.database.db.api.Condition.WhereClause;
+import com.database.db.api.Row;
 
 public class App {
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -47,10 +48,11 @@ public class App {
             .endCheck();
 
         TableConfig tableConf = new TableConfig("users", schema);
-        DBMS db = new DBMS("test_database",10)
+        DBMS db = new DBMS()
+            .addDatabase("test_database", 0)
             .setPath("")
             .addTable(tableConf)
-        .create()
+        .start()
         .selectDatabase("test_database");
         
         Random random = new Random(); 
@@ -60,7 +62,6 @@ public class App {
             int sizeOfID = random.nextInt(db.getColumnSizes("users")[0]-1)+1;
             String userName = generateRandomString(sizeOfID);
             if(!db.containsValue("users", "username", userName)){
-                ArrayList<Object> entryData = new ArrayList<>();
                 int sizeOfData = random.nextInt(db.getColumnSizes("users")[3]);
                 //int intNum = random.nextInt();
                 byte[] data = new byte[sizeOfData];
@@ -68,12 +69,12 @@ public class App {
                     data[y] = (byte) random.nextInt(127);
                 }
                 keysList.add(userName);
-                entryData.add(userName);
-                entryData.add(ind%100+18);
-                entryData.add((ind%25)==0 ? null : "_HELLO_");
-                entryData.add(data);
-                InsertQuery query = new InsertQuery("users", "username,num,message,data",entryData.toArray());
-                db.insert(query);
+                Row row = new Row("username,num,message,data");
+                row.set("username", userName);
+                row.set("num", ind%100+18);
+                row.set("message", (ind%25)==0 ? null : "_HELLO_");
+                row.set("data", data);
+                db.insertUnsafe("users",row);
                 ind++;
             }
         }
@@ -83,8 +84,9 @@ public class App {
             int randInd = random.nextInt(400-ind);
             if(db.containsValue("users", "username", keysList.get(randInd))){
                 String key = keysList.get(randInd);
-                DeleteQuery query = new DeleteQuery("users", new WhereClause().column("username").isEqual(key).end(),-1);
-                db.delete(query);
+                Delete delete = (Delete)new Delete().from("users")
+                .where().column("username").isEqual(key).end().endDeleteClause();
+                db.delete(delete);
                 keysList.remove(randInd);
                 ind++;
             }
@@ -95,14 +97,14 @@ public class App {
             int randInd = random.nextInt(300-ind);
             if(db.containsValue("users", "username", keysList.get(randInd))){
                 String key = keysList.get(randInd);
-                UpdateQuery query = new UpdateQuery("users",
-                new WhereClause().column("username").isEqual(key).end(), -1,
-                new UpdateFields("username")
-                    .leftPad( 10, "x")
-                    .selectColumn("data")
-                    .set(new byte[10]));
+                Update update = (Update)new Update("users")
+                    .set()
+                    .selectColumn("username").leftPad( 10, "x")
+                    .selectColumn("data").set(new byte[10])
+                .endUpdate()
+                .where().column("username").isEqual(key).end().endUpdateClause();
                 try{
-                    db.update(query);
+                    db.update(update);
                 }catch(EntryValidationException e){
                     db.rollBack();
                     e.printStackTrace();
@@ -112,9 +114,9 @@ public class App {
                 ind++;
             }
         }
-        SelectQuery query = new SelectQuery("users","id,username,date",null,0,-1);
         db.commit();
-        List<Record> result = db.select(query);
+        Select select = new Select("id,username,date").from("users");
+        List<Row> result = db.select(select);
         //db.dropDatabase();
         db.close();
     }

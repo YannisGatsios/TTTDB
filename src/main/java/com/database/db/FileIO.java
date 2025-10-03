@@ -1,5 +1,6 @@
 package com.database.db;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -25,6 +26,13 @@ public class FileIO {
     public FileIO() {}
     public void setFileIOThread(FileIOThread fileIOThread){
         this.fileIOThread = fileIOThread;
+    }
+
+    public static int getNumOfPages(String path, int sizeOfEntry){
+        File file = new File(path);
+        long fileSize = file.length();
+        int pageSize = Page.pageSizeInBytes(sizeOfEntry);
+        return (int) ((fileSize + pageSize - 1) / pageSize);
     }
 
     public void writePage(String path, byte[] pageBuffer, int pagePosition) {

@@ -7,7 +7,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.database.db.api.Schema;
 import com.database.db.api.DBMS.*;
-import com.database.db.manager.EntryManager;
 import com.database.db.page.Entry;
 import com.database.db.page.Page;
 import com.database.db.page.TablePage;
@@ -120,13 +119,10 @@ public class TableTest {
         Table aiTable = database.getTable("aiTable");
         
         // Add some entries to build up the auto-increment sequence
-        EntryManager crud = new EntryManager();
-        crud.selectDatabase(database);
-        crud.selectTable("aiTable");
         for (long i = 1; i <= 100; i++) {
             Object[] entryData = {i, "Name" + i};
             Entry entry = Entry.prepareEntry(new String[]{"id","name"}, entryData, aiTable);
-            crud.insertEntry(entry);
+            aiTable.insertUnsafe(entry);
         }
         
         // Verify auto-increment starts at the next value
@@ -135,7 +131,7 @@ public class TableTest {
         for (long i = 1; i <= 100; i++) {
             Object[] entryData = {"Name" + i};
             Entry entry = Entry.prepareEntry(new String[]{"name"}, entryData, aiTable);
-            crud.insertEntry(entry);
+            aiTable.insertUnsafe(entry);
         }
         
         // Verify auto-increment starts at the next value

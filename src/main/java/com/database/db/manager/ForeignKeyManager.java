@@ -36,38 +36,36 @@ public class ForeignKeyManager {
         }
     }
 
-    public static <K extends Comparable<? super K>> boolean foreignKeyDeletion(EntryManager entryManager, Table parentTable, Entry entry){
+    public static <K extends Comparable<? super K>> boolean foreignKeyDeletion(Table parentTable, Entry entry){
         List<TableReference> references = parentTable.getChildren();
-        if(!ForeignKeyManager.canPerformAction(entryManager, parentTable, entry, references)) return false;
+        if(!ForeignKeyManager.canPerformAction(parentTable, entry, references)) return false;
         for (TableReference tableReference : references) {
             switch (tableReference.onDelete()) {
-                case CASCADE -> { ForeignKeyManager.cascadeDelete(entryManager, parentTable, entry, tableReference);}
-                case SET_NULL -> { ForeignKeyManager.setNull(entryManager, parentTable, entry, tableReference);}
-                case SET_DEFAULT -> { ForeignKeyManager.setDeFault(entryManager, parentTable, entry, tableReference);}
+                case CASCADE -> { ForeignKeyManager.cascadeDelete(parentTable, entry, tableReference);}
+                case SET_NULL -> { ForeignKeyManager.setNull(parentTable, entry, tableReference);}
+                case SET_DEFAULT -> { ForeignKeyManager.setDeFault(parentTable, entry, tableReference);}
                 case RESTRICT -> { continue; }
             };
         }
-        entryManager.selectTable(parentTable.getName());
         return true;
     }
 
-    public static <K extends Comparable<? super K>> boolean foreignKeyUpdate(EntryManager entryManager, Table parentTable, Entry entry, Object[] newValues){
+    public static <K extends Comparable<? super K>> boolean foreignKeyUpdate(Table parentTable, Entry entry, Object[] newValues){
         List<TableReference> references = parentTable.getChildren();
-        if(!ForeignKeyManager.canPerformAction(entryManager, parentTable, entry, references)) return false;
+        if(!ForeignKeyManager.canPerformAction(parentTable, entry, references)) return false;
         for (TableReference tableReference : references) {
             switch (tableReference.onDelete()) {
-                case CASCADE -> {ForeignKeyManager.cascadeUpdate(entryManager, parentTable, entry, newValues, tableReference);}
-                case SET_NULL -> { ForeignKeyManager.setNull(entryManager, parentTable, entry, tableReference);}
-                case SET_DEFAULT -> { ForeignKeyManager.setDeFault(entryManager, parentTable, entry, tableReference);}
+                case CASCADE -> {ForeignKeyManager.cascadeUpdate(parentTable, entry, newValues, tableReference);}
+                case SET_NULL -> { ForeignKeyManager.setNull(parentTable, entry, tableReference);}
+                case SET_DEFAULT -> { ForeignKeyManager.setDeFault(parentTable, entry, tableReference);}
                 case RESTRICT -> { continue; }
             };
         }
-        entryManager.selectTable(parentTable.getName());
         return true;
     }
 
-    private static <K extends Comparable<? super K>> void cascadeDelete(EntryManager entryManager, Table parentTable, Entry entry, TableReference reference) {
-        entryManager.selectTable(reference.childTable());
+    private static <K extends Comparable<? super K>> void cascadeDelete(Table parentTable, Entry entry, TableReference reference) {
+        Table childTable = parentTable.getDatabase().getTable(reference.childTable());
         WhereClause whereClause = new WhereClause();
         for (int i = 0; i < reference.childColumns().size(); i++) {
             int parentColumnIndex = parentTable.getSchema().getColumnIndex(reference.parentColumns().get(i));
@@ -77,10 +75,11 @@ public class ForeignKeyManager {
                 whereClause.AND().column(reference.childColumns().get(i)).isEqual(entry.get(parentColumnIndex)).end();
             }
         }
-        entryManager.deleteEntry(whereClause, -1);
+        EntryManager.deleteEntry(childTable, whereClause, -1);
     }
 
-    private static <K extends Comparable<? super K>> void cascadeUpdate(EntryManager entryManager, Table parentTable, Entry entry, Object[] newValues, TableReference reference){
+    private static <K extends Comparable<? super K>> void cascadeUpdate(Table parentTable, Entry entry, Object[] newValues, TableReference reference){
+        Table childTable = parentTable.getDatabase().getTable(reference.childTable());
         WhereClause whereClause = new WhereClause();
         UpdateFields updateFields = new UpdateFields();
         for (int i = 0; i < reference.childColumns().size(); i++) {
@@ -93,11 +92,11 @@ public class ForeignKeyManager {
             updateFields.selectColumn(reference.childColumns().get(i));
             updateFields.set(newValues[parentColumnIndex]);
         }
-        entryManager.updateEntry(whereClause, -1, updateFields);
+        EntryManager.updateEntry(childTable, whereClause, -1, updateFields);
     }
 
-    private static <K extends Comparable<? super K>> void setDeFault(EntryManager entryManager, Table parentTable, Entry entry, TableReference reference){
-        entryManager.selectTable(reference.childTable());
+    private static <K extends Comparable<? super K>> void setDeFault(Table parentTable, Entry entry, TableReference reference){
+        Table childTable = parentTable.getDatabase().getTable(reference.childTable());
         UpdateFields updateFields = new UpdateFields();
         WhereClause whereClause = new WhereClause();
         for (int i = 0;i<reference.childColumns().size();i++) {
@@ -110,11 +109,11 @@ public class ForeignKeyManager {
             updateFields.selectColumn(reference.childColumns().get(i));
             updateFields.setDefault();
         }
-        entryManager.updateEntry(whereClause, -1, updateFields);
+        EntryManager.updateEntry(childTable, whereClause, -1, updateFields);
     }
 
-    private static <K extends Comparable<? super K>> void setNull(EntryManager entryManager, Table parentTable, Entry entry, TableReference reference){
-        entryManager.selectTable(reference.childTable());
+    private static <K extends Comparable<? super K>> void setNull(Table parentTable, Entry entry, TableReference reference){
+        Table childTable = parentTable.getDatabase().getTable(reference.childTable());
         UpdateFields updateFields = new UpdateFields();
         WhereClause whereClause = new WhereClause();
         for (int i = 0;i<reference.childColumns().size();i++) {
@@ -127,20 +126,20 @@ public class ForeignKeyManager {
             updateFields.selectColumn(reference.childColumns().get(i));
             updateFields.set(null);
         }
-        entryManager.updateEntry(whereClause, -1, updateFields);
+        EntryManager.updateEntry(childTable, whereClause, -1, updateFields);
     }
 
-    private static <K extends Comparable<? super K>> boolean canPerformAction(EntryManager entryManager, Table parentTable, Entry entry, List<TableReference> references){
+    private static <K extends Comparable<? super K>> boolean canPerformAction(Table parentTable, Entry entry, List<TableReference> references){
         boolean passed = true;
         for (TableReference tableReference : references) {
-            entryManager.selectTable(tableReference.childTable());
+            Table childTable = parentTable.getDatabase().getTable(tableReference.childTable());
             passed = switch (tableReference.onDelete()) {
                 case RESTRICT -> {
                     boolean allow = true;
                     for (int i = 0; i < tableReference.parentColumns().size(); i++) {
                         int parentColumnIndex = parentTable.getSchema().getColumnIndex(tableReference.parentColumns().get(i));
-                        int childColumnsIndex = entryManager.getTable().getSchema().getColumnIndex(tableReference.childColumns().get(i));
-                        if (entryManager.getTable().isKeyFound(entry.get(parentColumnIndex), childColumnsIndex)) {
+                        int childColumnsIndex = childTable.getSchema().getColumnIndex(tableReference.childColumns().get(i));
+                        if (childTable.containsKey(entry.get(parentColumnIndex), childColumnsIndex)) {
                             allow = false;
                             break;
                         }
@@ -151,7 +150,6 @@ public class ForeignKeyManager {
             };
             if (!passed) break;
         }
-        entryManager.selectTable(parentTable.getName());
         return passed;
     }
 }

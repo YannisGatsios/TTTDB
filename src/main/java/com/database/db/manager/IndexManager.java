@@ -3,9 +3,18 @@ package com.database.db.manager;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
+import com.database.db.FileIO;
+import com.database.db.api.Condition;
+import com.database.db.api.Condition.Clause;
+import com.database.db.api.Condition.Conditions;
+import com.database.db.api.Condition.WhereClause;
 import com.database.db.cache.IndexSnapshot;
 import com.database.db.cache.TableSnapshot;
 import com.database.db.cache.IndexSnapshot.Operation;
@@ -19,7 +28,6 @@ import com.database.db.index.BTreeSerialization.BlockPointer;
 import com.database.db.index.BTreeSerialization.PointerPair;
 import com.database.db.page.Entry;
 import com.database.db.page.IndexPage;
-import com.database.db.page.TablePage;
 import com.database.db.table.SchemaInner;
 import com.database.db.table.Table;
 import com.database.db.table.DataType;
@@ -64,7 +72,7 @@ public class IndexManager {
         }
         for (int i = 0;i<this.indexes.length;i++) {
             if(this.isIndexed(i)){
-                int numOfPages =  Table.getNumOfPages(table.getIndexPath(i), IndexPage.sizeOfEntry(table, i));
+                int numOfPages =  FileIO.getNumOfPages(table.getIndexPath(i), IndexPage.sizeOfEntry(table, i));
                 tableSnapshots[i].setNumOfPages(numOfPages);
             }
         }
@@ -118,38 +126,113 @@ public class IndexManager {
         if(this.indexes[columnIndex] == null)return null;
         return this.indexes[columnIndex].getMax();
     }
+    public record IndexRecord<K>(K key, PointerPair value, int columnIndex) {
+            @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof IndexRecord<?> other)) return false;
+            return Objects.equals(value, other.value);
+        }
+        @Override
+        public int hashCode() {
+            return Objects.hash(value);
+        }
+    }
     @SuppressWarnings("unchecked")
-    public <K extends Comparable<? super K>> List<Pair<K,PointerPair>> findRangeIndex(K upper, K lower, int columnIndex){
-        if(this.indexes[columnIndex] == null) return this.sequentialRangeSearch(upper, lower, columnIndex);
-        return ((BTreeSerialization<K>) this.indexes[columnIndex]).rangeSearch(upper, lower);
+    public <K extends Comparable<? super K>> List<IndexRecord<K>> findRangeIndex(WhereClause whereClause){
+        if (whereClause == null) return this.noCondition();
+        Object start = null;
+        Object end   = null;
+        List<Map.Entry<Clause, Condition<WhereClause>>> clauses = whereClause.getConditions();
+        List<IndexRecord<K>> previousPairList = new ArrayList<>();
+        for (Map.Entry<Clause, Condition<WhereClause>> conditionEntry : clauses) {
+            Condition<WhereClause> condition = conditionEntry.getValue();
+            EnumMap<Conditions, Object> conditionList = condition.getConditions();
+            if (conditionList.containsKey(Conditions.IS_BIGGER)) 
+                start = conditionList.get(Conditions.IS_BIGGER);
+            if (conditionList.containsKey(Conditions.IS_SMALLER)) 
+                end = conditionList.get(Conditions.IS_SMALLER);
+            if (conditionList.containsKey(Conditions.IS_BIGGER_OR_EQUAL)) 
+                start = conditionList.get(Conditions.IS_BIGGER_OR_EQUAL);
+            if (conditionList.containsKey(Conditions.IS_SMALLER_OR_EQUAL)) 
+                end = conditionList.get(Conditions.IS_SMALLER_OR_EQUAL);
+            if (!conditionList.containsKey(Conditions.IS_BIGGER) &&
+                !conditionList.containsKey(Conditions.IS_SMALLER) &&
+                !conditionList.containsKey(Conditions.IS_BIGGER_OR_EQUAL) &&
+                !conditionList.containsKey(Conditions.IS_SMALLER_OR_EQUAL) &&
+                conditionList.containsKey(Conditions.IS_EQUAL)) {
+                start = conditionList.get(Conditions.IS_EQUAL);
+                end   = conditionList.get(Conditions.IS_EQUAL);
+            }
+            int columnIndex = this.schema.getColumnIndex(condition.getColumnName());
+            BTreeSerialization<K> index = (BTreeSerialization<K>)indexes[columnIndex];
+            List<Pair<K, PointerPair>> indexResult = index == null?
+                SequentialOperations.sequentialRangeSearch(table, (K)start, (K)end, columnIndex) :
+                index.rangeSearch((K) start, (K) end);
+            List<IndexRecord<K>> resultInner = new ArrayList<>();
+            for (Pair<K, PointerPair> pair : indexResult) {
+                if (!condition.isApplicable(pair.key)) continue;
+                resultInner.add(new IndexRecord<K>(pair.key, pair.value, columnIndex));
+            }
+            switch (conditionEntry.getKey()) {
+                case FIRST:
+                    previousPairList = resultInner;
+                    break;
+                case OR:
+                    Set<IndexRecord<K>> orSet = new HashSet<>(previousPairList);
+                    orSet.addAll(resultInner);
+                    previousPairList = new ArrayList<>(orSet);
+                    break;
+                case AND:
+                    previousPairList.retainAll(resultInner);
+                    break;
+                case FIRST_GROUP:
+                case OR_GROUP:
+                case AND_GROUP:
+            }
+        }
+        return previousPairList;
+    }
+    private <K extends Comparable<? super K>> List<IndexRecord<K>> noCondition(){
+        int columnIndex = this.schema.getPrimaryKeyIndex();
+        if(columnIndex == -1){
+            boolean[] unique = this.schema.getUniqueIndex();
+            for (int i = 0;i<unique.length;i++) {
+                if(unique[i]){
+                    columnIndex = i;
+                    break;
+                }
+            }
+        }
+        if(columnIndex == -1){
+            boolean[] Index = this.schema.getIndexIndex();
+            for (int i = 0;i<Index.length;i++) {
+                if(Index[i]){
+                    columnIndex = i;
+                    break;
+                }
+            }
+        }
+        if(columnIndex == -1) columnIndex = 0;
+        BTreeSerialization<K> index = (BTreeSerialization<K>)indexes[columnIndex];
+        List<Pair<K, PointerPair>> indexResult = index == null?
+            SequentialOperations.sequentialRangeSearch(table, null, null, columnIndex) :
+            index.rangeSearch(null, null);
+        List<IndexRecord<K>> result = new ArrayList<>();
+        for (Pair<K, PointerPair> pair : indexResult) {
+            result.add(new IndexRecord<K>(pair.key, pair.value, columnIndex));
+        }
+        return result;
     }
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> List<Pair<K, PointerPair>> findBlock(K key, int columnIndex){
-        if(this.indexes[columnIndex] == null) return this.sequentialRangeSearch(key, key, columnIndex);
+        if(this.indexes[columnIndex] == null) return SequentialOperations.sequentialRangeSearch(table, key, key, columnIndex);
         return ((BTreeSerialization<K>)this.indexes[columnIndex]).search(key);
     }
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> boolean isKeyFound(K key, int columnIndex){
-        if(this.indexes[columnIndex] == null) return this.sequentialRangeSearch(key, key, columnIndex).size()==0?false:true;
+        if(this.indexes[columnIndex] == null) return SequentialOperations.sequentialRangeSearch(table, key, key, columnIndex).size()==0?false:true;
         return ((BTreeSerialization<K>)this.indexes[columnIndex]).isKey(key);
-    }
-    @SuppressWarnings("unchecked")
-    private <K extends Comparable<? super K>> List<Pair<K,PointerPair>> sequentialRangeSearch(K upper, K lower, int columnIndex){
-        List<Pair<K,PointerPair>> result = new ArrayList<>();
-        for(int i = 0; i < table.getPages(); i++){
-            TablePage page = table.getCache().getTablePage(i);
-            for(int y = 0; y < page.size(); y++){
-                Entry entry = page.get(y);
-                K value = (K) entry.get(columnIndex);
-
-                // Filter by range
-                if((lower == null || value.compareTo(lower) >= 0) && (upper == null || value.compareTo(upper) <= 0)){
-                    PointerPair pointer = new PointerPair(new BlockPointer(i, (short)y), null);
-                    result.add(new Pair<>(value, pointer));
-                }
-            }
-        }
-        return result;
     }
 
     @SuppressWarnings("unchecked")

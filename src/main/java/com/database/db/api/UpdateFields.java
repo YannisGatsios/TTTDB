@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.database.db.api.Condition.UpdateCondition;
 import com.database.db.api.Functions.*;
+import com.database.db.api.Query.Update;
 /**
  * Represents a set of update operations to be applied to one or more columns in a table.
  * <p>
@@ -41,7 +42,7 @@ import com.database.db.api.Functions.*;
  */
 public class UpdateFields {
     private final List<InnerFunctions> functionsList;
-
+    private Update update;
     /**
      * Creates an UpdateFields for a specific column.
      *
@@ -56,6 +57,10 @@ public class UpdateFields {
      */
     public UpdateFields(){
         this.functionsList = new ArrayList<>();
+    }
+    public UpdateFields(Update update){
+        this.functionsList = new ArrayList<>();
+        this.update = update;
     }
     /**
      * Adds a column to be updated.
@@ -305,6 +310,10 @@ public class UpdateFields {
     public UpdateFields endConditionalUpdate(){
         this.functionsList.add(new endConditionalUpdate());
         return this;
+    }
+    public Update endUpdate(){
+        this.update.set(this);
+        return this.update;
     }
     /**
      * Returns the internal list of functions in the order they were added.

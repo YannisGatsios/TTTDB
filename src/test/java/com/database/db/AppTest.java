@@ -1,16 +1,14 @@
 package com.database.db;
 
-import org.junit.jupiter.api.Test;
-
 import org.junit.jupiter.api.*;
 import java.security.SecureRandom;
 import java.util.*;
 
 import com.database.db.api.*;
-import com.database.db.api.Condition.*;
 import com.database.db.api.DBMS.*;
-import com.database.db.api.DBMS.Record;
-
+import com.database.db.api.Query.Delete;
+import com.database.db.api.Query.Select;
+import com.database.db.api.Query.Update;
 import com.database.db.table.*;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -32,7 +30,7 @@ public class AppTest {
 
     @BeforeAll
     void setup() {
-        db = new DBMS("test_database", 10);
+        db = new DBMS();
     }
 
     @Test
@@ -51,7 +49,9 @@ public class AppTest {
             .endCheck();
 
         TableConfig tableConf = new TableConfig("users", schema);
-        db.addTable(tableConf).create();
+        db.addDatabase("test_database", 0)
+        .addTable(tableConf)
+        .start();
 
         Random random = new Random(); 
         ArrayList<String> keysList = new ArrayList<>(400);
@@ -62,19 +62,18 @@ public class AppTest {
             int sizeOfID = random.nextInt(schema.getColumns()[0].size()-1);
             String userName = generateRandomString(sizeOfID);
             if(!db.containsValue("users", "username", userName)){
-                ArrayList<Object> entryData = new ArrayList<>();
                 int sizeOfData = random.nextInt(db.getColumnSizes("users")[3]);
                 byte[] data = new byte[sizeOfData];
                 for(int y = 0; y < sizeOfData; y++){
                     data[y] = (byte) random.nextInt(127);
                 }
                 keysList.add(userName);
-                entryData.add(userName);
-                entryData.add(ind%100+18);
-                entryData.add((ind%25)==0 ? null : "_HELLO_");
-                entryData.add(data);
-                InsertQuery query = new InsertQuery("users", "username,num,message,data",entryData.toArray());
-                db.insert(query);
+                Row row = new Row("username,num,message,data");
+                row.set("username", userName);
+                row.set("num", ind % 100 + 18);
+                row.set("message", (ind % 25) == 0 ? null : "_HELLO_");
+                row.set("data", data);
+                db.insertUnsafe("users", row);
                 ind++;
             }
         }
@@ -86,8 +85,9 @@ public class AppTest {
             int randInd = random.nextInt(400-ind);
             if(db.containsValue("users", "username", keysList.get(randInd))){
                 String key = keysList.get(randInd);
-                DeleteQuery query = new DeleteQuery("users", new WhereClause().column("username").isEqual(key).end(),-1);
-                db.delete(query);
+                Delete delete = (Delete)new Delete().from("users")
+                .where().column("username").isEqual(key).end().endDeleteClause();
+                db.delete(delete);
                 keysList.remove(randInd);
                 ind++;
             }
@@ -100,13 +100,13 @@ public class AppTest {
             int randInd = random.nextInt(300-ind);
             if(db.containsValue("users", "username", keysList.get(randInd))){
                 String key = keysList.get(randInd);
-                UpdateQuery query = new UpdateQuery("users",
-                    new WhereClause().column("username").isEqual(key).end(), -1,
-                    new UpdateFields("username")
-                        .leftPad(10, "x")
-                        .selectColumn("data")
-                        .set(new byte[10]));
-                db.update(query);
+                Update update = (Update)new Update("users")
+                    .set()
+                    .selectColumn("username").leftPad( 10, "x")
+                    .selectColumn("data").set(new byte[10])
+                .endUpdate()
+                .where().column("username").isEqual(key).end().endUpdateClause();
+                db.update(update);
                 keysList.remove(randInd);
                 ind++;
             }
@@ -115,108 +115,138 @@ public class AppTest {
         db.commit();
 
         // Select to verify
-        SelectQuery query = new SelectQuery("users","id,username",null,0,-1);
-        List<Record> result = db.select(query);
+        Select select = new Select("id,username").from("users");
+        List<Row> result = db.select(select);
         Assertions.assertFalse(result.isEmpty(), "Users table should not be empty after insert/update/delete.");
         db.dropDatabase();
         db.close();
     }
-
     @Test
     @Order(2)
     void testForeignKeyActions() throws Exception {
+        // ---- Define schemas using the new API ----
         Schema userSchema = new Schema()
-                .column("username").type(DataType.CHAR).size(15).primaryKey().endColumn()
-                .column("age").type(DataType.INT).defaultValue(18).endColumn();
-
-        TableConfig userTable = new TableConfig("users", userSchema);
+            .column("username").type(DataType.CHAR).size(15).primaryKey().endColumn()
+            .column("age").type(DataType.INT).defaultValue(18).endColumn();
 
         Schema postCascadeSchema = new Schema()
-                .column("id").type(DataType.LONG).autoIncrementing().primaryKey().endColumn()
-                .column("username").type(DataType.CHAR).size(15).defaultValue("DefaultUser").endColumn()
-                .column("content").type(DataType.CHAR).size(50).defaultValue("Hello").endColumn()
-                .foreignKey("fk_user_cascade")
-                    .column("username")
-                    .reference().table("users").column("username").end()
-                    .onDelete(ForeignKey.ForeignKeyAction.CASCADE)
-                .endForeignKey();
-
-        TableConfig postCascadeTable = new TableConfig("posts_cascade", postCascadeSchema);
+            .column("id").type(DataType.LONG).autoIncrementing().primaryKey().endColumn()
+            .column("username").type(DataType.CHAR).size(15).defaultValue("DefaultUser").endColumn()
+            .column("content").type(DataType.CHAR).size(50).defaultValue("Hello").endColumn()
+            .foreignKey("fk_user_cascade")
+                .column("username")
+                .reference().table("users").column("username").end()
+                .onDelete(ForeignKey.ForeignKeyAction.CASCADE)
+            .endForeignKey();
 
         Schema postSetNullSchema = new Schema()
-                .column("id").type(DataType.LONG).autoIncrementing().primaryKey().endColumn()
-                .column("username").type(DataType.CHAR).size(15).defaultValue("DefaultUser").endColumn()
-                .column("content").type(DataType.CHAR).size(50).defaultValue("Hello").endColumn()
-                .foreignKey("fk_user_setnull")
-                    .column("username")
-                    .reference().table("users").column("username").end()
-                    .onDelete(ForeignKey.ForeignKeyAction.SET_NULL)
-                .endForeignKey();
-
-        TableConfig postSetNullTable = new TableConfig("posts_setnull", postSetNullSchema);
+            .column("id").type(DataType.LONG).autoIncrementing().primaryKey().endColumn()
+            .column("username").type(DataType.CHAR).size(15).defaultValue("DefaultUser").endColumn()
+            .column("content").type(DataType.CHAR).size(50).defaultValue("Hello").endColumn()
+            .foreignKey("fk_user_setnull")
+                .column("username")
+                .reference().table("users").column("username").end()
+                .onDelete(ForeignKey.ForeignKeyAction.SET_NULL)
+            .endForeignKey();
 
         Schema postSetDefaultSchema = new Schema()
-                .column("id").type(DataType.LONG).autoIncrementing().primaryKey().endColumn()
-                .column("username").type(DataType.CHAR).size(15).defaultValue("DefaultUser").endColumn()
-                .column("content").type(DataType.CHAR).size(50).defaultValue("Hello").endColumn()
-                .foreignKey("fk_user_setdefault")
-                    .column("username")
-                    .reference().table("users").column("username").end()
-                    .onDelete(ForeignKey.ForeignKeyAction.SET_DEFAULT)
-                .endForeignKey();
-
-        TableConfig postSetDefaultTable = new TableConfig("posts_setdefault", postSetDefaultSchema);
+            .column("id").type(DataType.LONG).autoIncrementing().primaryKey().endColumn()
+            .column("username").type(DataType.CHAR).size(15).defaultValue("DefaultUser").endColumn()
+            .column("content").type(DataType.CHAR).size(50).defaultValue("Hello").endColumn()
+            .foreignKey("fk_user_setdefault")
+                .column("username")
+                .reference().table("users").column("username").end()
+                .onDelete(ForeignKey.ForeignKeyAction.SET_DEFAULT)
+            .endForeignKey();
 
         Schema postRestrictSchema = new Schema()
-                .column("id").type(DataType.LONG).autoIncrementing().primaryKey().endColumn()
-                .column("username").type(DataType.CHAR).size(15).defaultValue("DefaultUser").endColumn()
-                .column("content").type(DataType.CHAR).size(50).defaultValue("Hello").endColumn()
-                .foreignKey("fk_user_restrict")
-                    .column("username")
-                    .reference().table("users").column("username").end()
-                    .onDelete(ForeignKey.ForeignKeyAction.RESTRICT)
-                .endForeignKey();
+            .column("id").type(DataType.LONG).autoIncrementing().primaryKey().endColumn()
+            .column("username").type(DataType.CHAR).size(15).defaultValue("DefaultUser").endColumn()
+            .column("content").type(DataType.CHAR).size(50).defaultValue("Hello").endColumn()
+            .foreignKey("fk_user_restrict")
+                .column("username")
+                .reference().table("users").column("username").end()
+                .onDelete(ForeignKey.ForeignKeyAction.RESTRICT)
+            .endForeignKey();
 
-        TableConfig postRestrictTable = new TableConfig("posts_restrict", postRestrictSchema);
+        // ---- Create database and tables with the new calls ----
+        db.addDatabase("test_fk_cases", 0);
+        db.selectDatabase("test_fk_cases"); // switch to it
+        db.addTable(new TableConfig("users", userSchema));
+        db.addTable(new TableConfig("posts_cascade", postCascadeSchema));
+        db.addTable(new TableConfig("posts_setnull", postSetNullSchema));
+        db.addTable(new TableConfig("posts_setdefault", postSetDefaultSchema));
+        db.addTable(new TableConfig("posts_restrict", postRestrictSchema));
+        db.start();
 
-        db.addDatabase("test_fk_cases",0);
-        db.addTable(userTable);
-        db.addTable(postCascadeTable);
-        db.addTable(postSetNullTable);
-        db.addTable(postSetDefaultTable);
-        db.addTable(postRestrictTable);
-        db.create().selectDatabase("test_fk_cases");
+        // Insert users
+        Row row1 = new Row("username,age");
+        row1.set("username", "Alice");
+        row1.set("age", 25);
+        db.insertUnsafe("users", row1);
 
-        db.insert(new InsertQuery("users", "username,age", new Object[]{"Alice", 25}));
-        db.insert(new InsertQuery("users", "username,age", new Object[]{"Bob", 30}));
+        Row row2 = new Row("username,age");
+        row2.set("username", "Bob");
+        row2.set("age", 30);
+        db.insertUnsafe("users", row2);
+
         db.commit();
 
-        db.insert(new InsertQuery("posts_cascade", "username,content", new Object[]{"Alice","Hello Cascade"}));
-        db.insert(new InsertQuery("posts_setnull", "username,content", new Object[]{"Bob","Bob Content"}));
-        db.insert(new InsertQuery("posts_setdefault", "username,content", new Object[]{"Bob","Default Content"}));
-        db.insert(new InsertQuery("posts_restrict", "username,content", new Object[]{"Alice","Restrict Content"}));
+        // Insert posts for each FK behavior
+        Row post1 = new Row("username,content");
+        post1.set("username", "Alice");
+        post1.set("content", "Hello Cascade");
+        db.insertUnsafe("posts_cascade", post1);
+
+        Row post2 = new Row("username,content");
+        post2.set("username", "Bob");
+        post2.set("content", "Bob Content");
+        db.insertUnsafe("posts_setnull", post2);
+
+        Row post3 = new Row("username,content");
+        post3.set("username", "Bob");
+        post3.set("content", "Default Content");
+        db.insertUnsafe("posts_setdefault", post3);
+
+        Row post4 = new Row("username,content");
+        post4.set("username", "Alice");
+        post4.set("content", "Restrict Content");
+        db.insertUnsafe("posts_restrict", post4);
+
         db.commit();
 
-        // Delete Alice
+        // Attempt to delete Alice (RESTRICT should block posts_restrict)
         try {
-            db.delete(new DeleteQuery("users", new WhereClause().column("username").isEqual("Alice").end(), -1));
+            db.delete(new Delete()
+                .from("users")
+                .where().column("username").isEqual("Alice").end()
+                .endDeleteClause());
             db.commit();
         } catch (Exception e) {
             System.out.println("RESTRICT triggered: " + e.getMessage());
         }
 
         // Insert default user for SET_DEFAULT
-        db.insert(new InsertQuery("users", "username,age", new Object[]{"DefaultUser", 0}));
+        Row defaultUser = new Row("username,age");
+        defaultUser.set("username", "DefaultUser");
+        defaultUser.set("age", 0);
+        db.insertUnsafe("users", defaultUser);
+
         db.commit();
 
-        // Delete Bob
-        db.delete(new DeleteQuery("users", new WhereClause().column("username").isEqual("Bob").end(), -1));
+        // Delete Bob — should trigger CASCADE, SET_NULL, SET_DEFAULT actions
+        db.delete(new Delete()
+            .from("users")
+            .where().column("username").isEqual("Bob").end()
+            .endDeleteClause());
         db.commit();
 
-        // Verify state
-        List<Record> remainingUsers = db.select(new SelectQuery("users", "username,age", null, 0, -1));
-        Assertions.assertTrue(remainingUsers.stream().anyMatch(r -> r.get("username").equals("DefaultUser")),
+        // Verify final state using Select fluent API
+        List<Row> remainingUsers = db.select(new Select("username,age").from("users"));
+        Assertions.assertTrue(
+            remainingUsers.stream().anyMatch(r -> "DefaultUser".equals(r.get("username"))),
             "DefaultUser should exist after SET_DEFAULT action");
+
         db.dropDatabase();
         db.close();
     }

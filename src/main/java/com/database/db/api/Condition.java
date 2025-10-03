@@ -7,6 +7,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.database.db.api.Functions.operationData;
+import com.database.db.api.Query.Delete;
+import com.database.db.api.Query.Select;
+import com.database.db.api.Query.Update;
 import com.database.db.table.SchemaInner;
 /**
  * Represents a single condition in a {@link ConditionGroup}, such as a {@link WhereClause}.
@@ -221,13 +224,30 @@ public class Condition<T extends ConditionGroup<T>> {
      * </pre>
      */
     public static class WhereClause extends ConditionGroup<WhereClause> {
+        private Query query;
         /** Root constructor (no parent). Used for creating the main WhereClause. */
         public WhereClause() {
             super(null);
         }
+        public WhereClause(Query query){
+            super(null);
+            this.query = query;
+        }
         /** Child constructor: allows proper parent reference for potential close() calls. */
         protected WhereClause(WhereClause parent) {
             super(parent);
+        }
+        public Select endSelectClause(){
+            this.query.set(this);
+            return (Select) this.query;
+        }
+        public Delete endDeleteClause(){
+            this.query.set(this);
+            return (Delete) this.query;
+        }
+        public Update endUpdateClause(){
+            this.query.set(this);
+            return (Update) this.query;
         }
         /** 
          * Factory for child groups. 
