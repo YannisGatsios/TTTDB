@@ -2,7 +2,7 @@ package com.database.db.manager;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import com.database.db.Database;
@@ -12,10 +12,12 @@ import com.database.db.api.DatabaseException;
 import com.database.db.api.Functions.InnerFunctions;
 import com.database.db.api.Functions.endConditionalUpdate;
 import com.database.db.api.Functions.selectColumn;
+import com.database.db.api.Query.SelectType;
+import com.database.db.api.Query.SelectionType;
 import com.database.db.api.Row;
 import com.database.db.api.Schema;
 import com.database.db.api.UpdateFields;
-import com.database.db.index.BTreeSerialization.BlockPointer;
+import com.database.db.index.BTreeInit.BlockPointer;
 import com.database.db.manager.IndexManager.IndexRecord;
 import com.database.db.page.Entry;
 import com.database.db.page.TablePage;
@@ -24,31 +26,45 @@ import com.database.db.table.Table;
 public class EntryManager {
     //==SELECTING==
     /**
-     * Selects entries from the table in ascending order based on the given column and range.
-     * The entries are fetched using a range index and returned starting from a specific offset.
+     * Selects entries from the table according to a {@link WhereClause}, with optional ordering by a specific column.
+     * <p>
+     * The process consists of two steps:
+     * <ul>
+     *   <li>Entries are located using the table's index and collected with an offset ({@code begin}) and row limit ({@code limit}).</li>
+     *   <li>If a {@link SelectType} with {@link SelectionType#ASCENDING} or {@link SelectionType#DESCENDING} is provided,
+     *       the resulting entries are sorted in-memory by the specified column.</li>
+     * </ul>
      *
-     * @param whereClause contains a condition, it is used to search for entries
-     * @param begin the number of matching entries to skip before starting to collect results
+     * <p>Notes:</p>
+     * <ul>
+     *   <li>If {@code limit} is negative, all matching entries are returned after the {@code begin} offset.</li>
+     *   <li>Sorting requires that the target column's values implement {@link Comparable}.</li>
+     *   <li>{@code null} values are handled safely and placed first when ordering ascending.</li>
+     * </ul>
+     *
+     * @param table the table to select from
+     * @param whereClause condition used to filter candidate entries
+     * @param begin the number of matching entries to skip before collecting results
      * @param limit the maximum number of entries to return; if negative, all matching entries are returned
-     * @return a list of entries matching the criteria, ordered in ascending fashion
+     * @param type ordering information: {@link SelectionType#NORMAL} returns entries in index order,
+     *             {@link SelectionType#ASCENDING} or {@link SelectionType#DESCENDING} apply an explicit column ordering
+     * @return a list of entries matching the criteria, optionally ordered by a given column
      */
-    public static <K extends Comparable<? super K>> List<Entry> selectEntriesAscending(Table table, WhereClause whereClause, int begin, int limit) {
+    public static <K extends Comparable<? super K>> List<Entry> selectEntries(Table table, WhereClause whereClause, int begin, int limit, SelectType type) {
         List<IndexRecord<K>> blockPointerList = table.selectIndex(whereClause);
-        return EntryManager.selectionProcess(table, blockPointerList, begin, limit);
-    }
-    /**
-     * Selects entries from the table in descending order based on the given column and range.
-     * The entries are fetched using a range index, reversed, and returned starting from a specific offset.
-     *
-     * @param whereClause contains a condition, it is used to search for entries
-     * @param begin the number of matching entries to skip before starting to collect results
-     * @param limit the maximum number of entries to return; if negative, all matching entries are returned
-     * @return a list of entries matching the criteria, ordered in descending fashion
-     */
-    public static <K extends Comparable<? super K>> List<Entry> selectEntriesDescending(Table table, WhereClause whereClause, int begin, int limit) {
-        List<IndexRecord<K>> reversed = table.selectIndex(whereClause);
-        Collections.reverse(reversed);
-        return EntryManager.selectionProcess(table, reversed, begin, limit);
+        List<Entry> entries = selectionProcess(table, blockPointerList, begin, limit);
+        //Apply ordering if ASC or DESC is set
+        if (type.type() == SelectionType.ASCENDING || type.type() == SelectionType.DESCENDING) {
+            int columnIndex = table.getSchema().getColumnIndex(type.column());
+            Comparator<Entry> comparator =Comparator.comparing(
+                            e -> (Comparable) e.get(columnIndex),
+                            Comparator.nullsFirst(Comparator.naturalOrder()));
+            if (type.type() == SelectionType.DESCENDING) {
+                comparator = comparator.reversed();
+            }
+            entries.sort(comparator);
+        }
+        return entries;
     }
     private static <K extends Comparable<? super K>> List<Entry> selectionProcess(Table table, List<IndexRecord<K>> indexResult, int begin, int limit){
         List<Entry> result = new ArrayList<>();
@@ -56,14 +72,32 @@ public class EntryManager {
         boolean selectAll = limit < 0;
         for (IndexRecord<K> pair : indexResult) {
             BlockPointer blockPointer = pair.value().tablePointer();
-            if(index++ < begin) continue;
             if(!selectAll && index>=limit+begin) break;
+            if(index++ < begin) continue;
             TablePage page = table.getCache().getTablePage(blockPointer.BlockID());
             result.add(page.get(blockPointer.RowOffset()));
         }
         return result;
     }
     //==INSERTION==
+    /**
+     * Inserts a list of rows into the specified table as entries.
+     * <p>
+     * For each row, the method:
+     * <ul>
+     *   <li>Converts the row into an {@link Entry} object.</li>
+     *   <li>Validates the entry against the table schema.</li>
+     *   <li>Checks foreign key constraints.</li>
+     *   <li>Inserts the entry into the table using {@link #insertEntry(Table, Entry)}.</li>
+     * </ul>
+     * The operation is executed within a transaction. If any insertion fails,
+     * the transaction is rolled back and an exception is thrown.
+     * 
+     * @param table the table to insert rows into
+     * @param rows the list of {@link Row} objects to insert
+     * @return the number of successfully inserted entries
+     * @throws Exception if any row fails validation or violates constraints
+     */
     public static int insertEntries(Table table, List<Row> rows){
         int result = 0;
         Database database = table.getDatabase();
@@ -85,18 +119,21 @@ public class EntryManager {
         return result;
     }
     /**
-     * Inserts a new entry into the table. If the last page has available space, the entry
-     * is added there. Otherwise, a new page is created to accommodate the entry.
-     * The method performs the following:
+     * Inserts a single entry into the specified table.
+     * <p>
+     * The method ensures that the entry is added to the last page of the table if there is capacity;
+     * otherwise, a new page is created. It also updates the table's index and cache.
+     * <p>
+     * The insertion process includes:
      * <ul>
-     *   <li>Validates the entry against the table schema.</li>
-     *   <li>Ensures there is at least one page in the table.</li>
-     *   <li>Inserts the entry into the last page if it has capacity.</li>
-     *   <li>If the last page is full, adds a new page and inserts the entry there.</li>
-     *   <li>Updates the index and cache as part of the insertion process.</li>
+     *   <li>Ensuring there is at least one page in the table.</li>
+     *   <li>Adding the entry to the last page if there is space.</li>
+     *   <li>Creating a new page if the last page is full, and inserting the entry there.</li>
+     *   <li>Updating the table index and cache accordingly.</li>
      * </ul>
      *
-     * @param entry the entry to insert into the table
+     * @param table the table where the entry should be inserted
+     * @param entry the entry to insert
      * @throws IllegalArgumentException if the entry is invalid according to the table schema
      */
     public static void insertEntry(Table table, Entry entry) {
@@ -110,6 +147,16 @@ public class EntryManager {
         page = table.getCache().getLastTablePage();
         EntryManager.insertionProcess(table, entry, page);
     }
+    /**
+     * Handles the low-level insertion of an entry into a specific table page.
+     * <p>
+     * Adds the entry to the page, updates the table index with the entry's location,
+     * and refreshes the page in the table cache.
+     *
+     * @param table the table containing the page
+     * @param entry the entry to insert
+     * @param page the page where the entry should be added
+     */
     private static void insertionProcess(Table table, Entry entry, TablePage page) {
         page.add(entry);
         table.insertIndex(entry, new BlockPointer(page.getPageID(), (short)(page.size()-1)));

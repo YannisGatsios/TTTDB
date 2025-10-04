@@ -6,7 +6,7 @@ import com.database.db.page.Entry;
 import com.database.db.page.IndexPage;
 import com.database.db.table.Table;
 
-public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTree<K,BTreeSerialization.PointerPair>{
+public class BTreeInit<K extends Comparable<? super K>> extends BPlusTree<K,BTreeInit.PointerPair>{
     protected int columnIndex;
     public record BlockPointer(int BlockID, short RowOffset){
         public static final int BYTES = 6;
@@ -24,11 +24,11 @@ public class BTreeSerialization<K extends Comparable<? super K>> extends BPlusTr
     }
     public record PointerPair(BlockPointer tablePointer, BlockPointer indexPointer) {} 
 
-    public BTreeSerialization(int order){
+    public BTreeInit(int order){
         super(12);
     }
     @SuppressWarnings("unchecked")
-    public BTreeSerialization<K> initialize(Table table){
+    public BTreeInit<K> initialize(Table table){
         int numberOfPages = table.getPages();
         if(numberOfPages == 0) return this;
         IndexPage page;

@@ -250,4 +250,80 @@ public class AppTest {
         db.dropDatabase();
         db.close();
     }
+    @Test
+    @Order(3)
+    void testSelectionOrdering() throws Exception {
+        Schema schema = new Schema()
+            .column("id").type(DataType.INT).primaryKey().endColumn()
+            .column("name").type(DataType.CHAR).size(20).endColumn()
+            .column("age").type(DataType.INT).endColumn();
+
+        TableConfig tableConf = new TableConfig("people", schema);
+        db.addDatabase("test_selection", 0)
+        .addTable(tableConf)
+        .start();
+
+        // Insert test data
+        Row row1 = new Row("id,name,age");
+        row1.set("id", 1);
+        row1.set("name", "Charlie");
+        row1.set("age", 35);
+        db.insertUnsafe("people", row1);
+
+        Row row2 = new Row("id,name,age");
+        row2.set("id", 2);
+        row2.set("name", "Alice");
+        row2.set("age", 30);
+        db.insertUnsafe("people", row2);
+
+        Row row3 = new Row("id,name,age");
+        row3.set("id", 3);
+        row3.set("name", "Bob");
+        row3.set("age", 25);
+        db.insertUnsafe("people", row3);
+
+        db.commit();
+
+        // === Test ASC by name ===
+        List<Row> ascResult = db.select(
+            new Select("id,name,age").from("people").ASC("name")
+        );
+        Assertions.assertEquals("Alice", ascResult.get(0).get("name"));
+        Assertions.assertEquals("Bob", ascResult.get(1).get("name"));
+        Assertions.assertEquals("Charlie", ascResult.get(2).get("name"));
+
+        // === Test DESC by age ===
+        List<Row> descResult = db.select(
+            new Select("id,name,age").from("people").DEC("age")
+        );
+        Assertions.assertEquals("Charlie", descResult.get(0).get("name"));
+        Assertions.assertEquals("Alice", descResult.get(1).get("name"));
+        Assertions.assertEquals("Bob", descResult.get(2).get("name"));
+
+        // === Test pagination (skip 1, take 1, ordered ASC by name) ===
+        List<Row> pagedAsc = db.select(
+            new Select("id,name,age")
+                .from("people")
+                .ASC("name")
+                .begin(1)   // skip first (Alice)
+                .limit(1)   // take only 1 row
+        );
+        Assertions.assertEquals(1, pagedAsc.size());
+        Assertions.assertEquals("Alice", pagedAsc.get(0).get("name"));
+
+        // === Test pagination (skip 1, take 2, ordered DESC by age) ===
+        List<Row> pagedDesc = db.select(
+            new Select("id,name,age")
+                .from("people")
+                .DEC("age")
+                .begin(1)   // skip first (Charlie)
+                .limit(2)   // next two
+        );
+        Assertions.assertEquals(2, pagedDesc.size());
+        Assertions.assertEquals("Alice", pagedDesc.get(0).get("name"));
+        Assertions.assertEquals("Bob", pagedDesc.get(1).get("name"));
+
+        db.dropDatabase();
+        db.close();
+    }
 }

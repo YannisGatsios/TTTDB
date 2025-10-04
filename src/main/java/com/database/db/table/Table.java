@@ -10,12 +10,13 @@ import com.database.db.FileIO;
 import com.database.db.FileIOThread;
 import com.database.db.api.Condition.*;
 import com.database.db.api.DBMS.TableConfig;
+import com.database.db.api.Query.SelectType;
 import com.database.db.api.Row;
 import com.database.db.api.UpdateFields;
 import com.database.db.cache.TableCache;
 import com.database.db.cache.TableSnapshot;
-import com.database.db.index.BTreeSerialization.BlockPointer;
-import com.database.db.index.BTreeSerialization.PointerPair;
+import com.database.db.index.BTreeInit.BlockPointer;
+import com.database.db.index.BTreeInit.PointerPair;
 import com.database.db.index.Pair;
 import com.database.db.manager.EntryManager;
 import com.database.db.manager.IndexManager;
@@ -92,8 +93,8 @@ public class Table {
     }
 
     // -- Entry Management -- 
-    public List<Entry> select(WhereClause whereClause, int begin, int limit){
-        return EntryManager.selectEntriesAscending(this, whereClause, begin, limit);
+    public List<Entry> select(WhereClause whereClause, int begin, int limit, SelectType type){
+        return EntryManager.selectEntries(this, whereClause, begin, limit, type);
     }
     public int insert(List<Row> rows){
         return EntryManager.insertEntries(this, rows);

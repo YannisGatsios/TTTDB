@@ -52,6 +52,7 @@ public interface Query {
         ASCENDING,
         DESCENDING,
     }
+    public record  SelectType(SelectionType type, String column) {}
     // ---------------------------------------------------------------------
     // SELECT
     // ---------------------------------------------------------------------
@@ -71,7 +72,7 @@ public interface Query {
         private WhereClause whereClause;
         private int begin = 0;
         private int limit = -1;
-        private SelectionType type = SelectionType.NORMAL;
+        private SelectType type = new SelectType(SelectionType.NORMAL, null);
         /**
          * @param selectColumns comma-separated list of columns to select
          */
@@ -117,16 +118,16 @@ public interface Query {
          * Sets the {@link SelectionType} to {@link SelectionType#ASCENDING}.
          * @return this builder
          */
-        public Select ASC(){
-            this.type = SelectionType.ASCENDING;
+        public Select ASC(String column){
+            this.type = new SelectType(SelectionType.ASCENDING,column);
             return this;
         }
         /**
          * Sets the {@link SelectionType} to {@link SelectionType#DESCENDING}.
          * @return this builder
          */
-        public Select DEC(){
-            this.type = SelectionType.DESCENDING;
+        public Select DEC(String column){
+            this.type = new SelectType(SelectionType.DESCENDING, column);
             return this;
         }
         /**

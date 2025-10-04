@@ -3,8 +3,8 @@ package com.database.db.manager;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.database.db.index.BTreeSerialization.BlockPointer;
-import com.database.db.index.BTreeSerialization.PointerPair;
+import com.database.db.index.BTreeInit.BlockPointer;
+import com.database.db.index.BTreeInit.PointerPair;
 import com.database.db.index.Pair;
 import com.database.db.page.Entry;
 import com.database.db.page.TablePage;

@@ -2,7 +2,7 @@ package com.database.db.page;
 
 import java.nio.ByteBuffer;
 
-import com.database.db.index.BTreeSerialization.BlockPointer;
+import com.database.db.index.BTreeInit.BlockPointer;
 import com.database.db.table.DataType;
 import com.database.db.table.Table;
 

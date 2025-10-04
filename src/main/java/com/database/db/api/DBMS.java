@@ -14,6 +14,7 @@ import com.database.db.Database;
 import com.database.db.api.Condition.WhereClause;
 import com.database.db.api.Query.Delete;
 import com.database.db.api.Query.Select;
+import com.database.db.api.Query.SelectType;
 import com.database.db.api.Query.SelectionType;
 import com.database.db.api.Query.Update;
 import com.database.db.manager.EntryManager;
@@ -46,7 +47,7 @@ public class DBMS {
     /**
      * Represents a SELECT query.
      */
-    public record SelectQuery(String tableName, String resultColumns, WhereClause whereClause, int begin, int limit, SelectionType type){
+    public record SelectQuery(String tableName, String resultColumns, WhereClause whereClause, int begin, int limit, SelectType type){
         /**
          * Returns the columns to select for the given table.
          * @param table the table
@@ -152,27 +153,42 @@ public class DBMS {
         return this;
     }
     /**
-     * Performs a SELECT query.
-     * @param query the select query
-     * @return list of records matching the query
+     * Performs a SELECT query against the currently selected database.
+     * <p>
+     * This method executes a fluent {@link Select} query, applying all configured
+     * options such as:
+     * <ul>
+     *   <li>Target table name</li>
+     *   <li>{@link WhereClause} filtering conditions</li>
+     *   <li>{@code begin} offset (number of rows to skip)</li>
+     *   <li>{@code limit} maximum number of rows to return</li>
+     *   <li>Optional ordering by a specific column in ascending or descending order,
+     *       as defined by {@link SelectionType}</li>
+     * </ul>
+     *
+     * The underlying rows are retrieved as {@link Entry} objects from the table,
+     * then converted into higher-level {@link Row} objects for the result set.
+     *
+     * <p><b>Usage example:</b></p>
+     * <pre>{@code
+     * List<Row> users = db.select(
+     *     new Select("*")
+     *         .from("users")
+     *         .where().eq("active", true)
+     *         .ASC("username")
+     *         .limit(20)
+     * );
+     * }</pre>
+     *
+     * @param select the fluent {@link Select} builder defining the query
+     * @return a list of {@link Row} objects matching the query constraints
+     * @throws IllegalArgumentException if no database is currently selected
      */
     public List<Row> select(Select select){
         SelectQuery query = select.get();
         if(this.selected == null) throw new IllegalArgumentException("Can not perform select statement when no Database selected.");
         Table table = selected.getTable(query.tableName);
-        List<Entry> result = table.select(query.whereClause, query.begin, query.limit);
-        return this.prepareSelectResult(table, query, result);
-    }
-    /**
-     * Performs a SELECT query in descending order.
-     * @param query the select query
-     * @return list of records matching the query in descending order
-     */
-    public List<Row> selectDescending(Select select){
-        SelectQuery query = select.get();
-        if(this.selected == null) throw new IllegalArgumentException("Can not perform select statement when no Database selected.");
-        Table table = selected.getTable(query.tableName);
-        List<Entry> result = table.select(query.whereClause, query.begin, query.limit);
+        List<Entry> result = table.select(query.whereClause, query.begin, query.limit, query.type);
         return this.prepareSelectResult(table, query, result);
     }
     /**

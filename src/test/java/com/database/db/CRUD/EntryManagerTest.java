@@ -22,6 +22,8 @@ import org.junit.jupiter.api.TestInstance;
 
 import com.database.db.api.Condition.*;
 import com.database.db.api.DBMS.*;
+import com.database.db.api.Query.SelectType;
+import com.database.db.api.Query.SelectionType;
 import com.database.db.api.Row;
 import com.database.db.api.Schema;
 import com.database.db.page.Entry;
@@ -178,19 +180,19 @@ public class EntryManagerTest {
             rowsList.add(row);
             ind++;
         }
-        table.insert(rowsList);
+        assertEquals(1000000, table.insert(rowsList));
         database.commit();
         database.startTransaction("Million Deletions");
             table.delete(null, -1);
-            List<Entry> preRollbackResult = table.select(null, 0, -1);
+            List<Entry> preRollbackResult = table.select(null, 0, -1, new SelectType(SelectionType.NORMAL,null));
             assertEquals(0, preRollbackResult.size());
         database.rollBack();
-        
-        List<Entry> afterRollbackResult = table.select(null, 0, -1);
+
+        List<Entry> afterRollbackResult = table.select(null, 0, -1,new SelectType(SelectionType.NORMAL,null));
         assertEquals(1000000, afterRollbackResult.size());
         table.delete(null, -1);
         database.commit();
-        List<Entry> commitDeletionsResult = table.select(null, 0, -1);
+        List<Entry> commitDeletionsResult = table.select(null, 0, -1, new SelectType(SelectionType.NORMAL,null));
         assertEquals(0, commitDeletionsResult.size());
     }
 
