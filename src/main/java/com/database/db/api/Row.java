@@ -55,16 +55,18 @@ public class Row {
         this.values = new Object[columnNames.length];
     }
     /**
-     * Sets the value of the specified column.
+     * Updates the value in the specified column.
      *
-     * @param columnName the column name
-     * @param value the value to assign
-     * @throws IllegalArgumentException if the column name does not exist
+     * @param columnName name of the column to update
+     * @param value new value to set for the column
+     * @return this Row instance for method chaining
+     * @throws IllegalArgumentException if no column with the given name exists
      */
-    public void set(String columnName, Object value){
+    public Row set(String columnName, Object value){
         int columnIndex = this.columnIndex(columnName);
         if(columnIndex < 0) throw new IllegalArgumentException("Column not found: " + columnName);
         values[columnIndex] = value;
+        return this;
     }
     /**
      * Gets the value of the specified column by name.

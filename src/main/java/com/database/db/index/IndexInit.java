@@ -1,13 +1,21 @@
 package com.database.db.index;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 
 import com.database.db.page.Entry;
 import com.database.db.page.IndexPage;
 import com.database.db.table.Table;
 
-public class IndexInit<K extends Comparable<? super K>> extends BPlusTree<K,IndexInit.PointerPair>{
+/**
+ * B+Tree-based index implementation.
+ * Maps keys to {@link PointerPair} objects that link table and index locations.
+ * Acts as an adapter between the generic {@link Index} interface and
+ * the {@link BPlusTree} structure.
+ */
+public class IndexInit<K extends Comparable<? super K>> implements Index<K,IndexInit.PointerPair>{
     protected int columnIndex;
+    private final Index<K,IndexInit.PointerPair> index;
     public record BlockPointer(int BlockID, short RowOffset){
         public static final int BYTES = 6;
         public byte[] toBytes(){
@@ -25,7 +33,7 @@ public class IndexInit<K extends Comparable<? super K>> extends BPlusTree<K,Inde
     public record PointerPair(BlockPointer tablePointer, BlockPointer indexPointer) {} 
 
     public IndexInit(int order){
-        super(32);
+        this.index = new BPlusTree<>(order);
     }
     @SuppressWarnings("unchecked")
     public IndexInit<K> initialize(Table table){
@@ -46,6 +54,56 @@ public class IndexInit<K extends Comparable<? super K>> extends BPlusTree<K,Inde
             }
         }
         return this;
+    }
+
+    @Override
+    public void insert(K key, PointerPair value) {
+        this.index.insert(key, value);
+    }
+    @Override
+    public void remove(K key, PointerPair value) {
+        this.index.remove(key, value);
+    }
+    @Override
+    public List<Pair<K, PointerPair>> search(K key) {
+        return this.index.search(key);
+    }
+    @Override
+    public List<Pair<K, PointerPair>> rangeSearch(K fromKey, K toKey) {
+        return this.index.rangeSearch(fromKey, toKey);
+    }
+    @Override
+    public boolean isKey(K key) {
+        return this.index.isKey(key);
+    }
+    @Override
+    public void update(K key, PointerPair newValue) {
+        this.index.update(key, newValue);
+    }
+    @Override
+    public void update(K key, PointerPair newValue, PointerPair oldValue) {
+        this.index.update(key, newValue, oldValue);
+    }
+    
+    @Override
+    public void setUnique(boolean isUnique) {
+        this.index.setUnique(isUnique);
+    }
+    @Override
+    public void setNullable(boolean isNullable) {
+        this.index.setNullable(isNullable);
+    }
+    @Override
+    public boolean isUnique() {
+        return this.index.isUnique();
+    }
+    @Override
+    public boolean isNullable() {
+        return this.index.isNullable();
+    }
+    @Override
+    public K getMax() {
+        return this.index.getMax();
     }
 
     public void setColumnIndex(int columnIndex){this.columnIndex = columnIndex;}

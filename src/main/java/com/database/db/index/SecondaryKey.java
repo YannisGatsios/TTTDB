@@ -6,7 +6,6 @@ import com.database.db.page.TablePage;
 import com.database.db.table.Table;
 
 public class SecondaryKey<K extends Comparable<? super K>> extends IndexInit<K> {
-    
     public SecondaryKey(Table table, int columnIndex) {
         super(Page.getPageCapacity(TablePage.sizeOfEntry(table)));
         this.setUnique(false);

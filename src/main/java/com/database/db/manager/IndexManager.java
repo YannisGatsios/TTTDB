@@ -19,7 +19,6 @@ import com.database.db.cache.IndexSnapshot;
 import com.database.db.cache.TableSnapshot;
 import com.database.db.cache.IndexSnapshot.Operation;
 import com.database.db.cache.IndexSnapshot.OperationEnum;
-import com.database.db.index.BPlusTree;
 import com.database.db.index.IndexInit;
 import com.database.db.index.SecondaryKey;
 import com.database.db.index.Pair;
@@ -246,7 +245,7 @@ public class IndexManager {
             K key = this.getValidatedKey(entry, index, columnIndex);
             BlockPointer indexPointer = this.pageManager.insert(tablePointer, key, index.getColumnIndex());
             PointerPair value = new PointerPair(tablePointer,indexPointer);
-            ((BPlusTree<K,PointerPair>) index).insert(key, value);
+            ((IndexInit<K>) index).insert(key, value);
             keys[columnIndex] = key;
             values[columnIndex] = value;
         }

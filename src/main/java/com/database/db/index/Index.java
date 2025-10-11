@@ -2,17 +2,28 @@ package com.database.db.index;
 
 import java.util.List;
 /**
- * Interface defining core operations for an index structure.
- * This can be implemented using different data structures like
- * B+Tree, Hash Table, Skip List, AVL/Red-Black Tree, Trie, etc.
+ * Interface defining the core operations for an index structure.
+ * Implementations may use different underlying data structures such as:
+ * <ul>
+ *     <li>B+ Tree – ordered, supports efficient range queries.</li>
+ *     <li>Hash Table – unordered, optimized for exact key lookups.</li>
+ *     <li>Skip List – probabilistic balanced structure with range support.</li>
+ *     <li>AVL / Red-Black Tree – self-balancing binary search trees.</li>
+ *     <li>Trie – prefix-based index for string keys.</li>
+ * </ul>
  *
- * @param <K> Key type (must implement Comparable)
+ * <p>This abstraction allows flexible index implementations to be
+ * interchangeable within the database system.</p>
+ *
+ * @param <K> Key type (must implement {@link Comparable})
  * @param <V> Value type associated with keys
  */
 public interface Index<K extends Comparable<? super K>, V> {
 
     /**
      * Inserts a key-value pair into the index.
+     * Implementations must handle duplicate keys according to
+     * {@link #isUnique()} configuration.
      *
      * @param key Key to insert
      * @param value Associated value
@@ -21,61 +32,116 @@ public interface Index<K extends Comparable<? super K>, V> {
 
     /**
      * Removes a specific key-value pair from the index.
+     * If multiple identical values exist for a key, only the specified
+     * pair is removed.
      *
      * @param key Key to remove
-     * @param value Specific value to remove (useful if duplicate keys exist)
+     * @param value Specific value to remove
      */
     void remove(K key, V value);
 
     /**
-     * Searches for a key and returns all associated values.
+     * Searches for a key and returns all associated key-value pairs.
      *
      * @param key Key to search for
-     * @return List of key-value pairs matching the key, or empty list if not found
+     * @return List of key-value pairs matching the key, or an empty list if not found
      */
     List<Pair<K, V>> search(K key);
 
     /**
      * Performs a range search between two keys (inclusive).
-     * If a particular implementation does not support range queries, it can return all matching keys or throw UnsupportedOperationException.
+     * <p>
+     * If the underlying structure supports ordering (e.g., B+Tree, Skip List),
+     * the operation is efficient.  
+     * For unordered structures (e.g., hash-based indexes), this method
+     * performs a full scan and filters entries within the range.
+     * </p>
      *
-     * @param fromKey Lower bound (inclusive, null for unbounded)
-     * @param toKey Upper bound (inclusive, null for unbounded)
-     * @return List of key-value pairs within the specified range
+     * <p>
+     * Both {@code fromKey} and {@code toKey} may be {@code null}:
+     * <ul>
+     *     <li>{@code fromKey == null} → unbounded lower limit</li>
+     *     <li>{@code toKey == null} → unbounded upper limit</li>
+     * </ul>
+     * </p>
+     *
+     * @param fromKey Lower bound (inclusive), {@code null} for unbounded
+     * @param toKey Upper bound (inclusive), {@code null} for unbounded
+     * @return List of key-value pairs within the specified range.
+     *         May be O(n) for unordered indexes.
      */
     List<Pair<K, V>> rangeSearch(K fromKey, K toKey);
 
     /**
-     * Checks if a key exists in the index.
+     * Checks whether a specific key exists in the index.
      *
      * @param key Key to check
-     * @return true if key exists, false otherwise
+     * @return {@code true} if the key exists, {@code false} otherwise
      */
     boolean isKey(K key);
 
     /**
-     * Updates a value associated with a key (assumes unique keys).
+     * Updates the value associated with a key.
+     * Assumes the index enforces unique keys.
      *
-     * @param key Key to update
-     * @param newValue New value to set
+     * @param key Key whose value is to be updated
+     * @param newValue New value to associate with the key
      */
     void update(K key, V newValue);
 
     /**
-     * Updates a value associated with a key. For non-unique keys,
-     * specifies the old value to replace.
+     * Updates a value associated with a key in a non-unique index.
+     * Replaces a specific old value with a new one.
      *
-     * @param key Key to update
+     * @param key Key whose value is to be updated
      * @param newValue New value to set
-     * @param oldValue Old value to replace (required for non-unique keys)
+     * @param oldValue Old value to replace
      */
     void update(K key, V newValue, V oldValue);
 
     /**
-     * Returns a human-readable representation of the index.
-     * The exact format is implementation-specific.
+     * Returns the maximum key stored in the index.
+     * If the index is empty, behavior is implementation-defined
+     * (may return {@code null} or throw an exception).
      *
-     * @return String visualization of index contents
+     * @return Maximum key
+     */
+    K getMax();
+
+    /**
+     * Defines whether the index enforces unique keys.
+     *
+     * @param isUnique {@code true} if unique, {@code false} otherwise
+     */
+    void setUnique(boolean isUnique);
+
+    /**
+     * Defines whether the index allows {@code null} keys.
+     *
+     * @param isNullable {@code true} if {@code null} keys are allowed
+     */
+    void setNullable(boolean isNullable);
+
+    /**
+     * Returns whether the index enforces unique keys.
+     *
+     * @return {@code true} if unique, {@code false} otherwise
+     */
+    boolean isUnique();
+
+    /**
+     * Returns whether the index allows {@code null} keys.
+     *
+     * @return {@code true} if {@code null} keys are allowed
+     */
+    boolean isNullable();
+
+    /**
+     * Returns a human-readable string representation of the index.
+     * This may include key-value pairs or structure details depending
+     * on implementation.
+     *
+     * @return String visualization of the index contents
      */
     @Override
     String toString();
