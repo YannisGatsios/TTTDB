@@ -7,7 +7,6 @@ import java.util.Set;
 import com.database.db.Database;
 import com.database.db.Database.TableReference;
 import com.database.db.FileIO;
-import com.database.db.FileIOThread;
 import com.database.db.api.Condition.*;
 import com.database.db.api.DBMS.TableConfig;
 import com.database.db.api.Query.SelectType;
@@ -15,8 +14,8 @@ import com.database.db.api.Row;
 import com.database.db.api.UpdateFields;
 import com.database.db.cache.TableCache;
 import com.database.db.cache.TableSnapshot;
-import com.database.db.index.BTreeInit.BlockPointer;
-import com.database.db.index.BTreeInit.PointerPair;
+import com.database.db.index.IndexInit.BlockPointer;
+import com.database.db.index.IndexInit.PointerPair;
 import com.database.db.index.Pair;
 import com.database.db.manager.EntryManager;
 import com.database.db.manager.IndexManager;
@@ -32,7 +31,6 @@ public class Table {
     private TableCache cache;
     private IndexManager indexManager;
     private AutoIncrementing[] autoIncrementing;
-    private FileIOThread fileIOThread;
     private TableSnapshot tableSnapshot;
 
     private TableReference parent;
@@ -48,16 +46,10 @@ public class Table {
         this.tableSnapshot = new TableSnapshot();
     }
     public void start(){
-        this.fileIOThread = new FileIOThread(this.tableName);
-        this.fileIOThread.start();
         int numOfPages = FileIO.getNumOfPages(this.getPath(),TablePage.sizeOfEntry(this));
         this.tableSnapshot.setNumOfPages(numOfPages);
         this.indexManager.initialize();
         this.autoIncrementing = AutoIncrementing.prepareAutoIncrementing(this);
-    }
-    public void close() throws InterruptedException{
-        this.fileIOThread.shutdown();
-        this.fileIOThread = null;
     }
 
     public AutoIncrementing getAutoIncrementing(int columnIndex){
@@ -148,7 +140,6 @@ public class Table {
     public String getName() { return this.tableName; }
     public SchemaInner getSchema() { return this.schema; }
     public TableCache getCache() { return this.cache; }
-    public FileIOThread getFileIOThread() { return this.fileIOThread; }
     public IndexManager getIndexManager() { return this.indexManager; }
 
     // Foreign Key references 

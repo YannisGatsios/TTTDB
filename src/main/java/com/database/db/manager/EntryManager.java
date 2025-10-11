@@ -17,7 +17,7 @@ import com.database.db.api.Query.SelectionType;
 import com.database.db.api.Row;
 import com.database.db.api.Schema;
 import com.database.db.api.UpdateFields;
-import com.database.db.index.BTreeInit.BlockPointer;
+import com.database.db.index.IndexInit.BlockPointer;
 import com.database.db.manager.IndexManager.IndexRecord;
 import com.database.db.page.Entry;
 import com.database.db.page.TablePage;

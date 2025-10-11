@@ -23,22 +23,26 @@ public class Database {
     private static final Logger logger = Logger.getLogger(Database.class.getName());
 
     private final String name;
-    private DBMS dbms;
+    private final DBMS dbms;
     private String path = "";
     private final Map<String,Table> tables;
     private final Map<String,Schema> schema;
+
     private final Cache mainCache;
     private TransactionCache currentCache;
+    private final FileIOThread fileIOThread;
 
     public Database(String name, DBMS dbms, int cacheCapacity){
         this.name = name;
         this.dbms = dbms;
         this.tables = new HashMap<>();
         this.schema = new HashMap<>();
+        this.fileIOThread = new FileIOThread(name);
         this.mainCache = new Cache(this, cacheCapacity);
     }
 
     public void create(){
+        this.fileIOThread.start();
         Set<String> tableNames = new HashSet<>(this.tables.keySet());
         for (String tableName : tableNames) {
             Table table = tables.get(tableName);
@@ -91,14 +95,12 @@ public class Database {
     }
 
     public void close(){
-        for (Table table : this.tables.values()) {
-            try {
-                table.close();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                logger.log(Level.WARNING,
-                    String.format("InterruptedException: Shutdown interrupted while closing table '%s' in database '%s'.", table.getName(), this.name), e);
-            }
+        try {
+            this.fileIOThread.shutdown();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.log(Level.WARNING,
+                    String.format("InterruptedException: Shutdown interrupted while closing Database '%s'.", this.name), e);
         }
         logger.info(String.format("All tables closed for database '%s'.", this.name));
     }
@@ -122,12 +124,7 @@ public class Database {
         }
         try {
             SchemaManager.dropTable(table);
-            table.close();
             this.tables.remove(tableName);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.log(Level.WARNING,
-                String.format("InterruptedException: Shutdown interrupted while removing table '%s' from database '%s'.", tableName, this.name), e);
         } catch (Exception e) {
             logger.log(Level.SEVERE,
                 String.format("Error removing table '%s' from database '%s'.",tableName, name),e);
@@ -174,6 +171,7 @@ public class Database {
     public void setPath(String path){this.path = path;}
     public String getPath() { return this.path; }
     public String getName(){ return this.name; }
+    public FileIOThread getFileIOThread() { return this.fileIOThread; }
     public List<Table> getAllTablesList() {
         return new ArrayList<>(tables.values());
     }

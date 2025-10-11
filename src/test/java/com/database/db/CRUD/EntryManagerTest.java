@@ -198,12 +198,7 @@ public class EntryManagerTest {
 
     @AfterAll
     void end(){
-        try {
-            table.getFileIOThread().shutdown();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-            fail();
-        }
+        table.getDatabase().close();
         //database.removeAllTables();
     }
 }

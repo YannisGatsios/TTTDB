@@ -3,8 +3,8 @@ package com.database.db.cache;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.database.db.index.BTreeInit;
-import com.database.db.index.BTreeInit.PointerPair;
+import com.database.db.index.IndexInit;
+import com.database.db.index.IndexInit.PointerPair;
 
 public class IndexSnapshot {
     public enum OperationEnum {
@@ -37,14 +37,15 @@ public class IndexSnapshot {
         }
         this.snapshots.getLast().operations = new ArrayList<>(committed.operations);
     }
-    public <K extends Comparable<? super K>> void rollback(BTreeInit<?>[] indexes){
+    @SuppressWarnings("unchecked")
+    public <K extends Comparable<? super K>> void rollback(IndexInit<?>[] indexes){
         Snapshot removed = this.snapshots.removeLast();
         List<Operation> operations = removed.operations;
         for(int i = operations.size()-1;i>=0;i--){
             Operation operation = operations.get(i);
             for(int j = 0;j<indexes.length;j++){
                 if(indexes[j] == null) continue;
-                BTreeInit<K> index = (BTreeInit<K>)indexes[j];
+                IndexInit<K> index = (IndexInit<K>)indexes[j];
                 K key = (K)operation.keys[j];
                 PointerPair value = operation.values[j];
                 switch (operation.operation) {

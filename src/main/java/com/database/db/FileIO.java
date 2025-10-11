@@ -23,8 +23,7 @@ public class FileIO {
 
     private FileIOThread fileIOThread;
 
-    public FileIO() {}
-    public void setFileIOThread(FileIOThread fileIOThread){
+    public FileIO(FileIOThread fileIOThread){
         this.fileIOThread = fileIOThread;
     }
 

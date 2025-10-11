@@ -31,7 +31,7 @@ public class Cache {
 
     public Cache(Database database, int capacity){
         this.database = database;
-        this.fileIO = new FileIO();
+        this.fileIO = new FileIO(database.getFileIOThread());
         this.CAPACITY = capacity;
         this.DELETION_CAPACITY = CAPACITY/10;
         if(capacity == -1) this.cache = new HashMap<>();
@@ -89,11 +89,7 @@ public class Cache {
 
     //== Writing Pages ==
     protected void writePage(Map.Entry<String, Page> eldest){
-        String key = eldest.getKey();
-        String[] ketParts = key.split("\\.");
-        Table table = database.getTable(ketParts[0]);
         Page page = eldest.getValue();
-        fileIO.setFileIOThread(table.getFileIOThread());
         fileIO.writePage(page.getFilePath(), page.toBytes(), page.getPagePos());
     }
 
@@ -110,7 +106,6 @@ public class Cache {
             return newPage;
         }
         try {
-            fileIO.setFileIOThread(table.getFileIOThread());
             byte[] pageBuffer = fileIO.readPage(newPage.getFilePath(), newPage.getPagePos(),newPage.sizeInBytes());
             if(pageBuffer != null) newPage.fromBytes(pageBuffer);
             cache.put(pageKey, newPage);
@@ -137,7 +132,6 @@ public class Cache {
             return newPage;
         }
         try {
-            fileIO.setFileIOThread(table.getFileIOThread());
             byte[] pageBuffer = fileIO.readPage(newPage.getFilePath(), newPage.getPagePos(),newPage.sizeInBytes());
             if(pageBuffer != null) newPage.fromBytes(pageBuffer);
             cache.put(pageKey, newPage);
@@ -202,7 +196,6 @@ public class Cache {
     private void truncateTable(Table table){
         if (table.getDeletedPages() == 0) return;
         try {
-            fileIO.setFileIOThread(table.getFileIOThread());
             fileIO.truncateFile(table.getPath(), table.getDeletedPages()*Page.pageSizeInBytes(TablePage.sizeOfEntry(table)));
             table.clearDeletedPages();
             table.getDeletedPagesSet().clear();
@@ -227,7 +220,6 @@ public class Cache {
         IndexManager indexManager = table.getIndexManager();
         if (indexManager.getDeletedPages(columnIndex) == 0) return;
         try {
-            fileIO.setFileIOThread(table.getFileIOThread());
             fileIO.truncateFile(table.getIndexPath(columnIndex), indexManager.getDeletedPages(columnIndex)*Page.pageSizeInBytes(IndexPage.sizeOfEntry(table, columnIndex)));
             indexManager.clearDeletedPages(columnIndex);
             indexManager.getDeletedPagesSet(columnIndex).clear();

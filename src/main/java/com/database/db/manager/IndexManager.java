@@ -20,12 +20,12 @@ import com.database.db.cache.TableSnapshot;
 import com.database.db.cache.IndexSnapshot.Operation;
 import com.database.db.cache.IndexSnapshot.OperationEnum;
 import com.database.db.index.BPlusTree;
-import com.database.db.index.BTreeInit;
-import com.database.db.index.Index;
+import com.database.db.index.IndexInit;
+import com.database.db.index.SecondaryKey;
 import com.database.db.index.Pair;
 import com.database.db.index.PrimaryKey;
-import com.database.db.index.BTreeInit.BlockPointer;
-import com.database.db.index.BTreeInit.PointerPair;
+import com.database.db.index.IndexInit.BlockPointer;
+import com.database.db.index.IndexInit.PointerPair;
 import com.database.db.page.Entry;
 import com.database.db.page.IndexPage;
 import com.database.db.table.SchemaInner;
@@ -37,7 +37,7 @@ public class IndexManager {
 
     private final Table table;
     SchemaInner schema;
-    private final BTreeInit<?>[] indexes;
+    private final IndexInit<?>[] indexes;
     public final IndexPageManager pageManager;
     private final TableSnapshot[] tableSnapshots;
     private final IndexSnapshot indexSnapshot;
@@ -45,7 +45,7 @@ public class IndexManager {
     public IndexManager(Table table) {
         this.table = table;
         this.schema = table.getSchema();
-        this.indexes = new BTreeInit<?>[schema.getNumOfColumns()];
+        this.indexes = new IndexInit<?>[schema.getNumOfColumns()];
 
         this.pageManager = new IndexPageManager(table);
         int PrimaryKeyIndex = schema.getPrimaryKeyIndex();
@@ -67,7 +67,7 @@ public class IndexManager {
         }
     }
     public void initialize(){
-        for (BTreeInit<?> index : indexes) {
+        for (IndexInit<?> index : indexes) {
             if(index != null) index.initialize(table);
         }
         for (int i = 0;i<this.indexes.length;i++) {
@@ -104,16 +104,16 @@ public class IndexManager {
             default -> throw new IllegalArgumentException("Unsupported type: " + type.name());
         };
     }
-    private Index<?> newIndex(int skIndex) {
+    private SecondaryKey<?> newIndex(int skIndex) {
         DataType type = schema.getTypes()[skIndex];
         return switch (type) {
-            case INT -> new Index<Integer>(table, skIndex);
-            case LONG -> new Index<Long>(table, skIndex);
-            case FLOAT -> new Index<Float>(table, skIndex);
-            case DOUBLE -> new Index<Double>(table, skIndex);
-            case CHAR -> new Index<String>(table, skIndex);
-            case DATE -> new Index<Date>(table, skIndex);
-            case TIMESTAMP -> new Index<Timestamp>(table, skIndex);
+            case INT -> new SecondaryKey<Integer>(table, skIndex);
+            case LONG -> new SecondaryKey<Long>(table, skIndex);
+            case FLOAT -> new SecondaryKey<Float>(table, skIndex);
+            case DOUBLE -> new SecondaryKey<Double>(table, skIndex);
+            case CHAR -> new SecondaryKey<String>(table, skIndex);
+            case DATE -> new SecondaryKey<Date>(table, skIndex);
+            case TIMESTAMP -> new SecondaryKey<Timestamp>(table, skIndex);
             default -> throw new IllegalArgumentException("Unsupported type: " + type);
         };
     }
@@ -165,7 +165,7 @@ public class IndexManager {
                 end   = conditionList.get(Conditions.IS_EQUAL);
             }
             int columnIndex = this.schema.getColumnIndex(condition.getColumnName());
-            BTreeInit<K> index = (BTreeInit<K>)indexes[columnIndex];
+            IndexInit<K> index = (IndexInit<K>)indexes[columnIndex];
             List<Pair<K, PointerPair>> indexResult = index == null?
                 SequentialOperations.sequentialRangeSearch(table, (K)start, (K)end, columnIndex) :
                 index.rangeSearch((K) start, (K) end);
@@ -193,6 +193,7 @@ public class IndexManager {
         }
         return previousPairList;
     }
+    @SuppressWarnings("unchecked")
     private <K extends Comparable<? super K>> List<IndexRecord<K>> noCondition(){
         int columnIndex = this.schema.getPrimaryKeyIndex();
         if(columnIndex == -1){
@@ -214,7 +215,7 @@ public class IndexManager {
             }
         }
         if(columnIndex == -1) columnIndex = 0;
-        BTreeInit<K> index = (BTreeInit<K>)indexes[columnIndex];
+        IndexInit<K> index = (IndexInit<K>)indexes[columnIndex];
         List<Pair<K, PointerPair>> indexResult = index == null?
             SequentialOperations.sequentialRangeSearch(table, null, null, columnIndex) :
             index.rangeSearch(null, null);
@@ -227,19 +228,19 @@ public class IndexManager {
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> List<Pair<K, PointerPair>> findBlock(K key, int columnIndex){
         if(this.indexes[columnIndex] == null) return SequentialOperations.sequentialRangeSearch(table, key, key, columnIndex);
-        return ((BTreeInit<K>)this.indexes[columnIndex]).search(key);
+        return ((IndexInit<K>)this.indexes[columnIndex]).search(key);
     }
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> boolean isKeyFound(K key, int columnIndex){
         if(this.indexes[columnIndex] == null) return SequentialOperations.sequentialRangeSearch(table, key, key, columnIndex).size()==0?false:true;
-        return ((BTreeInit<K>)this.indexes[columnIndex]).isKey(key);
+        return ((IndexInit<K>)this.indexes[columnIndex]).isKey(key);
     }
 
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> void insertIndex(Entry entry, BlockPointer tablePointer){
         Object[] keys = new Object[indexes.length];
         PointerPair[] values = new PointerPair[indexes.length];
-        for (BTreeInit<?> index : this.indexes) {
+        for (IndexInit<?> index : this.indexes) {
             if(index == null) continue;
             int columnIndex = index.getColumnIndex();
             K key = this.getValidatedKey(entry, index, columnIndex);
@@ -260,14 +261,14 @@ public class IndexManager {
         Object[] updatedKeys = new Object[indexes.length];
         PointerPair[] updatedValues = new PointerPair[indexes.length];
         PointerPair[] updatedOldValues = new PointerPair[indexes.length];
-        for (BTreeInit<?> index : this.indexes) {
+        for (IndexInit<?> index : this.indexes) {
             if(index == null) continue;
             int columnIndex = index.getColumnIndex();
             K key = this.getValidatedKey(entry, index, columnIndex);
             BlockPointer indexPointer = pageManager.findIndexPointer(index, key, blockPointer);
             PointerPair value = new PointerPair(blockPointer, indexPointer);
             pageManager.remove(index, value, index.getColumnIndex(),updatedKeys,updatedValues,updatedOldValues);
-            ((BTreeInit<K>) index).remove((K) key, value);
+            ((IndexInit<K>) index).remove((K) key, value);
             keys[columnIndex] = key;
             values[columnIndex] = value;
         }
@@ -282,7 +283,7 @@ public class IndexManager {
         Object[] keys = new Object[indexes.length];
         PointerPair[] values = new PointerPair[indexes.length];
         PointerPair[] oldValues = new PointerPair[indexes.length];
-        for (BTreeInit<?> index : this.indexes) {
+        for (IndexInit<?> index : this.indexes) {
             if(index == null) continue;
             int columnIndex = index.getColumnIndex();
             K key = this.getValidatedKey(entry, index, columnIndex);
@@ -290,8 +291,8 @@ public class IndexManager {
             pageManager.update(indexPointer , newBlockPointer, key, columnIndex);
             PointerPair newValue = new PointerPair(newBlockPointer, indexPointer);
             PointerPair oldValue = new PointerPair(oldBlockPointer, indexPointer);
-            if(index.isUnique())((BTreeInit<K>) index).update(key, newValue);
-            else ((BTreeInit<K>) index).update(key, newValue, oldValue);
+            if(index.isUnique())((IndexInit<K>) index).update(key, newValue);
+            else ((IndexInit<K>) index).update(key, newValue, oldValue);
             keys[columnIndex] = key;
             values[columnIndex] = newValue;
             oldValues[columnIndex] = oldValue;
@@ -301,7 +302,7 @@ public class IndexManager {
     }
 
     @SuppressWarnings("unchecked")
-    private <K extends Comparable<? super K>> K getValidatedKey(Entry entry, BTreeInit<?> index, int columnIndex) {
+    private <K extends Comparable<? super K>> K getValidatedKey(Entry entry, IndexInit<?> index, int columnIndex) {
         Object key = entry.get(columnIndex);
         DataType type = schema.getTypes()[columnIndex];
         Class<?> expectedClass = type.getJavaClass();
@@ -318,7 +319,7 @@ public class IndexManager {
         return (K) key;
     }
 
-    public BTreeInit<?>[] getIndexes() { return this.indexes; }
+    public IndexInit<?>[] getIndexes() { return this.indexes; }
     public int getPages(int columnIndex) { 
         return this.tableSnapshots[columnIndex].getNumOfPages(); 
     }

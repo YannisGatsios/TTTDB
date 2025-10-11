@@ -2,9 +2,9 @@ package com.database.db.manager;
 
 import java.util.List;
 
-import com.database.db.index.BTreeInit;
-import com.database.db.index.BTreeInit.BlockPointer;
-import com.database.db.index.BTreeInit.PointerPair;
+import com.database.db.index.IndexInit;
+import com.database.db.index.IndexInit.BlockPointer;
+import com.database.db.index.IndexInit.PointerPair;
 import com.database.db.index.Pair;
 import com.database.db.page.Entry;
 import com.database.db.page.IndexPage;
@@ -17,8 +17,8 @@ public class IndexPageManager {
     }
 
     @SuppressWarnings("unchecked")
-    public <K extends Comparable<? super K>> BlockPointer findIndexPointer(BTreeInit<?> index, K key, BlockPointer tablePointer){
-        List<Pair<K, PointerPair>> pointerList = ((BTreeInit<K>)index).search(key);
+    public <K extends Comparable<? super K>> BlockPointer findIndexPointer(IndexInit<?> index, K key, BlockPointer tablePointer){
+        List<Pair<K, PointerPair>> pointerList = ((IndexInit<K>)index).search(key);
         BlockPointer result = null;
         for (Pair<K, PointerPair> pair : pointerList) {
             if(tablePointer.equals(pair.value.tablePointer())) result = pair.value.indexPointer();
@@ -43,7 +43,7 @@ public class IndexPageManager {
         return new BlockPointer(page.getPageID(), (short)(page.size()-1));
     }
 
-    public <K extends Comparable<? super K>> void remove(BTreeInit<K> index, PointerPair pointerPair, int columnIndex, Object[] keys, PointerPair[] values, PointerPair[] oldValues){
+    public <K extends Comparable<? super K>> void remove(IndexInit<K> index, PointerPair pointerPair, int columnIndex, Object[] keys, PointerPair[] values, PointerPair[] oldValues){
         BlockPointer indexPointer = pointerPair.indexPointer();
         IndexPage page = this.removalProcess(pointerPair, columnIndex);
         if (page.isLastPage() && page.size() == 1) {
@@ -64,7 +64,7 @@ public class IndexPageManager {
         return page;
     }
     @SuppressWarnings("unchecked")
-    private <K extends Comparable<? super K>> void replaceWithLast(BTreeInit<K> index, IndexPage page, BlockPointer indexPointer, int columnIndex, Object[] keys, PointerPair[] values, PointerPair[] oldValues){
+    private <K extends Comparable<? super K>> void replaceWithLast(IndexInit<K> index, IndexPage page, BlockPointer indexPointer, int columnIndex, Object[] keys, PointerPair[] values, PointerPair[] oldValues){
         if(page.isLastPage()){
             page.remove(indexPointer.RowOffset());
             if(indexPointer.RowOffset() != page.size()){

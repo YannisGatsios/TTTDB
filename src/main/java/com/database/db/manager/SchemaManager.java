@@ -8,7 +8,6 @@ import java.nio.file.Paths;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.database.db.FileIOThread;
 import com.database.db.table.SchemaInner;
 import com.database.db.table.Table;
 
@@ -48,8 +47,7 @@ public class SchemaManager {
     }
 
     public static void dropTable(Table table) {
-        FileIOThread ioThread = table.getFileIOThread();
-        ioThread.submit(() -> {
+        table.getDatabase().getFileIOThread().submit(() -> {
             Path tablePath = Paths.get(table.getPath());
             boolean[] isIndexed = table.getSchema().isIndexed();
 
