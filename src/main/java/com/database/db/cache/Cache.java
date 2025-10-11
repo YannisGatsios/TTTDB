@@ -9,6 +9,7 @@ import java.util.logging.Logger;
 
 import com.database.db.Database;
 import com.database.db.FileIO;
+import com.database.db.FileIOThread;
 import com.database.db.manager.IndexManager;
 import com.database.db.page.IndexPage;
 import com.database.db.page.Page;
@@ -233,4 +234,5 @@ public class Cache {
 
     public Database getDatabase() { return this.database; }
     public int getCacheCapacity() { return this.CAPACITY; }
+    public void setFileIOThread(FileIOThread fileIOThread) { this.fileIO.setFileIOThread(fileIOThread); }
 }

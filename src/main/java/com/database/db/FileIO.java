@@ -26,6 +26,7 @@ public class FileIO {
     public FileIO(FileIOThread fileIOThread){
         this.fileIOThread = fileIOThread;
     }
+    public void setFileIOThread(FileIOThread fileIOThread) { this.fileIOThread = fileIOThread; }
 
     public static int getNumOfPages(String path, int sizeOfEntry){
         File file = new File(path);

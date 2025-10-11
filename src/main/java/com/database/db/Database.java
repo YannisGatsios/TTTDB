@@ -30,7 +30,7 @@ public class Database {
 
     private final Cache mainCache;
     private TransactionCache currentCache;
-    private final FileIOThread fileIOThread;
+    private FileIOThread fileIOThread;
 
     public Database(String name, DBMS dbms, int cacheCapacity){
         this.name = name;
@@ -41,17 +41,14 @@ public class Database {
         this.mainCache = new Cache(this, cacheCapacity);
     }
 
-    public void start(){
-        if (fileIOThread.isAlive()) {
-            logger.info("FileIOThread already running for database: " + name);
-            return;
-        }
+    public void start() {
+        if (fileIOThread != null && fileIOThread.isAlive()) return;
+        fileIOThread = new FileIOThread(name); // new instance
         fileIOThread.start();
-        logger.info("FileIOThread started for database: " + name);
-        Set<String> tableNames = new HashSet<>(this.tables.keySet());
-        for (String tableName : tableNames) {
-            Table table = tables.get(tableName);
-            SchemaManager.createTable(table.getSchema(), this.path, this.name, tableName);
+        mainCache.setFileIOThread(fileIOThread);
+        for (String t : new HashSet<>(tables.keySet())) {
+            Table table = tables.get(t);
+            SchemaManager.createTable(table.getSchema(), path, name, t);
             table.start();
         }
     }

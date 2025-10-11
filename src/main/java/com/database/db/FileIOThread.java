@@ -4,6 +4,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 public class FileIOThread extends Thread {
 
     private static final Logger logger = Logger.getLogger(FileIOThread.class.getName());
