@@ -5,8 +5,8 @@ import java.util.EnumSet;
 import java.util.Set;
 
 import com.database.db.api.Schema.ColumnInner;
-import com.database.db.table.Constraint;
-import com.database.db.table.DataType;
+import com.database.db.core.table.Constraint;
+import com.database.db.core.table.DataType;
 
 /**
  * Represents a column in a table schema and provides a fluent API to define
@@ -96,7 +96,7 @@ public class Column {
      * @return the current {@code Column} instance
      */
     public Column index(){
-        this.constraints.add(Constraint.INDEX);
+        this.constraints.add(Constraint.SECONDARY_KEY);
         return this;
     }
     /**

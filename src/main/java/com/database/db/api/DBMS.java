@@ -10,17 +10,17 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.database.db.Database;
 import com.database.db.api.Condition.WhereClause;
 import com.database.db.api.Query.Delete;
 import com.database.db.api.Query.Select;
 import com.database.db.api.Query.SelectType;
 import com.database.db.api.Query.SelectionType;
 import com.database.db.api.Query.Update;
-import com.database.db.manager.EntryManager;
-import com.database.db.manager.ForeignKeyManager;
-import com.database.db.page.Entry;
-import com.database.db.table.Table;
+import com.database.db.core.Database;
+import com.database.db.core.manager.EntryManager;
+import com.database.db.core.manager.ForeignKeyManager;
+import com.database.db.core.page.Entry;
+import com.database.db.core.table.Table;
 /**
  * The {@code DBMS} class provides a simple database management system.
  * It supports multiple databases, tables, and basic SQL-like operations including
@@ -189,7 +189,7 @@ public class DBMS {
         if(this.selected == null) throw new IllegalArgumentException("Can not perform select statement when no Database selected.");
         Table table = selected.getTable(query.tableName);
         List<Entry> result = table.select(query.whereClause, query.begin, query.limit, query.type);
-        return this.prepareSelectResult(table, query, result);
+        return Row.prepareSelectResult(table, query, result);
     }
     /**
      * Inserts a single row into the specified table.
@@ -327,25 +327,46 @@ public class DBMS {
         return this.selected.getTable(tableName).getSchema().getSizes();
     }
     /**
-     * Prepares the result of a SELECT query as a list of {@link DBRecord}.
-     * @param resultColumns the columns to include in the result
-     * @param selectResult the raw entries
-     * @return list of records
+     * Prints the schema of a specific table in the selected database.
+     *
+     * @param tableName the table name to print
      */
-    private List<Row> prepareSelectResult(Table table, SelectQuery query,List<Entry> selectResult){
-        List<Row> result = new ArrayList<>();
-        String[] resultColumns = query.getColumns(table);
-        com.database.db.table.SchemaInner schema = table.getSchema();
-        for (Entry entry : selectResult) {
-            Object[] values = new Object[resultColumns.length];
-            for(int i = 0;i<resultColumns.length;i++){
-                String name = resultColumns[i];
-                int index = schema.getColumnIndex(name);
-                if(index == -1) throw new IllegalArgumentException("Invalid result column");
-                values[i] = entry.get(index);
-            }
-            result.add(new Row(resultColumns, values));
+    public void printTable(String tableName) {
+        if (selected == null) {
+            System.out.println("No database selected.");
+            return;
         }
-        return result;
+        Table table = selected.getTable(tableName);
+        if (table == null) {
+            System.out.printf("Table '%s' does not exist in database '%s'.%n", tableName, selected.getName());
+            return;
+        }
+        System.out.println(table.getSchema().toString());
+    }
+    /**
+     * Prints the structure of the currently selected database,
+     * including all tables and their schemas.
+     */
+    public void printDatabase() {
+        if (selected == null) {
+            System.out.println("No database selected.");
+            return;
+        }
+        System.out.println(selected.toString());
+        System.out.println("-".repeat(80));
+    }
+    /**
+     * Prints all databases managed by this DBMS, including their tables and schemas.
+     */
+    public void printAllDatabases() {
+        if (databases.isEmpty()) {
+            System.out.println("No databases loaded.");
+            return;
+        }
+        for (Database db : databases.values()) {
+            System.out.println(db.toString());
+            System.out.println("-".repeat(80));
+            System.out.println();
+        }
     }
 }

@@ -6,9 +6,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.database.db.parsing.SimpleMathParser;
-import com.database.db.table.DataType;
-import com.database.db.table.SchemaInner;
+import com.database.db.core.parsing.SimpleMathParser;
+import com.database.db.core.table.DataType;
+import com.database.db.core.table.TableSchema;
 
 public class Functions {
 
@@ -19,17 +19,17 @@ public class Functions {
          * @param columnIndex index of the column being updated
          * @return the new value
          */
-        Object apply(SchemaInner schema, Object[] rowData, int columnIndex);
+        Object apply(TableSchema schema, Object[] rowData, int columnIndex);
     }
 
     public record setData(Object value) implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] data,int columnIndex){
+        public Object apply(TableSchema schema, Object[] data,int columnIndex){
             return Functions.set(schema, value, columnIndex);
         }
     }
 
     public record setDefault() implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] data,int columnIndex){
+        public Object apply(TableSchema schema, Object[] data,int columnIndex){
             return Functions.setDefault(schema, columnIndex);
         }
     }
@@ -37,7 +37,7 @@ public class Functions {
     // Number based functions
 
     public record operationData(String expression) implements InnerFunctions {
-        public Object apply(SchemaInner schema, Object[] data,int columnIndex){
+        public Object apply(TableSchema schema, Object[] data,int columnIndex){
             return Functions.getOperationResult(schema, data, expression, columnIndex);
         }
     }
@@ -45,41 +45,41 @@ public class Functions {
     // Date based functions
 
     public record currentTimestamp() implements InnerFunctions {
-        public Object apply(SchemaInner schema, Object[] data, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] data, int columnIndex) {
             return Functions.getCurrentTimestamp();
         }
     }
 
     public record  dateAdd(String unit, long amount) implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] data, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] data, int columnIndex) {
             LocalDateTime value = (LocalDateTime)data[columnIndex];
             return Functions.dateAdd(value, unit, amount);
         }
     }
 
     public record dateSub(String unit, long amount) implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] data, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] data, int columnIndex) {
             LocalDateTime value = (LocalDateTime)data[columnIndex];
             return Functions.dateSub(value, unit, amount);
         }
     }
 
     public record extractPart(String part) implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] data, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] data, int columnIndex) {
             LocalDateTime value = (LocalDateTime)data[columnIndex];
             return Functions.extractPart(value, part);
         }
     }
 
     public record formatDate(String pattern) implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] data, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] data, int columnIndex) {
             LocalDateTime value = (LocalDateTime)data[columnIndex];
             return Functions.formatDate(value, pattern);
         }
     }
 
     public record dateDifference(LocalDateTime from, LocalDateTime to, String unit) implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] data, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] data, int columnIndex) {
             return Functions.dateDifference(from, to, unit);
         }
     }
@@ -87,13 +87,13 @@ public class Functions {
     // String based functions
 
     public record concat(Object[] parts) implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] data, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] data, int columnIndex) {
             return Functions.concat(parts);
         }
     }
 
     public record upperCase() implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] data, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] data, int columnIndex) {
             if (data[columnIndex] == null) 
                 throw new NullPointerException("Can not use upper case to null value.");
             String value = (String)data[columnIndex];
@@ -102,7 +102,7 @@ public class Functions {
     }
 
     public record lowerCase() implements InnerFunctions {
-        public Object apply(SchemaInner schema, Object[] data, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] data, int columnIndex) {
             if (data[columnIndex] == null) 
                 throw new NullPointerException("Can not use lower case to null value.");
             String value = (String)data[columnIndex];
@@ -111,7 +111,7 @@ public class Functions {
     }
 
     public record trim() implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] data, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] data, int columnIndex) {
             if (data[columnIndex] == null) 
                 throw new NullPointerException("Can not use trim to null value.");
             String value = (String)data[columnIndex];
@@ -120,7 +120,7 @@ public class Functions {
     }
 
     public record substring(int start, int length) implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] data, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] data, int columnIndex) {
             if (data[columnIndex] == null) 
                 throw new NullPointerException("Can not use substring to null value.");
             String value = (String)data[columnIndex];
@@ -129,7 +129,7 @@ public class Functions {
     }
 
     public record left(int length) implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] data, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] data, int columnIndex) {
             if (data[columnIndex] == null) 
                 throw new NullPointerException("Can not use left to null value.");
             String value = (String)data[columnIndex];
@@ -138,7 +138,7 @@ public class Functions {
     }
 
     public record right(int length) implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] data, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] data, int columnIndex) {
             if (data[columnIndex] == null) 
                 throw new NullPointerException("Can not use right to null value.");
             String value = (String)data[columnIndex];
@@ -147,7 +147,7 @@ public class Functions {
     }
 
     public record replace(String target, String replacement) implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] data, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] data, int columnIndex) {
             if (data[columnIndex] == null) 
                 throw new NullPointerException("Can not use replace to null value.");
             String value = (String)data[columnIndex];
@@ -156,7 +156,7 @@ public class Functions {
     }
 
     public record regexpReplace(String regex, String replacement) implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] data, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] data, int columnIndex) {
             if (data[columnIndex] == null) 
                 throw new NullPointerException("Can not use regex to null value.");
             String value = (String)data[columnIndex];
@@ -165,7 +165,7 @@ public class Functions {
     }
 
     public record leftPad(int totalWidth, String padStr) implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] data, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] data, int columnIndex) {
             if (data[columnIndex] == null) 
                 throw new NullPointerException("Can not use left pad to null value.");
             String value = (String)data[columnIndex];
@@ -174,7 +174,7 @@ public class Functions {
     }
 
     public record rightPad(int totalWidth, String padStr) implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] data, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] data, int columnIndex) {
             if (data[columnIndex] == null) 
                 throw new NullPointerException("Can not use right pad to null value.");
             String value = (String)data[columnIndex];
@@ -183,7 +183,7 @@ public class Functions {
     }
 
     public record reverse() implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] data, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] data, int columnIndex) {
             if (data[columnIndex] == null) 
                 throw new NullPointerException("Can not reverse null String.");
             String value = (String)data[columnIndex];
@@ -194,30 +194,30 @@ public class Functions {
     // Special
 
     public record endConditionalUpdate() implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] rowData, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] rowData, int columnIndex) {
             throw new UnsupportedOperationException("Unimplemented method 'apply' for endConditionalUpdate()");
         }
     }
     public record selectColumn(String column) implements InnerFunctions{
-        public Object apply(SchemaInner schema, Object[] rowData, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] rowData, int columnIndex) {
             throw new UnsupportedOperationException("Unimplemented method 'apply' for selectColumn(String column)");
         }
     }
 
     // Actual Functions code
 
-    private static Object set(SchemaInner schema, Object value, int columnIndex){
+    private static Object set(TableSchema schema, Object value, int columnIndex){
         DataType type = schema.getTypes()[columnIndex];
         if(value != null && !type.getJavaClass().isInstance(value))
             throw new IllegalArgumentException("Type mismatch to set expected: " + type.name());
         return value;
     }
 
-    private static Object setDefault(SchemaInner schema, int columnIndex){
+    private static Object setDefault(TableSchema schema, int columnIndex){
         return schema.getDefaults()[columnIndex];
     }
 
-    private static Number getOperationResult(SchemaInner schema, Object[] data, String expression, int columnIndex){
+    private static Number getOperationResult(TableSchema schema, Object[] data, String expression, int columnIndex){
         if (expression == null || schema == null || data == null) return null;
         // Replace variables with column values (tokenized, safe)
         Pattern tokenPattern = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");

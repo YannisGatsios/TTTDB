@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.time.LocalDateTime;
 
 import com.database.db.api.Functions.*;
+import com.database.db.core.table.DataType;
 import com.database.db.api.Schema;
-import com.database.db.table.DataType;
 
 public class FunctionsTest {
 
@@ -22,7 +22,7 @@ public class FunctionsTest {
             .column("c5").type(DataType.INT).endColumn();
         Object[] row = { 2, 3, 4, 10, 3 };
         String expression = "((c1 + c2) * c3 - c4 / c5 + c4 % c3) ^ c1";
-        Object resultNumber = new operationData(expression).apply(new com.database.db.table.SchemaInner(schema.getColumns()), row, 0);
+        Object resultNumber = new operationData(expression).apply(new com.database.db.core.table.TableSchema("tableName",schema.getColumns()), row, 0);
         int result = ((Number) resultNumber).intValue();
         assertNotNull(result);
         assertTrue(resultNumber instanceof Number);
@@ -39,7 +39,7 @@ public class FunctionsTest {
             .column("c5").type(DataType.DOUBLE).endColumn();
         Object[] row = { 2.0, 3.0, 4.0, 10.0, 3.0 };
         String expression = "((c1 + c2) * c3- c4 / c5 + c4 % c3) ^ c1";
-        Object resultNumber = new operationData(expression).apply(new com.database.db.table.SchemaInner(schema.getColumns()), row, 0);
+        Object resultNumber = new operationData(expression).apply(new com.database.db.core.table.TableSchema("tableName",schema.getColumns()), row, 0);
         Double result = ((Number) resultNumber).doubleValue();
         assertNotNull(result);
         assertTrue(resultNumber instanceof Number);
@@ -54,7 +54,7 @@ public class FunctionsTest {
             .column("c3").type(DataType.INT).endColumn();
         Object[] row = { 10, 5, 2 };
         String expression = "c1 + c2 * c3";
-        Object result = new operationData(expression).apply(new com.database.db.table.SchemaInner(schema.getColumns()), row, 0);
+        Object result = new operationData(expression).apply(new com.database.db.core.table.TableSchema("tableName",schema.getColumns()), row, 0);
         assertNotNull(result);
         assertTrue(result instanceof Long);
         assertEquals(20L, result);
@@ -68,7 +68,7 @@ public class FunctionsTest {
             .column("z").type(DataType.INT).endColumn();
         Object[] row = { 7, 3, 4 };
         String expression = "x * y + z";
-        Object result = new operationData(expression).apply(new com.database.db.table.SchemaInner(schema.getColumns()), row, 0);
+        Object result = new operationData(expression).apply(new com.database.db.core.table.TableSchema("tableName",schema.getColumns()), row, 0);
         assertNotNull(result);
         assertTrue(result instanceof Long);
         assertEquals(25L, result);
@@ -80,7 +80,7 @@ public class FunctionsTest {
             .column("a").type(DataType.INT).endColumn()
             .column("b").type(DataType.INT).endColumn();
         Object[] row = { 1, 2 };
-        Object result = new operationData(null).apply(new com.database.db.table.SchemaInner(schema.getColumns()), row, 0);
+        Object result = new operationData(null).apply(new com.database.db.core.table.TableSchema("tableName",schema.getColumns()), row, 0);
         assertNull(result);
     }
 

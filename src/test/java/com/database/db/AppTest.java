@@ -9,7 +9,7 @@ import com.database.db.api.DBMS.*;
 import com.database.db.api.Query.Delete;
 import com.database.db.api.Query.Select;
 import com.database.db.api.Query.Update;
-import com.database.db.table.*;
+import com.database.db.core.table.*;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class AppTest {

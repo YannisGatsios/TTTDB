@@ -14,6 +14,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import com.database.db.core.table.DataType;
+
 class DataTypeTest {
     // Test constants
     private static final LocalDate TEST_DATE = LocalDate.of(2023, 1, 1);

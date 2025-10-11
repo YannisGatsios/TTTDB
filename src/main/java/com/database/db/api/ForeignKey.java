@@ -3,10 +3,10 @@ package com.database.db.api;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.database.db.Database;
 import com.database.db.api.DatabaseException.ForeignKeyException;
 import com.database.db.api.Schema.ColumnInner;
-import com.database.db.table.Constraint;
+import com.database.db.core.Database;
+import com.database.db.core.table.Constraint;
 
 
 /**

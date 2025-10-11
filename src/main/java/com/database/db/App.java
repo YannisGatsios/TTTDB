@@ -7,12 +7,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.database.db.api.DBMS.*;
-import com.database.db.table.DataType;
 import com.database.db.api.Schema;
 import com.database.db.api.DatabaseException.EntryValidationException;
 import com.database.db.api.Query.Delete;
 import com.database.db.api.Query.Select;
 import com.database.db.api.Query.Update;
+import com.database.db.core.table.DataType;
 import com.database.db.api.DBMS;
 import com.database.db.api.Row;
 
@@ -119,5 +119,6 @@ public class App {
         List<Row> result = db.select(select);
         //db.dropDatabase();
         db.close();
+        db.printDatabase();
     }
 }

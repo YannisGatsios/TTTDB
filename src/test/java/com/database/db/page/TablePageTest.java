@@ -5,12 +5,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.AfterAll;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.database.db.Database;
-import com.database.db.FileIOThread;
 import com.database.db.api.Schema;
 import com.database.db.api.DBMS.TableConfig;
-import com.database.db.table.DataType;
-import com.database.db.table.Table;
+import com.database.db.core.Database;
+import com.database.db.core.FileIOThread;
+import com.database.db.core.page.Entry;
+import com.database.db.core.page.Page;
+import com.database.db.core.page.TablePage;
+import com.database.db.core.table.DataType;
+import com.database.db.core.table.Table;
 
 import java.io.File;
 import java.util.ArrayList;

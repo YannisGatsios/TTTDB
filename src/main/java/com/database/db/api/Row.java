@@ -1,5 +1,12 @@
 package com.database.db.api;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import com.database.db.api.DBMS.SelectQuery;
+import com.database.db.core.page.Entry;
+import com.database.db.core.table.Table;
+
 /**
  * Represents a database-like record with column names and their associated values.
  * 
@@ -123,5 +130,28 @@ public class Row {
             if(column.equals(columnsName)) return result;
         }
         return -1;
+    }
+
+    /**
+     * Prepares the result of a SELECT query as a list of {@link DBRecord}.
+     * @param resultColumns the columns to include in the result
+     * @param selectResult the raw entries
+     * @return list of records
+     */
+    public static List<Row> prepareSelectResult(Table table, SelectQuery query,List<Entry> selectResult){
+        List<Row> result = new ArrayList<>();
+        String[] resultColumns = query.getColumns(table);
+        com.database.db.core.table.TableSchema schema = table.getSchema();
+        for (Entry entry : selectResult) {
+            Object[] values = new Object[resultColumns.length];
+            for(int i = 0;i<resultColumns.length;i++){
+                String name = resultColumns[i];
+                int index = schema.getColumnIndex(name);
+                if(index == -1) throw new IllegalArgumentException("Invalid result column");
+                values[i] = entry.get(index);
+            }
+            result.add(new Row(resultColumns, values));
+        }
+        return result;
     }
 }

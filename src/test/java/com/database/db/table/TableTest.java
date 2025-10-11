@@ -7,11 +7,13 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.database.db.api.Schema;
 import com.database.db.api.DBMS.*;
-import com.database.db.page.Entry;
-import com.database.db.page.Page;
-import com.database.db.page.TablePage;
-import com.database.db.Database;
-import com.database.db.FileIOThread;
+import com.database.db.core.Database;
+import com.database.db.core.FileIOThread;
+import com.database.db.core.page.Entry;
+import com.database.db.core.page.Page;
+import com.database.db.core.page.TablePage;
+import com.database.db.core.table.DataType;
+import com.database.db.core.table.Table;
 
 import static org.junit.jupiter.api.Assertions.*;
 

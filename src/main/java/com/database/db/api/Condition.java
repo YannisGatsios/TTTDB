@@ -10,7 +10,7 @@ import com.database.db.api.Functions.operationData;
 import com.database.db.api.Query.Delete;
 import com.database.db.api.Query.Select;
 import com.database.db.api.Query.Update;
-import com.database.db.table.SchemaInner;
+import com.database.db.core.table.TableSchema;
 /**
  * Represents a single condition in a {@link ConditionGroup}, such as a {@link WhereClause}.
  * 
@@ -146,7 +146,7 @@ public class Condition<T extends ConditionGroup<T>> {
      * @param schema the schema defining column indices
      * @return {@code true} if the condition is satisfied
      */
-    public boolean isTrue(Object[] entryValues, SchemaInner schema) {
+    public boolean isTrue(Object[] entryValues, TableSchema schema) {
         Object value;
         if (columnName != null) {
             int idx = schema.getColumnIndex(columnName);
@@ -392,7 +392,7 @@ public class Condition<T extends ConditionGroup<T>> {
          * @param rowData the values of the row to evaluate
          * @return true if all conditions in this group are satisfied
          */
-        public boolean isTrue(SchemaInner schema, Object[] rowData) {
+        public boolean isTrue(TableSchema schema, Object[] rowData) {
             return super.isTrue(rowData, schema);
         }
         /**
@@ -401,7 +401,7 @@ public class Condition<T extends ConditionGroup<T>> {
          * implement it here. For now we keep it as unsupported to avoid accidental use.
          */
         @Override
-        public Object apply(SchemaInner schema, Object[] rowData, int columnIndex) {
+        public Object apply(TableSchema schema, Object[] rowData, int columnIndex) {
             throw new UnsupportedOperationException("UpdateCondition is a control function; it cannot be applied as a value.");
         }
     }

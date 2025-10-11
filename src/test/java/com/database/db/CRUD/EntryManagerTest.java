@@ -24,12 +24,12 @@ import com.database.db.api.Condition.*;
 import com.database.db.api.DBMS.*;
 import com.database.db.api.Query.SelectType;
 import com.database.db.api.Query.SelectionType;
+import com.database.db.core.Database;
+import com.database.db.core.page.Entry;
+import com.database.db.core.table.DataType;
+import com.database.db.core.table.Table;
 import com.database.db.api.Row;
 import com.database.db.api.Schema;
-import com.database.db.page.Entry;
-import com.database.db.Database;
-import com.database.db.table.DataType;
-import com.database.db.table.Table;
 
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -96,7 +96,7 @@ public class EntryManagerTest {
     void testRandomEntryInsertion() throws ExecutionException, InterruptedException, IOException, Exception {
         int ind = 0;
         while (ind < 400) {
-            int sizeOfID = random.nextInt(table.getSchema().getSizes()[table.getSchema().getPrimaryKeyIndex()]-1)+1;
+            int sizeOfID = random.nextInt(table.getSchema().getSizes()[table.getSchema().getPrimaryIndex()]-1)+1;
             String userName = this.generateRandomString(sizeOfID);
             if(!table.containsKey(userName,0)){
                 keysList[ind] = userName;

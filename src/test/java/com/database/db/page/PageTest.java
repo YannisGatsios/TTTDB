@@ -6,10 +6,13 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.database.db.table.DataType;
-import com.database.db.table.Table;
-import com.database.db.Database;
 import com.database.db.api.DBMS.TableConfig;
+import com.database.db.core.Database;
+import com.database.db.core.page.Entry;
+import com.database.db.core.page.Page;
+import com.database.db.core.page.TablePage;
+import com.database.db.core.table.DataType;
+import com.database.db.core.table.Table;
 import com.database.db.api.Schema;
 
 import java.io.File;

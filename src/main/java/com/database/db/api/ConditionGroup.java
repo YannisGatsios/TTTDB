@@ -9,7 +9,7 @@ import com.database.db.api.Condition.CheckCondition;
 import com.database.db.api.Condition.Clause;
 import com.database.db.api.Condition.UpdateCondition;
 import com.database.db.api.Condition.WhereClause;
-import com.database.db.table.SchemaInner;
+import com.database.db.core.table.TableSchema;
 
 /**
  * Represents a group of conditions that can be combined using AND/OR logic.
@@ -188,7 +188,7 @@ public class ConditionGroup<T extends ConditionGroup<T>> {
      * @param schema the schema for column indices
      * @return true if all conditions are satisfied
      */
-    public boolean isTrue(Object[] entryValues, SchemaInner schema) {
+    public boolean isTrue(Object[] entryValues, TableSchema schema) {
         boolean result = false;
         int groupIndex = 0;
         for (Map.Entry<Clause, Condition<T>> entry : clauses) {

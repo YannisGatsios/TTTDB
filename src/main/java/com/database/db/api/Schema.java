@@ -5,14 +5,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import com.database.db.Database;
 import com.database.db.api.DatabaseException.CheckConstraintException;
 import com.database.db.api.DatabaseException.EntryValidationException;
 import com.database.db.api.DatabaseException.SchemaException;
-import com.database.db.page.Entry;
-import com.database.db.table.Constraint;
-import com.database.db.table.DataType;
-import com.database.db.table.Table;
+import com.database.db.core.Database;
+import com.database.db.core.page.Entry;
+import com.database.db.core.table.Constraint;
+import com.database.db.core.table.DataType;
+import com.database.db.core.table.Table;
 /**
  * The {@code Schema} class represents the structure of a table in the database,
  * including its columns, constraints, checks, and foreign keys.
@@ -228,7 +228,7 @@ public class Schema {
             int indexCount = 0;
             if (column.constraints().contains(Constraint.PRIMARY_KEY)) indexCount++;
             if (column.constraints().contains(Constraint.UNIQUE)) indexCount++;
-            if (column.constraints().contains(Constraint.INDEX)) indexCount++;
+            if (column.constraints().contains(Constraint.SECONDARY_KEY)) indexCount++;
 
             if (indexCount > 1) {
                 throw new SchemaException(
