@@ -41,7 +41,7 @@ class TablePageTest {
         Database database = new Database("testdb",null,10);
         database.createTable(config);
         table = database.getTable("test");
-        database.create();
+        database.start();
 
         entry1 = createEntry("user1", 100, "msg1", new byte[]{1,2,3});
         entry2 = createEntry("user22", 200, "msg22", new byte[]{4,5,6});

@@ -40,7 +40,7 @@ public class TableTest {
         database = new Database(databaseName,null,10);
         database.setPath(testPath);
         database.createTable(tableConf);
-        database.create();
+        database.start();
         // Create real Schema instance
 
         // Get table
@@ -91,7 +91,7 @@ public class TableTest {
         Database db = new Database("testDB",null,10);
         db.setPath(testPath);
         db.createTable(config);
-        db.create();
+        db.start();
         Table diskTable = db.getTable("testTable");
         assertEquals(3, diskTable.getPages());
         file.shutdown();
@@ -113,7 +113,7 @@ public class TableTest {
             .column("id").autoIncrementing().endColumn()
             .column("name").type(DataType.CHAR).size(20).endColumn());
         database.createTable(config);
-        database.create();
+        database.start();
 
         // Create table with auto-increment
         Table aiTable = database.getTable("aiTable");

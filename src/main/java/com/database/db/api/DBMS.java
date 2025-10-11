@@ -103,7 +103,7 @@ public class DBMS {
         Set<String> databaseNames = new HashSet<>(this.databases.keySet());
         for (String databaseName : databaseNames) {
             Database database = databases.get(databaseName);
-            database.create();
+            database.start();
         }
         return this;
     }

@@ -41,8 +41,13 @@ public class Database {
         this.mainCache = new Cache(this, cacheCapacity);
     }
 
-    public void create(){
-        this.fileIOThread.start();
+    public void start(){
+        if (fileIOThread.isAlive()) {
+            logger.info("FileIOThread already running for database: " + name);
+            return;
+        }
+        fileIOThread.start();
+        logger.info("FileIOThread started for database: " + name);
         Set<String> tableNames = new HashSet<>(this.tables.keySet());
         for (String tableName : tableNames) {
             Table table = tables.get(tableName);

@@ -64,7 +64,7 @@ public class EntryManagerTest {
 
         config = new TableConfig("test_table", schema);
         database.createTable(config);
-        database.create();
+        database.start();
         table = database.getTable("test_table");
 
         random = new Random();
