@@ -55,11 +55,11 @@ public class Database {
 
     public void createTable(TableConfig tableConfig) {
         if (this.tables.containsKey(tableConfig.tableName())) {
-            logger.info(String.format("Table '%s' already exists in database '%s'. Skipping creation.", tableConfig.tableName(), this.name));
+            logger.fine(String.format("Table '%s' already exists in database '%s'. Skipping creation.", tableConfig.tableName(), this.name));
             return;
         }
         this.addTable(tableConfig);
-        logger.info(
+        logger.fine(
             String.format("Table '%s' created successfully in database '%s'.", tableConfig.tableName(), this.name));
     }
     private void addTable(TableConfig tableConfig){

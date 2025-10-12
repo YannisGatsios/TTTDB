@@ -6,3 +6,4 @@ start.sh
 .classpath
 .settings/
 target/
+data/

@@ -51,34 +51,129 @@ src/
 
 2. Add the resulting JAR from `target/` to your project’s classpath.
 
+## Maven Dependency
+
+Add this to your `pom.xml`:
+
+```xml
+<dependency>
+  <groupId>com.database.tttdb</groupId>
+  <artifactId>tttdb</artifactId>
+  <version>1.0.0</version>
+</dependency>
+```
+
+Then build and install the library locally:
+
+```bash
+mvn install
+```
+Maven will make it available from your local repository (`~/.m2/repository`).
+
 ---
 
 ## Basic Usage
 
-```java
-// Define schema
-Schema users = new Schema()
-    .column("id").type(DataType.LONG).autoIncrementing().primaryKey().endColumn()
-    .column("name").type(DataType.CHAR).size(20).unique().endColumn()
-    .column("age").type(DataType.INT).defaultValue(18).endColumn();
+The example below defines two related tables (`users` and `posts`) with a check constraint, a foreign key, and demonstrates insert, update, delete, and select operations:
 
-DBMS dbms = new DBMS()
+```java
+Schema users = new Schema()
+    .column("username").type(DataType.CHAR).size(15).primaryKey().endColumn()
+    .column("age").type(DataType.INT).endColumn()
+    .check("age_check")
+        .open().column("age").isBiggerOrEqual(18).end()
+        .AND().column("age").isSmaller(130).end()
+    .endCheck();
+
+// === Define child table with FOREIGN KEY constraint ===
+Schema posts = new Schema()
+    .column("id").type(DataType.LONG).autoIncrementing().primaryKey().endColumn()
+    .column("username").type(DataType.CHAR).size(15).endColumn()
+    .column("content").type(DataType.CHAR).size(100).defaultValue("Empty").endColumn()
+    .foreignKey("fk_user_post")
+        .column("username")
+        .reference().table("users").column("username").end()
+        .onDelete(ForeignKeyAction.CASCADE)
+    .endForeignKey();
+
+// === Initialize database and tables ===
+DBMS db = new DBMS()
     .setPath("data/")
-    .addDatabase("testdb", 100)
-    .addTable(new DBMS.TableConfig("users", users));
+    .addDatabase("social_db", 0)// 0 is the cache capacity
+    .addTable(new DBMS.TableConfig("users", users))
+    .addTable(new DBMS.TableConfig("posts", posts))
     .start();
 
-// Insert data
-Row row = new Row(new String[]{"name", "age"}, new Object[]{"Alice", 30});
-dbms.insert("users", row);
+// === Insert sample users ===
+Row user1 = new Row("username,age")
+.set("username", "Alice")
+.set("age", 25);
+db.insert("users", user1);
 
-// Query data
-List<Row> results = dbms.select(
-    new Query.Select("*").from("users").where().column("age").isBigger(20).end().get()
+Row user2 = new Row("username,age")
+.set("username", "Bob")
+.set("age", 30);
+db.insert("users", user2);
+
+// === Insert posts ===
+Row post1 = new Row("username,content")
+.set("username", "Alice")
+.set("content", "Hello World!");
+db.insert("posts", post1);
+
+Row post2 = new Row("username,content")
+.set("username", "Bob")
+.set("content", "Java Rocks!");
+db.insert("posts", post2);
+
+// === Update user data ===
+Update update = new Update("users")
+    .set()
+        .selectColumn("age").set(26)
+    .endUpdate()
+    .where().column("username").isEqual("Alice").end()
+    .endUpdateClause();
+db.update(update);
+
+// === Delete user (cascade removes related posts) ===
+Delete delete = new Delete()
+    .from("users")
+    .where().column("username").isEqual("Bob").end()
+    .endDeleteClause();
+db.delete(delete);
+
+// === Select remaining data ===
+List<Row> results = db.select(
+    new Query.Select("username,age").from("users").ASC("username")
 );
+List<Row> postResults = db.select(
+    new Query.Select("username").from("posts").ASC("username")
+);
+for (Row r : results)
+    System.out.println(r);
+for (Row r : postResults) 
+    System.out.println(r);
 
-dbms.close();
+db.close();
 ```
+### Expected Output
+```
+{username=Alice, age=26}
+{username=Alice}
+```
+
+After execution, all database and index files are written to the configured storage path (`data/`):
+```pgsql
+data/
+├── social_db.posts.id.index
+├── social_db.posts.table
+├── social_db.users.table
+├── social_db.users.username.index
+└── tttdb.log.0
+```
+
+Each `.index` file corresponds to an indexed column in the schema, while `.table` files store row data.  
+The log file (`tttdb.log.0`) contains detailed runtime operations such as transactions, cache commits, and table management.
 
 ---
 

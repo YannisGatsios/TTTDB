@@ -1,14 +1,19 @@
 package com.database.tttdb.api;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Handler;
+import java.util.logging.FileHandler;
 import java.util.logging.Level;
+import java.util.logging.LogManager;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 import com.database.tttdb.api.Condition.WhereClause;
 import com.database.tttdb.api.Query.Delete;
@@ -30,13 +35,6 @@ import com.database.tttdb.core.table.Table;
  * methods to manipulate data via {@link EntryManager}.</p>
  */
 public class DBMS {
-    static {
-        Logger rootLogger = Logger.getLogger("");
-        rootLogger.setLevel(Level.ALL);
-        for (Handler handler : rootLogger.getHandlers()) {
-            handler.setLevel(Level.ALL);
-        }
-    }
     private final Map<String,Database> databases;
     private Database selected;
     private String path = "";
@@ -100,6 +98,19 @@ public class DBMS {
      * @return the current DBMS instance
      */
     public DBMS start(){
+        try {
+            Files.createDirectories(Path.of(this.path));
+            LogManager.getLogManager().reset();
+            FileHandler fileHandler = new FileHandler(this.path + "/tttdb.log", 5_000_000, 3, true);
+            fileHandler.setFormatter(new SimpleFormatter());
+            fileHandler.setLevel(Level.FINE);
+
+            Logger rootLogger = Logger.getLogger("");
+            rootLogger.addHandler(fileHandler);
+            rootLogger.setLevel(Level.INFO);
+        } catch (IOException e) {
+            System.err.println("Failed to initialize logging in " + this.path + ": " + e.getMessage());
+        }
         Set<String> databaseNames = new HashSet<>(this.databases.keySet());
         for (String databaseName : databaseNames) {
             Database database = databases.get(databaseName);

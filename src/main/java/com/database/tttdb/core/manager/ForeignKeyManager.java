@@ -54,7 +54,7 @@ public class ForeignKeyManager {
         List<TableReference> references = parentTable.getChildren();
         if(!ForeignKeyManager.canPerformAction(parentTable, entry, references)) return false;
         for (TableReference tableReference : references) {
-            switch (tableReference.onDelete()) {
+            switch (tableReference.onUpdate()) {
                 case CASCADE -> {ForeignKeyManager.cascadeUpdate(parentTable, entry, newValues, tableReference);}
                 case SET_NULL -> { ForeignKeyManager.setNull(parentTable, entry, tableReference);}
                 case SET_DEFAULT -> { ForeignKeyManager.setDeFault(parentTable, entry, tableReference);}

@@ -50,7 +50,7 @@ public class App {
         TableConfig tableConf = new TableConfig("users", schema);
         DBMS db = new DBMS()
             .addDatabase("test_database", 0)
-            .setPath("")
+            .setPath("data/")
             .addTable(tableConf)
         .start()
         .selectDatabase("test_database");

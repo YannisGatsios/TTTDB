@@ -51,6 +51,7 @@ public class AppTest {
         TableConfig tableConf = new TableConfig("users", schema);
         db.addDatabase("test_database", 0)
         .addTable(tableConf)
+        .setPath("data/")
         .start();
 
         Random random = new Random(); 
@@ -177,6 +178,7 @@ public class AppTest {
         db.addTable(new TableConfig("posts_setnull", postSetNullSchema));
         db.addTable(new TableConfig("posts_setdefault", postSetDefaultSchema));
         db.addTable(new TableConfig("posts_restrict", postRestrictSchema));
+        db.setPath("data/");
         db.start();
 
         // Insert users
@@ -261,13 +263,14 @@ public class AppTest {
         TableConfig tableConf = new TableConfig("people", schema);
         db.addDatabase("test_selection", 0)
         .addTable(tableConf)
+        .setPath("data/")
         .start();
 
         // Insert test data
-        Row row1 = new Row("id,name,age");
-        row1.set("id", 1);
-        row1.set("name", "Charlie");
-        row1.set("age", 35);
+        Row row1 = new Row("id,name,age")
+        .set("id", 1)
+        .set("name", "Charlie")
+        .set("age", 35);
         db.insertUnsafe("people", row1);
 
         Row row2 = new Row("id,name,age");
