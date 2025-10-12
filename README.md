@@ -1,4 +1,4 @@
-# Java Embedded DBMS Library
+# TTTDB — Java Embedded DBMS Library
 
 A lightweight **embedded database engine** written in **pure Java**, featuring on-disk storage, schema validation, B+Tree indexes, transactions, and a fluent SQL-like API.  
 It’s designed for use as a standalone library that provides **SQL-style operations** (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) without an external database server.
@@ -21,20 +21,21 @@ It’s designed for use as a standalone library that provides **SQL-style operat
 
 ```
 src/
- ├─ main/java/com/database/db/
- │   ├─ api/                 # Public API (DBMS, Schema, Query, UpdateFields, etc.)
- │   ├─ cache/               # Table and transaction cache management
- │   ├─ index/               # B+Tree and index management system
- │   ├─ manager/             # High-level CRUD and schema managers
- │   ├─ page/                # On-disk page and record structures
- │   ├─ parsing/             # Expression parser for computed updates
- │   ├─ table/               # Internal table representation and constraints
- │   ├─ Database.java        # Core database container
- │   ├─ DBMS.java            # Entry point for all database operations
- │   ├─ FileIO*.java         # File I/O and async write threads
- │   └─ App.java             # Example entry point (optional)
- └─ test/java/com/database/db/
-     └─ ...                  # Unit tests for all core components
+├── main/java/com/database/tttdb/
+│   ├── api/                 # Public API (DBMS, Schema, Query, UpdateFields, etc.)
+│   ├── core/
+│   │   ├── cache/           # Table and transaction cache management
+│   │   ├── index/           # B+Tree and index management system
+│   │   ├── manager/         # High-level CRUD and schema managers
+│   │   ├── page/            # On-disk page and record structures
+│   │   ├── parsing/         # Expression parser for computed updates
+│   │   └── table/           # Internal table representation and constraints
+│   ├── Database.java        # Core database container
+│   ├── DBMS.java            # Entry point for all database operations
+│   ├── FileIO*.java         # File I/O and async write threads
+│   └── App.java             # Example entry point (optional)
+└── test/java/com/database/tttdb/
+    └── ...                  # Unit tests for all core components
 ```
 
 ---
@@ -43,8 +44,8 @@ src/
 
 1. Clone and build the project:
    ```bash
-   git clone https://github.com/yourname/java-dbms.git
-   cd java-dbms
+   git clone https://github.com/YannisGatsios/TTTDB.git
+   cd TTTDB
    mvn clean package
    ```
 
@@ -130,7 +131,7 @@ Each operation handled by `EntryManager` (`insertEntries`, `updateEntry`, `delet
 
 ## 🧪 Running Tests
 
-All unit tests are located under `src/test/java/com/database/db/` and can be run using:
+All unit tests are located under `src/test/java/com/database/tttdb/` and can be run using:
 ```bash
 mvn test
 ```
