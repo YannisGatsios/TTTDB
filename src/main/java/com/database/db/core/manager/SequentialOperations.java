@@ -11,18 +11,25 @@ import com.database.db.core.page.TablePage;
 import com.database.db.core.table.Table;
 
 public class SequentialOperations {
-    public static long getMaxSequential(Table table, int columnIndex){
-        long max = 0;
-        for (int i = 0;i<table.getPages();i++){
-            TablePage page = table.getCache().getTablePage(i);
-            Entry[] entries = page.getAll();
-            for (Entry entry : entries) {
-                if(max < (long)entry.get(columnIndex)) max = (long)entry.get(columnIndex);
+    @SuppressWarnings("unchecked")
+        public static <K extends Comparable<? super K>> K getMaxSequential(Table table, int columnIndex) {
+            if (table.getPages() == 0) return null;
+            K max = null;
+            final boolean skipNulls = !table.getSchema().getNotNull()[columnIndex]; // true if column can be null
+            for (int pid = 0; pid < table.getPages(); pid++) {
+                TablePage page = table.getCache().getTablePage(pid);
+                int sz = page.size();
+                for (int row = 0; row < sz; row++) {
+                    Object v = page.get(row).get(columnIndex);
+                    if (skipNulls && v == null) continue;
+                    K val = (K) v;
+                    if (val == null) continue;           // safety if column declared NOT NULL but value is null
+                    if (max == null || val.compareTo(max) > 0) max = val;
+                }
             }
+            return max;
         }
-        return max;
-    }
-        @SuppressWarnings("unchecked")
+    @SuppressWarnings("unchecked")
     public static <K extends Comparable<? super K>> List<Pair<K,PointerPair>> sequentialRangeSearch(Table table, K upper, K lower, int columnIndex){
         List<Pair<K,PointerPair>> result = new ArrayList<>();
         for(int i = 0; i < table.getPages(); i++){

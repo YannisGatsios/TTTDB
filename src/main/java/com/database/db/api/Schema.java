@@ -252,7 +252,7 @@ public class Schema {
     }
     public void isValidEntry(Entry entry, Table table) {
         ColumnInner[] cols = columns.toArray(new ColumnInner[0]);
-        Object[] values = entry.getEntry();
+        Object[] values = entry.getValues();
 
         if (values.length != cols.length) {
             throw new EntryValidationException(

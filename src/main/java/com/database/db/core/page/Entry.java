@@ -11,10 +11,8 @@ import com.database.db.core.table.Table;
 import com.database.db.core.table.TableSchema;
 
 public class Entry {
-    private Object[] values;
+    private final Object[] values;
     private BitSet nullsBitMap;
-
-    public Entry(){}
 
     //Constructor
     public Entry(Object[] data, int numOfNullColumns){
@@ -22,12 +20,10 @@ public class Entry {
         this.nullsBitMap = new BitSet(numOfNullColumns);
     }
 
-    public Entry setBitMap(boolean[] notNullables){
-        int bitSetIndex = 0;
-        for (int i = 0; i < values.length; i++) {
-            if (!notNullables[i]) { // column is nullable
-                this.nullsBitMap.set(bitSetIndex, values[i] == null);
-                bitSetIndex++;
+    public Entry setBitMap(boolean[] notNullables) {
+        for (int i = 0, bitIndex = 0; i < values.length; i++) {
+            if (!notNullables[i]) {
+                nullsBitMap.set(bitIndex++, values[i] == null);
             }
         }
         return this;
@@ -45,7 +41,8 @@ public class Entry {
     public int size(){return this.values.length;}
 
     public byte[] toBytes(Table table) {
-        int bitmapSize = (table.getSchema().numNullables()+7)/8;
+        TableSchema schema = table.getSchema();
+        int bitmapSize = (schema.numNullables()+7)/8;
         byte[] bitMapBytes = new byte[bitmapSize];
         byte[] bitMapBytesRaw = this.nullsBitMap.toByteArray();
         System.arraycopy(bitMapBytesRaw, 0, bitMapBytes, 0, bitMapBytesRaw.length);
@@ -53,7 +50,7 @@ public class Entry {
         buffer.put(bitMapBytes);
         for (int i = 0;i<this.values.length;i++) {
             Object value = this.values[i];
-            DataType elem = table.getSchema().getTypes()[i];
+            DataType elem = schema.getTypes()[i];
             buffer.put(elem.toBytes(value));
         }
         return buffer.array();
@@ -66,7 +63,7 @@ public class Entry {
         if (buffer.remaining() < expectedSize)
             throw new IllegalArgumentException("Not enough bytes in buffer for one entry: "+buffer.remaining()+" < "+expectedSize);
         TableSchema schema = table.getSchema();
-        Object[] entry = new Object[table.getSchema().getNumOfColumns()];
+        Object[] entry = new Object[schema.getNumOfColumns()];
         DataType[] types = schema.getTypes();
 
         int numOfNullColumns = schema.numNullables();
@@ -91,7 +88,8 @@ public class Entry {
     }
 
     public byte[] toBytes(Table table, int columnIndex) {
-        boolean  isNullable = !table.getSchema().getNotNull()[columnIndex];
+        TableSchema schema = table.getSchema();
+        boolean  isNullable = !schema.getNotNull()[columnIndex];
         byte[] bitMapBytes = new byte[isNullable? 1:0];
         byte[] bitMapBytesRaw = this.nullsBitMap.toByteArray();
         int copyLen = Math.min(bitMapBytesRaw.length, bitMapBytes.length);
@@ -99,7 +97,7 @@ public class Entry {
         ByteBuffer buffer = ByteBuffer.allocate(IndexPage.sizeOfEntry(table, columnIndex));
         buffer.put(bitMapBytes);
         buffer.put(((BlockPointer)this.values[0]).toBytes());
-        DataType type = table.getSchema().getTypes()[columnIndex];
+        DataType type = schema.getTypes()[columnIndex];
         buffer.put(type.toBytes(this.values[1]));
         return buffer.array();
     }
@@ -198,18 +196,20 @@ public class Entry {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Entry other = (Entry) o;
-        return Arrays.equals(this.values, other.values);
+        return (this == o) || (o instanceof Entry e && Arrays.equals(values, e.values));
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(values);
+        return Objects.hashCode(values);
+    }
+
+    @Override
+    public String toString() {
+        return Arrays.toString(values);
     }
 
     public Object get(int index){return this.values[index];}
     public void set(int index, Object value){this.values[index] = value;}
-    public Object[] getEntry(){return this.values;}
+    public Object[] getValues(){return this.values;}
 }

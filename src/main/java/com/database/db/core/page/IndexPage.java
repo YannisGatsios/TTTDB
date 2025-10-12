@@ -42,9 +42,9 @@ public class IndexPage extends Page{
         ByteBuffer combinedArray = ByteBuffer.allocate(this.sizeInBytes());
         Page.headerToBytes(this, combinedArray);
         // Add entries
-        Entry[] entryList = this.getAll();
         for (int i = 0;i<this.size();i++) {
-            Entry entry = entryList[i];
+            Entry entry = entryAt(i);
+            if (entry == null) throw new IllegalStateException("null entry at " + i);
             combinedArray.put(entry.toBytes(table, columnIndex));
         }
         combinedArray.flip();
@@ -67,10 +67,10 @@ public class IndexPage extends Page{
             buffer.position(buffer.position() + entrySize);
             this.add(newEntry);
         }
-        if(result.spaceInUse() != this.getSpaceInUse()){
-            throw new IllegalArgumentException("PageID: "+pageID+" Mismatch between expected and actual space in use for Page. newBlock:"+this.getSpaceInUse()+" oldBlock:"+ result.numOfEntries()+" BlockID:"+this.getPageID());
-        }
-        if(result.numOfEntries() != this.size()) throw new IllegalArgumentException("PageID: "+pageID+" Mismatch between expected and actual numOfEntries and Page.size().");
+        if(result.spaceInUse() != getSpaceInUse())
+            throw new IllegalArgumentException("spaceInUse mismatch");
+        if(result.numOfEntries() != size()) 
+            throw new IllegalArgumentException("numOfEntries mismatch");
     }
 
     public int getColumnIndex() { return this.columnIndex; }

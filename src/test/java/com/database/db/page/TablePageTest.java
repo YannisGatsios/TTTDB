@@ -213,7 +213,7 @@ class TablePageTest {
     }
     private void areEntriesEqual(Entry entry1, Entry entry2){
         for (int i = 0; i < entry1.size();i++) {
-            Object[] entry = entry1.getEntry();
+            Object[] entry = entry1.getValues();
             if(entry[i] instanceof String){
                 assertEquals(entry[i], entry2.get(i));
             }else if(entry[i] instanceof Integer){

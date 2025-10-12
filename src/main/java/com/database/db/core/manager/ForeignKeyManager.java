@@ -21,7 +21,7 @@ public class ForeignKeyManager {
             String childColumn = reference.childColumns().get(i);
             String parentColumn = reference.parentColumns().get(i);
             int columnIndex = childTable.getSchema().getColumnIndex(childColumn);
-            Object[] values = entry.getEntry();
+            Object[] values = entry.getValues();
             Object value = values[columnIndex];
             // Check if the value exists in the parent table
             if (value == null) continue;

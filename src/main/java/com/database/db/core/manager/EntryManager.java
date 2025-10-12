@@ -99,24 +99,27 @@ public class EntryManager {
      * @throws Exception if any row fails validation or violates constraints
      */
     public static int insertEntries(Table table, List<Row> rows){
+        Database db = table.getDatabase();
+        Schema schema = db.getSchema(table.getName());
+        db.startTransaction("Insertion");
         int result = 0;
-        Database database = table.getDatabase();
-        Schema schema = database.getSchema(table.getName());
-        database.startTransaction("Insertion Process");
-        try{
-            for (Row row : rows) {
-                Entry entry = Entry.prepareEntry(row.getColumns(), row.getValues(), table);
-                schema.isValidEntry(entry, table);
-                ForeignKeyManager.foreignKeyCheck(database.getDBMS(), database, table.getName(), entry);
-                insertEntry(table, entry);
+        try {
+            for (Row r : rows) {
+                Entry e = Entry.prepareEntry(r.getColumns(), r.getValues(), table);
+                schema.isValidEntry(e, table);
+                ForeignKeyManager.foreignKeyCheck(db.getDBMS(), db, table.getName(), e);
+                insertEntry(table, e);
                 result++;
             }
-        }catch(Exception e){
-            database.rollBack();
-            throw e;
+            db.commit();
+            return result;
+        } catch (RuntimeException | Error ex) {
+            db.rollBack();
+            throw ex;
+        } catch (Exception ex) {
+            db.rollBack();
+            throw new RuntimeException(ex);
         }
-        database.commit();
-        return result;
     }
     /**
      * Inserts a single entry into the specified table.
@@ -137,15 +140,13 @@ public class EntryManager {
      * @throws IllegalArgumentException if the entry is invalid according to the table schema
      */
     public static void insertEntry(Table table, Entry entry) {
-        if(table.getPages()==0) table.addOnePage();
+        if (table.getPages() == 0) table.addOnePage();
         TablePage page = table.getCache().getLastTablePage();
-        if(page.size() < page.getCapacity()){
-            EntryManager.insertionProcess(table, entry, page);
-            return;
+        if (page.size() >= page.getCapacity()) {
+            table.addOnePage();
+            page = table.getCache().getLastTablePage();
         }
-        table.addOnePage();
-        page = table.getCache().getLastTablePage();
-        EntryManager.insertionProcess(table, entry, page);
+        insertionProcess(table, entry, page);
     }
     /**
      * Handles the low-level insertion of an entry into a specific table page.
@@ -302,38 +303,58 @@ public class EntryManager {
     }
     private static Entry newEntry(Table table, TablePage page, Entry oldEntry, BlockPointer pointer, List<InnerFunctions> updates){
         Database database = table.getDatabase();
-        Object[] newValues = Arrays.copyOf(oldEntry.getEntry(), oldEntry.getEntry().length);
+        Object[] orig = oldEntry.getValues();
+        Object[] newValues = Arrays.copyOf(orig, orig.length);
         applyUpdates(table, newValues, updates);
-        Entry newEntry = new Entry(newValues,table.getSchema().getNumOfColumns())
+
+        Entry newEntry = new Entry(newValues,table.getSchema().numNullables())
             .setBitMap(table.getSchema().getNotNull());
         database.getSchema(table.getName()).isValidEntry(newEntry, table);
         ForeignKeyManager.foreignKeyCheck(database.getDBMS(), database, table.getName(), newEntry);
         ForeignKeyManager.foreignKeyUpdate(table, oldEntry, newValues);
         return newEntry;
     }
+    /**
+     * Applies a sequence of update operations to an entry's value array in place.
+     *
+     * <p>The sequence is a mini-DSL of {@code InnerFunctions}:
+     * <ul>
+     *   <li>{@code selectColumn} – selects the target column for subsequent operations.</li>
+     *   <li>{@code UpdateCondition} – opens a conditional block; its predicate is
+     *       evaluated against the current values.</li>
+     *   <li>{@code endConditionalUpdate} – closes the current conditional block.</li>
+     *   <li>Any other {@code InnerFunctions} – transforms the selected column's value.
+     *       If inside a conditional block, the transform runs only when the last
+     *       {@code UpdateCondition} evaluated to {@code true}.</li>
+     * </ul>
+     *
+     * <p>Rules and validations:
+     * <ul>
+     *   <li>A column must be selected with {@code selectColumn} before any transform.</li>
+     *   <li>Nested conditions are not supported; each {@code UpdateCondition} must be
+     *       paired logically with a later {@code endConditionalUpdate}.</li>
+     *   <li>Throws {@link DatabaseException} on missing/unknown column or illegal order.</li>
+     * </ul>
+     *
+     * @param table   owning table (provides schema)
+     * @param values  mutable array of column values for a single row
+     * @param updates ordered list of update operations to apply
+     * @throws DatabaseException if no column is selected, or an unknown column is referenced
+     */
     private static void applyUpdates(Table table, Object[] values, List<InnerFunctions> updates){
-        int columnsIndex = -1;
-        boolean isInCondition = false;
-        boolean conditionResult = false;
-        for (InnerFunctions update : updates) {
-            if(update instanceof selectColumn) {
-                columnsIndex = table.getSchema().getColumnIndex(((selectColumn)update).column());
+        int col = -1;
+        boolean inIf = false, cond = false;
+        for (InnerFunctions fun : updates) {
+            if(fun instanceof selectColumn sc) {
+                col = table.getSchema().getColumnIndex(sc.column());
+                if (col < 0) throw new DatabaseException("Invalid column to update: " + sc.column());
                 continue;
             }
-            if(columnsIndex<0)
-                throw new DatabaseException("Invalid column to update");
-            if(update instanceof UpdateCondition){
-                conditionResult = ((UpdateCondition)update).isTrue(table.getSchema(), values);
-                if(conditionResult) isInCondition = true;
-            }
-            if(update instanceof endConditionalUpdate) isInCondition = false;
-            if(isInCondition){
-                if(conditionResult){
-                    values[columnsIndex] = update.apply(table.getSchema(), values, columnsIndex);
-                }
-            }else{
-                values[columnsIndex] = update.apply(table.getSchema(), values, columnsIndex);
-            }
+            if(col<0) throw new DatabaseException("Update without target column.");
+            if(fun instanceof UpdateCondition uc){ cond = uc.isTrue(table.getSchema(), values); inIf = true; continue; }
+            if(fun instanceof endConditionalUpdate) { inIf = false; continue; }
+
+            if (!inIf || cond) values[col] = fun.apply(table.getSchema(), values, col);
         }
     }
 }

@@ -28,22 +28,31 @@ public class Table {
     private final String tableName;
     private String path = "";
     private final TableSchema schema;
+    
     private TableCache cache;
     private IndexManager indexManager;
     private AutoIncrementing[] autoIncrementing;
     private TableSnapshot tableSnapshot;
 
     private TableReference parent;
-    private List<TableReference> children = new ArrayList<>();
+    private final List<TableReference> children = new ArrayList<>();
+
+    private final String tableFilePath;
+    private final String indexPathPrefix;
+
 
     public Table(Database database, TableConfig config) {
         this.database = database;
         this.path = this.database.getPath();
         this.tableName = config.tableName();
         this.schema = new TableSchema(tableName, config.schema().get(database));
+        
         this.cache = new TableCache(this, database);
         this.indexManager = new IndexManager(this);
         this.tableSnapshot = new TableSnapshot();
+
+        this.tableFilePath = path + database.getName() + "." + tableName + ".table";
+        this.indexPathPrefix = path + database.getName() + "." + tableName + ".";
     }
     public void start(){
         int numOfPages = FileIO.getNumOfPages(this.getPath(),TablePage.sizeOfEntry(this));
@@ -149,6 +158,6 @@ public class Table {
     public List<TableReference> getChildren() { return this.children; }
 
     // Get Index and Table file paths for this Table. 
-    public String getPath() { return this.path+database.getName()+"."+this.getName()+".table"; }
-    public String getIndexPath(int columnIndex) { return this.path+database.getName()+"."+this.getName()+"."+this.schema.getNames()[columnIndex]+".index"; }
+    public String getPath() { return this.tableFilePath; }
+    public String getIndexPath(int columnIndex) { return this.indexPathPrefix + schema.getNames()[columnIndex] + ".index"; }
 }

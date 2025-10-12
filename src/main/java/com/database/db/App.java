@@ -117,8 +117,8 @@ public class App {
         db.commit();
         Select select = new Select("id,username,date").from("users");
         List<Row> result = db.select(select);
-        //db.dropDatabase();
-        db.close();
         db.printDatabase();
+        db.dropDatabase();
+        db.close();
     }
 }

@@ -1,18 +1,15 @@
 package com.database.db.core.manager;
 
-import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.HashSet;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import com.database.db.api.Condition;
 import com.database.db.api.Condition.Clause;
-import com.database.db.api.Condition.Conditions;
 import com.database.db.api.Condition.WhereClause;
-import com.database.db.api.ConditionUtils;
 import com.database.db.core.FileIO;
 import com.database.db.core.cache.IndexSnapshot;
 import com.database.db.core.cache.TableSnapshot;
@@ -33,9 +30,10 @@ import com.database.db.core.table.TableSchema;
 public class IndexManager {
 
     private final Table table;
-    TableSchema schema;
+    private final TableSchema schema;
     private final IndexInit<?>[] indexes;
-    public final IndexPageManager pageManager;
+    private final DataType[] columnTypes;
+    private final IndexPageManager pageManager;
     private final TableSnapshot[] tableSnapshots;
     private final IndexSnapshot indexSnapshot;
 
@@ -43,45 +41,36 @@ public class IndexManager {
         this.table = table;
         this.schema = table.getSchema();
         this.indexes = new IndexInit<?>[schema.getNumOfColumns()];
+        this.columnTypes = schema.getTypes();
 
         this.pageManager = new IndexPageManager(table);
-        int PrimaryIndex = schema.getPrimaryIndex();
-        boolean[] UniqueIndexes = schema.getUniqueIndex();
-        boolean[] SecondaryIndexes = schema.getSecondaryIndex();
-        DataType[] types = schema.getTypes();
+        int primaryIndex = schema.getPrimaryIndex();
+        boolean[] uniqueIndexes = schema.getUniqueIndex();
+        boolean[] secondaryIndexes = schema.getSecondaryIndex();
+        this.tableSnapshots = new TableSnapshot[indexes.length];
         for (int i = 0;i<this.indexes.length;i++) {
-            if(PrimaryIndex == i) this.indexes[i] = IndexFactory.createIndex(IndexKind.PRIMARY, table, i, types[i]);
-            else if (UniqueIndexes[i]) this.indexes[i] = IndexFactory.createIndex(IndexKind.UNIQUE, table, i, types[i]);
-            else if (SecondaryIndexes[i]) this.indexes[i] = IndexFactory.createIndex(IndexKind.SECONDARY, table, i, types[i]);
+            if(primaryIndex == i) this.indexes[i] = IndexFactory.createIndex(IndexKind.PRIMARY, table, i, columnTypes[i]);
+            else if (uniqueIndexes[i]) this.indexes[i] = IndexFactory.createIndex(IndexKind.UNIQUE, table, i, columnTypes[i]);
+            else if (secondaryIndexes[i]) this.indexes[i] = IndexFactory.createIndex(IndexKind.SECONDARY, table, i, columnTypes[i]);
+            if(indexes[i] != null) this.tableSnapshots[i] = new TableSnapshot();
         }
-
-        int cols = schema.getNumOfColumns();
-        this.tableSnapshots = new TableSnapshot[cols];
         this.indexSnapshot = new IndexSnapshot();
-        for (int i = 0; i < cols; i++) {
-            if(indexes[i] != null){
-                this.tableSnapshots[i] = new TableSnapshot();
-            }
-        }
     }
     public void initialize(){
-        for (IndexInit<?> index : indexes) {
-            if(index != null) index.initialize(table);
-        }
-        for (int i = 0;i<this.indexes.length;i++) {
-            if(indexes[i] != null){
-                int numOfPages =  FileIO.getNumOfPages(table.getIndexPath(i), IndexPage.sizeOfEntry(table, i));
-                tableSnapshots[i].setNumOfPages(numOfPages);
-            }
+        for (int i = 0; i < indexes.length; i++) {
+            IndexInit<?> idx = indexes[i];
+            if (idx == null) continue;
+            idx.initialize(table);
+            int numPages = FileIO.getNumOfPages(table.getIndexPath(i), IndexPage.sizeOfEntry(table, i));
+            tableSnapshots[i].setNumOfPages(numPages);
         }
     }
 
     public boolean isIndexed(int columnIndex){
-        if(this.indexes.length == 0) return false;
         return this.indexes[columnIndex] != null;
     }
     public Object getMax(int columnIndex){
-        if(this.indexes[columnIndex] == null)return null;
+        if(this.indexes[columnIndex] == null) return SequentialOperations.getMaxSequential(table,columnIndex);
         return this.indexes[columnIndex].getMax();
     }
     public record IndexRecord<K>(K key, PointerPair value, int columnIndex) {
@@ -96,63 +85,20 @@ public class IndexManager {
             return Objects.hash(value);
         }
     }
-    @SuppressWarnings("unchecked")
-    public <K extends Comparable<? super K>> List<IndexRecord<K>> findRangeIndex(WhereClause whereClause){
-        if (whereClause == null) return this.noCondition();
+    public <K extends Comparable<? super K>> List<IndexRecord<K>> findRangeIndex(WhereClause whereClause) {
+        if (whereClause == null) return IndexUtils.noCondition(table, indexes, schema.getPreferredIndexColumn());
+
         List<Map.Entry<Clause, Condition<WhereClause>>> clauses = whereClause.getConditions();
-        List<IndexRecord<K>> previousPairList = new ArrayList<>();
-        for (Map.Entry<Clause, Condition<WhereClause>> conditionEntry : clauses) {
-            Condition<WhereClause> condition = conditionEntry.getValue();
-            EnumMap<Conditions, Object> conditionList = condition.getConditions();
+        List<IndexRecord<K>> previous = Collections.emptyList();
 
-            ConditionUtils.RangeBounds bounds = ConditionUtils.extractRange(conditionList);
-            Object start = bounds.start();
-            Object end = bounds.end();
-
-            int columnIndex = this.schema.getColumnIndex(condition.getColumnName());
-            IndexInit<K> index = (IndexInit<K>)indexes[columnIndex];
-            List<Pair<K, PointerPair>> indexResult = index == null?
-                SequentialOperations.sequentialRangeSearch(table, (K)start, (K)end, columnIndex) :
-                index.rangeSearch((K) start, (K) end);
-            List<IndexRecord<K>> resultInner = new ArrayList<>();
-            for (Pair<K, PointerPair> pair : indexResult) {
-                if (!condition.isApplicable(pair.key)) continue;
-                resultInner.add(new IndexRecord<K>(pair.key, pair.value, columnIndex));
-            }
-            switch (conditionEntry.getKey()) {
-                case FIRST:
-                    previousPairList = resultInner;
-                    break;
-                case OR:
-                    Set<IndexRecord<K>> orSet = new HashSet<>(previousPairList);
-                    orSet.addAll(resultInner);
-                    previousPairList = new ArrayList<>(orSet);
-                    break;
-                case AND:
-                    previousPairList.retainAll(resultInner);
-                    break;
-                case FIRST_GROUP:
-                case OR_GROUP:
-                case AND_GROUP:
-            }
+        for (var entry : clauses) {
+            Clause clause = entry.getKey();
+            List<IndexRecord<K>> results = IndexUtils.evaluateCondition(table, indexes, entry.getValue());
+            if (clause == Clause.FIRST) previous = results;
+            else if (clause == Clause.OR) previous = IndexUtils.mergeOr(previous, results);
+            else if (clause == Clause.AND) previous = IndexUtils.mergeAnd(previous, results);
         }
-        return previousPairList;
-    }
-    @SuppressWarnings("unchecked")
-    private <K extends Comparable<? super K>> List<IndexRecord<K>> noCondition(){
-        int columnIndex = schema.getPreferredIndexColumn();
-
-        IndexInit<K> index = (IndexInit<K>) indexes[columnIndex];
-        List<Pair<K, PointerPair>> indexResult =
-            index == null
-                ? SequentialOperations.sequentialRangeSearch(table, null, null, columnIndex)
-                : index.rangeSearch(null, null);
-
-        List<IndexRecord<K>> result = new ArrayList<>(indexResult.size());
-        for (Pair<K, PointerPair> pair : indexResult) {
-            result.add(new IndexRecord<>(pair.key, pair.value, columnIndex));
-        }
-        return result;
+        return previous;
     }
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> List<Pair<K, PointerPair>> findBlock(K key, int columnIndex){
@@ -161,7 +107,7 @@ public class IndexManager {
     }
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> boolean isKeyFound(K key, int columnIndex){
-        if(this.indexes[columnIndex] == null) return SequentialOperations.sequentialRangeSearch(table, key, key, columnIndex).size()==0?false:true;
+        if(this.indexes[columnIndex] == null) return !SequentialOperations.sequentialRangeSearch(table, key, key, columnIndex).isEmpty();
         return ((IndexInit<K>)this.indexes[columnIndex]).isKey(key);
     }
 
@@ -172,7 +118,7 @@ public class IndexManager {
         for (IndexInit<?> index : this.indexes) {
             if(index == null) continue;
             int columnIndex = index.getColumnIndex();
-            K key = this.getValidatedKey(entry, index, columnIndex);
+            K key = IndexUtils.getValidatedKey(entry, index, columnIndex,columnTypes[columnIndex]);
             BlockPointer indexPointer = this.pageManager.insert(tablePointer, key, index.getColumnIndex());
             PointerPair value = new PointerPair(tablePointer,indexPointer);
             ((IndexInit<K>) index).insert(key, value);
@@ -193,7 +139,7 @@ public class IndexManager {
         for (IndexInit<?> index : this.indexes) {
             if(index == null) continue;
             int columnIndex = index.getColumnIndex();
-            K key = this.getValidatedKey(entry, index, columnIndex);
+            K key = IndexUtils.getValidatedKey(entry, index, columnIndex,columnTypes[columnIndex]);
             BlockPointer indexPointer = pageManager.findIndexPointer(index, key, blockPointer);
             PointerPair value = new PointerPair(blockPointer, indexPointer);
             pageManager.remove(index, value, index.getColumnIndex(),updatedKeys,updatedValues,updatedOldValues);
@@ -215,7 +161,7 @@ public class IndexManager {
         for (IndexInit<?> index : this.indexes) {
             if(index == null) continue;
             int columnIndex = index.getColumnIndex();
-            K key = this.getValidatedKey(entry, index, columnIndex);
+            K key = IndexUtils.getValidatedKey(entry, index, columnIndex,columnTypes[columnIndex]);
             BlockPointer indexPointer = pageManager.findIndexPointer(index, (K) key, oldBlockPointer);
             pageManager.update(indexPointer , newBlockPointer, key, columnIndex);
             PointerPair newValue = new PointerPair(newBlockPointer, indexPointer);
@@ -230,30 +176,14 @@ public class IndexManager {
         indexSnapshot.addOperation(operation);
     }
 
-    @SuppressWarnings("unchecked")
-    private <K extends Comparable<? super K>> K getValidatedKey(Entry entry, IndexInit<?> index, int columnIndex) {
-        Object key = entry.get(columnIndex);
-        DataType type = schema.getTypes()[columnIndex];
-        Class<?> expectedClass = type.getJavaClass();
-        if (key == null && !index.isNullable()) {
-            throw new IllegalArgumentException("Null key not allowed at column " + columnIndex);
-        }
-        if (key != null && !expectedClass.isInstance(key)) {
-            throw new IllegalArgumentException(
-                "Invalid secondary key type at column " + columnIndex +
-                ": expected " + expectedClass.getName() +
-                ", but got " + key.getClass().getName()
-            );
-        }
-        return (K) key;
-    }
-
     public IndexInit<?>[] getIndexes() { return this.indexes; }
-    public int getPages(int columnIndex) { 
-        return this.tableSnapshots[columnIndex].getNumOfPages(); 
+    public int getPages(int columnIndex) {
+        TableSnapshot ts = tableSnapshots[columnIndex];
+        return ts != null ? ts.getNumOfPages() : 0;
     }
-    public void addOnePage(int columnIndex) { 
-        this.tableSnapshots[columnIndex].addOnePage();
+    public void addOnePage(int columnIndex) {
+        TableSnapshot ts = tableSnapshots[columnIndex];
+        if (ts != null) ts.addOnePage();
     }
     public void removeOnePage(int columnIndex) { 
         this.tableSnapshots[columnIndex].removeOnePage();
@@ -271,24 +201,19 @@ public class IndexManager {
     public void removeOneDeleted(String pageKey, int columnIndex) { this.tableSnapshots[columnIndex].removeDeletedPage(pageKey); }
     public void clearDeletedPages(int columnIndex) { this.tableSnapshots[columnIndex].clearDeletedPages(); }
     public void beginTransaction(){
-        for (int i = 0; i < tableSnapshots.length; i++) {
-            if(tableSnapshots[i] == null) continue;
-            tableSnapshots[i].beginTransaction();
-        }
+        forEachSnapshot(TableSnapshot::beginTransaction);
         indexSnapshot.beginTransaction();
     }
     public void commit() {
-        for (int i = 0; i < tableSnapshots.length; i++) {
-            if(tableSnapshots[i] == null) continue;
-            tableSnapshots[i].commit();
-        }
+        forEachSnapshot(TableSnapshot::commit);
         indexSnapshot.commit();
     }
     public void rollback() {
         indexSnapshot.rollback(indexes);
-        for (int i = 0; i < tableSnapshots.length; i++) {
-            if(tableSnapshots[i] == null) continue;
-            tableSnapshots[i].rollback();
-        }
+        forEachSnapshot(TableSnapshot::rollback);
+    }
+    private void forEachSnapshot(Consumer<TableSnapshot> action) {
+        for (TableSnapshot ts : tableSnapshots)
+            if (ts != null) action.accept(ts);
     }
 }

@@ -58,10 +58,10 @@ public abstract class Page {
     public Entry removeLast(){
         return this.remove(this.numOfEntries-1);
     }
-    public void swap(int from, int to){
-        Entry result = this.entries[to];
-        this.entries[to] = this.entries[from];
-        this.entries[from] = result;
+    public void swap(int a, int b){
+        Entry tmp = this.entries[b];
+        this.entries[b] = this.entries[a];
+        this.entries[a] = tmp;
     }
 
     // ===========SEARCHING_ENTRIES===============
@@ -78,6 +78,7 @@ public abstract class Page {
     }
 
     public Entry[] getAll() {return this.entries;}
+    protected Entry entryAt(int i){ return entries[i]; }
 
     public int indexOf(Entry entry){
         for (int i = 0;i<this.numOfEntries;i++) {
