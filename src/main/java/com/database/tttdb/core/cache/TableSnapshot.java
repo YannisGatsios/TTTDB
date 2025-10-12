@@ -7,9 +7,9 @@ import java.util.Set;
 
 public class TableSnapshot {
     private static class Snapshot {
-        private Set<String> deletedPageID;
+        private Set<PageKey> deletedPageID;
         private int numOfPages;
-        private Snapshot(Set<String> deletedPageID, int numOfPages){
+        private Snapshot(Set<PageKey> deletedPageID, int numOfPages){
             this.deletedPageID = deletedPageID;
             this.numOfPages = numOfPages;
         }
@@ -32,7 +32,7 @@ public class TableSnapshot {
             throw new IllegalArgumentException("Can not remove one page. NumOfPages is already 0");
         this.snapshots.getLast().numOfPages--;
     }
-    public Set<String> getDeletedPageIDSet() { 
+    public Set<PageKey> getDeletedPageIDSet() { 
         return this.snapshots.getLast().deletedPageID;
     }
     public int getDeletedPages() { 
@@ -41,10 +41,10 @@ public class TableSnapshot {
     public void clearDeletedPages(){
         this.snapshots.getLast().deletedPageID = new HashSet<>();
     }
-    public void addDeletedPage(String pageKey){
+    public void addDeletedPage(PageKey pageKey){
         this.snapshots.getLast().deletedPageID.add(pageKey);
     }
-    public void removeDeletedPage(String pageKey){
+    public void removeDeletedPage(PageKey pageKey){
         this.snapshots.getLast().deletedPageID.remove(pageKey);
     }
     public void beginTransaction(){

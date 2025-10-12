@@ -25,7 +25,7 @@ public class Cache {
 
 
     // LRU cache using LinkedHashMap
-    protected final Map<String, Page> cache;
+    protected final Map<PageKey, Page> cache;
 
     private final int CAPACITY;
     private final int DELETION_CAPACITY;
@@ -39,7 +39,7 @@ public class Cache {
         else{
             this.cache = new LinkedHashMap<>(capacity, 0.75f, true) {
                 @Override
-                protected boolean removeEldestEntry(Map.Entry<String, Page> eldest) {
+                protected boolean removeEldestEntry(Map.Entry<PageKey, Page> eldest) {
                     if (size() > capacity) {
                         writePage(eldest);
                         return true;
@@ -89,16 +89,15 @@ public class Cache {
     }
 
     //== Writing Pages ==
-    protected void writePage(Map.Entry<String, Page> eldest){
+    protected void writePage(Map.Entry<PageKey, Page> eldest){
         Page page = eldest.getValue();
         fileIO.writePage(page.getFilePath(), page.toBytes(), page.getPagePos());
     }
 
     //== Loading Pages ==
-    protected TablePage loadTablePage(String pageKey) {
-        String[] keyParts = pageKey.split("\\.");
-        Table table = database.getTable(keyParts[0]);
-        int pageID = Integer.parseInt(keyParts[1]);
+    protected TablePage loadTablePage(PageKey pageKey) {
+        Table table = database.getTable(pageKey.getTableName());
+        int pageID = pageKey.getPageId();
         TablePage newPage = new TablePage(pageID, table);
         if(table.getDeletedPagesSet().contains(pageKey)){
             table.getDeletedPagesSet().remove(pageKey);
@@ -119,11 +118,10 @@ public class Cache {
         }
         return null;
     }
-    protected IndexPage loadIndexPage(String pageKey) {
-        String[] keyParts = pageKey.split("\\.");
-        Table table = database.getTable(keyParts[0]);
-        int columnIndex = table.getSchema().getColumnIndex(keyParts[1]);
-        int pageID = Integer.parseInt(keyParts[2]);
+    protected IndexPage loadIndexPage(PageKey pageKey) {
+        Table table = database.getTable(pageKey.getTableName());
+        int columnIndex = table.getSchema().getColumnIndex(pageKey.getColumnName());
+        int pageID = pageKey.getPageId();
         IndexPage newPage = new IndexPage(pageID, table, columnIndex);
         IndexManager indexManager = table.getIndexManager();
         if(indexManager.getDeletedPagesSet(columnIndex).contains(pageKey)){
@@ -139,15 +137,15 @@ public class Cache {
             return newPage;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.log(Level.SEVERE, String.format(name+": Interrupted while loading page ID %d for index '%s'.", pageID, keyParts[1]), e);
+            logger.log(Level.SEVERE, String.format(name+": Interrupted while loading page ID %d for index '%s'.", pageID, pageKey.getColumnName()), e);
         } catch (ExecutionException e) {
-            logger.log(Level.SEVERE, String.format(name+": Execution failed while loading page ID %d for index '%s'.", pageID, keyParts[1]), e);
+            logger.log(Level.SEVERE, String.format(name+": Execution failed while loading page ID %d for index '%s'.", pageID, pageKey.getColumnName()), e);
         }
         return null;
     }
 
     //== Getting Pages ==
-    public synchronized TablePage getTablePage(String pageKey) {
+    public synchronized TablePage getTablePage(PageKey pageKey) {
         TablePage page = (TablePage)cache.get(pageKey);
         if (page != null) {
             return page;
@@ -156,7 +154,7 @@ public class Cache {
             return loadTablePage(pageKey);
         }
     }
-    public synchronized IndexPage getIndexPage(String pageKey) {
+    public synchronized IndexPage getIndexPage(PageKey pageKey) {
         IndexPage page = (IndexPage)cache.get(pageKey);
         if (page != null) {
             return page;
@@ -170,23 +168,23 @@ public class Cache {
     public synchronized TablePage getLastTablePage(Table table){
         int lastPageId = table.getPages() - 1;
         if (lastPageId == -1) lastPageId = 0;
-        String pageKey = table.getName()+"."+lastPageId;
+        PageKey pageKey = PageKey.table(table.getName(), lastPageId);
         return this.getTablePage(pageKey);
     }
     public synchronized IndexPage getLastIndexPage(Table table,int columnIndex){
         int lastPageId = table.getIndexManager().getPages(columnIndex) - 1;
         if (lastPageId == -1) lastPageId = 0;
-        String pageKey = table.getName()+"."+table.getSchema().getNames()[columnIndex]+"."+lastPageId;
+        PageKey pageKey = PageKey.index(table.getName(), table.getSchema().getNames()[columnIndex], lastPageId);
         return this.getIndexPage(pageKey);
     }
 
-    public synchronized void put(String pageKey, Page page) {
+    public synchronized void put(PageKey pageKey, Page page) {
         cache.put(pageKey, page);
     }
-    public synchronized Page remove(String pageKey) {
+    public synchronized Page remove(PageKey pageKey) {
         return cache.remove(pageKey);
     }
-    public void deleteLastTablePage(String pageKey, Table table, TablePage page) {
+    public void deleteLastTablePage(PageKey pageKey, Table table, TablePage page) {
         this.cache.remove(pageKey);
         table.getDeletedPagesSet().add(pageKey);
         table.removeOnePage();
@@ -207,7 +205,7 @@ public class Cache {
             Thread.currentThread().interrupt();
         }
     }
-    public void deleteLastIndexPage(String pageKey, Table table, IndexPage page) {
+    public void deleteLastIndexPage(PageKey pageKey, Table table, IndexPage page) {
         this.cache.remove(pageKey);
         int columnIndex = page.getColumnIndex();
         IndexManager indexManager = table.getIndexManager();

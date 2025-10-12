@@ -15,6 +15,7 @@ import com.database.tttdb.core.cache.IndexSnapshot;
 import com.database.tttdb.core.cache.TableSnapshot;
 import com.database.tttdb.core.cache.IndexSnapshot.Operation;
 import com.database.tttdb.core.cache.IndexSnapshot.OperationEnum;
+import com.database.tttdb.core.cache.PageKey;
 import com.database.tttdb.core.index.IndexFactory;
 import com.database.tttdb.core.index.IndexInit;
 import com.database.tttdb.core.index.Pair;
@@ -189,16 +190,16 @@ public class IndexManager {
         this.tableSnapshots[columnIndex].removeOnePage();
     }
 
-    public Set<String> getDeletedPagesSet(int columnIndex) { 
+    public Set<PageKey> getDeletedPagesSet(int columnIndex) { 
         return this.tableSnapshots[columnIndex].getDeletedPageIDSet(); 
     }
     public int getDeletedPages(int columnIndex) { 
         return this.tableSnapshots[columnIndex].getDeletedPages(); 
     }
-    public void addOneDeletedPage(String pageKey, int columnIndex) { 
+    public void addOneDeletedPage(PageKey pageKey, int columnIndex) { 
         this.tableSnapshots[columnIndex].addDeletedPage(pageKey); 
     }
-    public void removeOneDeleted(String pageKey, int columnIndex) { this.tableSnapshots[columnIndex].removeDeletedPage(pageKey); }
+    public void removeOneDeleted(PageKey pageKey, int columnIndex) { this.tableSnapshots[columnIndex].removeDeletedPage(pageKey); }
     public void clearDeletedPages(int columnIndex) { this.tableSnapshots[columnIndex].clearDeletedPages(); }
     public void beginTransaction(){
         forEachSnapshot(TableSnapshot::beginTransaction);

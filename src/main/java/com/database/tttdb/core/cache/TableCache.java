@@ -13,22 +13,22 @@ public class TableCache {
         this.database = database;
     }
     public TablePage getTablePage(int pageID){
-        String pageKey = table.getName()+"."+pageID;
+        PageKey pageKey = PageKey.table(table.getName(), pageID);
         return database.getCache().getTablePage(pageKey);
     }
     public IndexPage getIndexPage(int pageID, int columnIndex){
         String columnName = table.getSchema().getNames()[columnIndex];
-        String pageKey = table.getName()+"."+columnName+"."+pageID;
+        PageKey pageKey = PageKey.index(table.getName(), columnName, pageID);
         return database.getCache().getIndexPage(pageKey);
     }
 
     public void putTablePage(TablePage page){
-        String pageKey = table.getName()+"."+page.getPageID();
+        PageKey pageKey = PageKey.table(table.getName(), page.getPageID());
         database.getCache().put(pageKey, page);
     }
     public void putIndexPage(IndexPage page){
         String columnName = table.getSchema().getNames()[page.getColumnIndex()];
-        String pageKey = table.getName()+"."+columnName+"."+page.getPageID();
+        PageKey pageKey = PageKey.index(table.getName(), columnName, page.getPageID());
         database.getCache().put(pageKey, page);
     }
 
@@ -40,12 +40,12 @@ public class TableCache {
     }
 
     public void deleteLastTablePage(TablePage page){
-        String pageKey = table.getName()+"."+page.getPageID();
+        PageKey pageKey = PageKey.table(table.getName(), page.getPageID());
         database.getCache().deleteLastTablePage(pageKey, table, page);
     }
     public void deleteLastIndexPage(IndexPage page){
         String columnName = table.getSchema().getNames()[page.getColumnIndex()];
-        String pageKey = table.getName()+"."+columnName+"."+page.getPageID();
+        PageKey pageKey = PageKey.index(table.getName(), columnName, page.getPageID());
         database.getCache().deleteLastIndexPage(pageKey, table, page);
     }
 }

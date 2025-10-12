@@ -54,11 +54,11 @@ public class TransactionCache extends Cache{
         logger.info(name + ": Transaction commit completed.");
     }
     @Override
-    protected void writePage(Map.Entry<String, Page> eldest){
+    protected void writePage(Map.Entry<PageKey, Page> eldest){
         throw new UnsupportedOperationException("Can not use writeCache in transaction cache: Transaction "+name);
     }
     @Override
-    protected TablePage loadTablePage(String pageKey){
+    protected TablePage loadTablePage(PageKey pageKey){
         TablePage result = parent.getTablePage(pageKey);
         if(result.isDirty()) {
             result = result.deepCopy();
@@ -70,7 +70,7 @@ public class TransactionCache extends Cache{
         return result;
     }
     @Override
-    protected IndexPage loadIndexPage(String pageKey){
+    protected IndexPage loadIndexPage(PageKey pageKey){
         IndexPage result = parent.getIndexPage(pageKey);
         if(result.isDirty()) {
             result = result.deepCopy();

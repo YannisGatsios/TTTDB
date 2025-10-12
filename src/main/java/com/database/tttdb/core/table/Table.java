@@ -12,6 +12,7 @@ import com.database.tttdb.api.UpdateFields;
 import com.database.tttdb.core.Database;
 import com.database.tttdb.core.FileIO;
 import com.database.tttdb.core.Database.TableReference;
+import com.database.tttdb.core.cache.PageKey;
 import com.database.tttdb.core.cache.TableCache;
 import com.database.tttdb.core.cache.TableSnapshot;
 import com.database.tttdb.core.index.Pair;
@@ -137,11 +138,11 @@ public class Table {
     public void addOnePage() { this.tableSnapshot.addOnePage(); }
     public void removeOnePage() { this.tableSnapshot.removeOnePage(); }
 
-    public Set<String> getDeletedPagesSet() { return this.tableSnapshot.getDeletedPageIDSet(); }
+    public Set<PageKey> getDeletedPagesSet() { return this.tableSnapshot.getDeletedPageIDSet(); }
     public int getDeletedPages() { return this.tableSnapshot.getDeletedPages(); }
     public void clearDeletedPages() { this.tableSnapshot.clearDeletedPages(); }
-    public void addDeletedPage(String pageKey) { this.tableSnapshot.addDeletedPage(pageKey); }
-    public void removeDeletedPage(String pageKey) { this.tableSnapshot.removeDeletedPage(pageKey); }
+    public void addDeletedPage(PageKey pageKey) { this.tableSnapshot.addDeletedPage(pageKey); }
+    public void removeDeletedPage(PageKey pageKey) { this.tableSnapshot.removeDeletedPage(pageKey); }
 
     // Getters/Setters
     public String getDatabaseName() { return database.getName(); }
