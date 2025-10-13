@@ -63,6 +63,7 @@ public class EntryManagerTest {
             .column("data").type(DataType.BYTE).size(10).notNull().defaultValue(new byte[10]).endColumn();
 
         config = new TableConfig("test_table", schema);
+        database.setPath("data/");
         database.createTable(config);
         database.start();
         table = database.getTable("test_table");

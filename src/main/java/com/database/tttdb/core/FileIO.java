@@ -60,7 +60,7 @@ public class FileIO {
             // Group pages by file path
             for (Page page : pages) {
                 String path = page.getFilePath(); // Table path or index path
-                pagesByFile.computeIfAbsent(path, _ -> new ArrayList<>()).add(page);
+                pagesByFile.computeIfAbsent(path, k -> new ArrayList<>()).add(page);
             }
 
             // Write pages grouped by file
