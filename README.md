@@ -99,59 +99,63 @@ Schema posts = new Schema()
 // === Initialize database and tables ===
 DBMS db = new DBMS()
     .setPath("data/")
-    .addDatabase("social_db", 0)// 0 is the cache capacity
-    .addTable(new DBMS.TableConfig("users", users))
-    .addTable(new DBMS.TableConfig("posts", posts))
+    .addDatabase("social_db", 0) // 0 = cache capacity
+    .addTable("users", users)
+    .addTable("posts", posts)
     .start();
 
 // === Insert sample users ===
 Row user1 = new Row("username,age")
-.set("username", "Alice")
-.set("age", 25);
+    .set("username", "Alice")
+    .set("age", 25);
 db.insert("users", user1);
 
 Row user2 = new Row("username,age")
-.set("username", "Bob")
-.set("age", 30);
+    .set("username", "Bob")
+    .set("age", 30);
 db.insert("users", user2);
 
 // === Insert posts ===
 Row post1 = new Row("username,content")
-.set("username", "Alice")
-.set("content", "Hello World!");
+    .set("username", "Alice")
+    .set("content", "Hello World!");
 db.insert("posts", post1);
 
 Row post2 = new Row("username,content")
-.set("username", "Bob")
-.set("content", "Java Rocks!");
+    .set("username", "Bob")
+    .set("content", "Java Rocks!");
 db.insert("posts", post2);
 
 // === Update user data ===
-Update update = new Update("users")
+db.update("users")
     .set()
         .selectColumn("age").set(26)
     .endUpdate()
     .where().column("username").isEqual("Alice").end()
-    .endUpdateClause();
-db.update(update);
+    .endUpdateClause()
+    .execute();
 
 // === Delete user (cascade removes related posts) ===
-Delete delete = new Delete()
+db.delete()
     .from("users")
     .where().column("username").isEqual("Bob").end()
-    .endDeleteClause();
-db.delete(delete);
+    .endDeleteClause()
+    .execute();
 
 // === Select remaining data ===
-List<Row> results = db.select(
-    new Query.Select("username,age").from("users").ASC("username")
-);
-List<Row> postResults = db.select(
-    new Query.Select("username").from("posts").ASC("username")
-);
+List<Row> results = db.select("username,age")
+    .from("users")
+    .ASC("username")
+    .fetch();
+
+List<Row> postResults = db.select("username")
+    .from("posts")
+    .ASC("username")
+    .fetch();
+
 for (Row r : results)
     System.out.println(r);
-for (Row r : postResults) 
+for (Row r : postResults)
     System.out.println(r);
 
 db.close();
@@ -174,6 +178,8 @@ data/
 
 Each `.index` file corresponds to an indexed column in the schema, while `.table` files store row data.  
 The log file (`tttdb.log.0`) contains detailed runtime operations such as transactions, cache commits, and table management.
+
+More usage examples can be found in `src/test/java/com/database/tttdb/AppTest.java`
 
 ---
 
@@ -238,5 +244,138 @@ mvn test
 - Only **table record pointers** are stored on disk — index tree structures are recreated at startup.  
 - The **cache** ensures efficient access but may delay writes until commit.  
 - **Unsafe inserts** do not start their own transaction. They write through the currently active cache (transaction cache if the user has started a transaction; otherwise the main cache). They therefore participate in any user-managed transaction, but skip the internal “create-and-rollback-on-error” transaction that safe batch inserts use. Use when you want full control over transaction boundaries (e.g., bulk import wrapped in your own startTransaction/commit).  
+- **Threading Model:** All API methods are expected to be called from a single application thread.  
+  Each `Database` instance runs its own dedicated file I/O thread for persistence.  
+  The `DBMS` and API layers perform **no synchronization or concurrency control**.  
+  This design guarantees simplicity and consistency for embedded, single-threaded workloads.  
 
 ---
+
+## Cache System Overview
+
+The caching layer is the core performance component of TTTDB.  
+Each `Database` instance owns one **Main Cache** and creates temporary **Transaction Caches** when transactions start.
+
+### 1. Main Cache
+- Implemented by the `Cache` class.
+- Backed by a **LinkedHashMap** used as an **LRU (Least Recently Used)** cache.
+- Pages (`TablePage` and `IndexPage`) are stored in memory until the cache reaches its capacity.
+- When the cache exceeds capacity, the **eldest page is automatically written to disk** using the associated `FileIOThread`.
+
+#### Write Policy
+- **Write-back** caching: modified pages (“dirty pages”) stay in memory until evicted or committed.
+- On `commit()`, all cached pages are written to disk in page-ID order.
+- After commit, deleted or unused pages are truncated from the end of each table and index file to reclaim space.
+
+#### Deletion and Truncation
+- Each table and index tracks a set of deleted pages.
+- When deleted pages exceed 10% of cache capacity, the cache triggers file truncation:
+  - The tail of the file is physically removed.
+  - Page counters and sets are updated to reflect the smaller file.
+
+#### Rollback
+- `rollback(reason)` clears the cache and reverts all tables and indexes to their last committed on-disk state.
+- Any unflushed dirty pages are discarded.
+
+---
+
+### 2. Transaction Cache
+- Implemented by the `TransactionCache` subclass.
+- Created when `Database.startTransaction(name)` is called.
+- Holds modified pages privately until commit or rollback.
+- **Read-through behavior:** on cache miss, loads pages from the parent (usually the main cache).
+- **Write-isolation:** writes never go directly to disk; they only merge into the parent cache on `commit()`.
+
+#### Commit Behavior
+1. Merges all modified pages into its parent cache.
+2. If the parent is another `TransactionCache`, no disk I/O occurs yet.
+3. If the parent is the main cache, all tables and indexes are committed to disk.
+
+#### Rollback Behavior
+- Simply discards all transaction-local pages.
+- Restores the parent cache as the active one.
+
+---
+
+### 3. Internal Usage
+- `Table` objects interact exclusively with the active cache (`Database.getCache()`):
+  - Page retrieval: `getTablePage(PageKey)`
+  - Page write/update: `put(PageKey, Page)`
+  - Page removal/truncation after deletions
+- `EntryManager` operations (insert, update, delete, select) use the cache indirectly through the `Table` layer.
+- `FileIO` handles actual disk I/O asynchronously via the per-database `FileIOThread`.
+
+This design provides:
+- Fast in-memory access for active pages.
+- Deferred writes for reduced disk I/O.
+- Transactional isolation without explicit locks.
+- Deterministic durability on commit.
+
+---
+
+## File I/O and Page Storage System
+
+Each `Database` instance owns a single background thread for all disk I/O, encapsulated by `FileIOThread`.
+All `Page` reads, writes, and truncations are enqueued as asynchronous tasks through `FileIO`.
+
+## FileIOThread
+
+- Dedicated per-database worker thread.
+- Consumes a `BlockingQueue<Runnable>` of I/O tasks.
+- Shuts down cleanly via a poison pill mechanism to ensure all pending writes complete.
+- No synchronization or parallel file access is required—the single thread guarantees serial disk writes.
+
+## FileIO
+
+- High-level façade for page operations.
+- Provides asynchronous methods:
+  - `writePage()` — writes one page buffer.
+  - `writePages()` — batch-writes grouped by file path.
+  - `readPage()` — returns a `FutureTask<byte[]>` that resolves to the page bytes.
+  - `truncateFile()` — shrinks table or index files after page deletions.
+- Uses `RandomAccessFile` and `FileChannel` for direct positional writes and reads.
+- Enforces page-size validation (`multiple of 4096 bytes`).
+- Groups batched writes by table or index path for minimal file handle churn.
+## Page System
+Pages are the fixed-size storage units used for both table data and index blocks.
+| type | class | Description |
+|------------|------------------|---------------------|
+|TablePage | `TablePage` | Stores serialized `Entry` objects representing table rows.
+|IndexPage | `IndexPage` | Stores B+Tree index entries `(key, pointer)` linking to table rows.
+Each page:
+- Occupies exactly one 4096-byte block (or multiple thereof).
+- Contains a header (`pageID`, `numOfEntries`, `spaceInUse`) and serialized entries.
+- Is tracked as dirty when modified; written only on commit or eviction.
+- Knows its own offset: `pageID * pageSize`.
+
+## B+Tree Engine
+`BPlusTree<K,V>` implements the balanced search tree for indexing:
+- Logarithmic insert, delete, search, and range scan.
+- Leaf chaining for range queries.
+- Optional uniqueness and nullability.
+- Automatic splitting/merging and rebalancing.
+- Duplicate-key storage for non-unique indexes.
+
+Each modification updates:
+- In-memory nodes.
+- Corresponding `IndexPage` via `IndexPageManager`.
+- Recorded Operation in the `IndexSnapshot` for `rollback`.
+## Data Flow Summary
+```sql
+User Operation (INSERT/UPDATE/DELETE)
+    ↓
+Table 
+    ↓
+EntryManager (modifies TablePage)
+    ↓
+Cache
+    ↓
+FileIOThread via FileIO.writePage()
+    ↓
+OS filesystem write
+```
+## Durability
+- Commits flush dirty pages via batched `FileIO.writePages()`.
+- Rollbacks discard modified cache pages before write-out.
+- Index/table pages remain block-aligned for recovery.
+- Truncation removes unused pages after deletions.

@@ -51,7 +51,7 @@ public class Cache {
     }
 
     public void commit(){
-        logger.info(name + ": Starting commit operation...");
+        logger.info(name + ":\n == COMMIT START ==");
         cache.entrySet().stream()
             .sorted(Map.Entry.comparingByKey())
             .forEach(entry -> {
@@ -73,10 +73,10 @@ public class Cache {
         }
         // Clear cache aft
         cache.clear();
-        logger.info(name + ": Commit operation completed. Cache cleared.");
+        logger.info(name + ":\n == COMMIT END ==");
     }
-    public void rollback(){
-        logger.info(name + ": Starting rollback operation...");
+    public void rollback(String reason){
+        logger.info(name + ":\n == ROLLBACK START ==\nREASON: "+reason);
         cache.clear();
         logger.info(name + ": Cache cleared.");
         for (Table table : database.getAllTablesList()) {
@@ -85,7 +85,7 @@ public class Cache {
             table.getIndexManager().rollback();
             logger.info(name + ": Rolled back indexes for table: " + table.getName());
         }
-        logger.info(name + ": Rollback operation completed.");
+        logger.info(name + ":\n == ROLLBACK END ==");
     }
 
     //== Writing Pages ==

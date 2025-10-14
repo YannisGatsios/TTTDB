@@ -6,7 +6,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.database.tttdb.api.DBMS.TableConfig;
 import com.database.tttdb.core.Database;
 import com.database.tttdb.core.page.Entry;
 import com.database.tttdb.core.page.Page;
@@ -84,8 +83,7 @@ class PageTest {
             .column("id").type(DataType.INT).endColumn()
             .column("name").type(DataType.CHAR).size(50).endColumn();
         Database database = new Database("mockDB",null,10);
-        TableConfig config = new TableConfig("mockTable", schema);
-        database.createTable(config);
+        database.createTable("mockTable", schema);
         mockTable = database.getTable("mockTable");
         page = new ConcretePage(PAGE_ID, mockTable);
 

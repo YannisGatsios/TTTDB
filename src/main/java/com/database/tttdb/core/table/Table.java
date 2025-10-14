@@ -5,9 +5,9 @@ import java.util.List;
 import java.util.Set;
 
 import com.database.tttdb.api.Condition.*;
-import com.database.tttdb.api.DBMS.TableConfig;
 import com.database.tttdb.api.Query.SelectType;
 import com.database.tttdb.api.Row;
+import com.database.tttdb.api.Schema;
 import com.database.tttdb.api.UpdateFields;
 import com.database.tttdb.core.Database;
 import com.database.tttdb.core.FileIO;
@@ -42,11 +42,11 @@ public class Table {
     private final String indexPathPrefix;
 
 
-    public Table(Database database, TableConfig config) {
+    public Table(Database database, String tableName, Schema tableSchema) {
         this.database = database;
         this.path = this.database.getPath();
-        this.tableName = config.tableName();
-        this.schema = new TableSchema(tableName, config.schema().get(database));
+        this.tableName = tableName;
+        this.schema = new TableSchema(tableName, tableSchema.get(database));
         
         this.cache = new TableCache(this, database);
         this.indexManager = new IndexManager(this);

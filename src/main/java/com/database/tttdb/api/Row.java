@@ -1,7 +1,9 @@
 package com.database.tttdb.api;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import com.database.tttdb.api.DBMS.SelectQuery;
 import com.database.tttdb.core.page.Entry;
@@ -99,6 +101,35 @@ public class Row {
      */
     public Object[] getValues() { return values; }
     public String[] getColumns() { return columnNames; }
+
+    /**
+     * Finds the index of a column name.
+     *
+     * @param columnName the column name
+     * @return the index of the column, or -1 if not found
+     */
+    private int columnIndex(String columnsName){
+        int result = -1;
+        for (String column : columnNames) {
+            result++;
+            if(column.equals(columnsName)) return result;
+        }
+        return -1;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Row)) return false;
+        Row other = (Row) o;
+        return Arrays.equals(columnNames, other.columnNames)
+            && Arrays.deepEquals(values, other.values);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(Arrays.hashCode(columnNames), Arrays.deepHashCode(values));
+    }
     /**
      * Returns a string representation of the record in the format:
      * <pre>
@@ -116,20 +147,6 @@ public class Row {
         }
         sb.append("}");
         return sb.toString();
-    }
-    /**
-     * Finds the index of a column name.
-     *
-     * @param columnName the column name
-     * @return the index of the column, or -1 if not found
-     */
-    private int columnIndex(String columnsName){
-        int result = -1;
-        for (String column : columnNames) {
-            result++;
-            if(column.equals(columnsName)) return result;
-        }
-        return -1;
     }
 
     /**

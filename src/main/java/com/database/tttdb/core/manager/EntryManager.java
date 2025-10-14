@@ -101,7 +101,7 @@ public class EntryManager {
     public static int insertEntries(Table table, List<Row> rows){
         Database db = table.getDatabase();
         Schema schema = db.getSchema(table.getName());
-        db.startTransaction("Insertion");
+        db.startTransaction("Internal Insertion Process Transaction");
         int result = 0;
         try {
             for (Row r : rows) {
@@ -114,10 +114,10 @@ public class EntryManager {
             db.commit();
             return result;
         } catch (RuntimeException | Error ex) {
-            db.rollBack();
+            db.rollBack("Internal Insertion Process Failed at "+result+" insertion.");
             throw ex;
         } catch (Exception ex) {
-            db.rollBack();
+            db.rollBack("Internal Insertion Process Failed at "+result+" insertion.");
             throw new RuntimeException(ex);
         }
     }
@@ -175,11 +175,11 @@ public class EntryManager {
     */
     public static <K extends Comparable<? super K>> int deleteEntry(Table table, WhereClause whereClause, int limit){
         int result = -1;
-        table.getDatabase().startTransaction("Deletion Process");
+        table.getDatabase().startTransaction("Internal Deletion  Process Transaction");
         try{
             result = deletion(table, whereClause, limit);
         }catch(Exception e){
-            table.getDatabase().rollBack();
+            table.getDatabase().rollBack("Internal Deletion Process Failed at "+result+" deletion.");
             throw e;
         }
         table.getDatabase().commit();
@@ -261,12 +261,12 @@ public class EntryManager {
      * @throws IllegalArgumentException if any updated entry is invalid or if a column name in updates is not found
      */
     public static <K extends Comparable<? super K>> int updateEntry(Table table, WhereClause whereClause, int limit, UpdateFields updates) {
-        table.getDatabase().startTransaction("Updating Process");
+        table.getDatabase().startTransaction("Internal Updating  Process Transaction");
         int result = -1;
         try{
             result = updating(table, whereClause, limit, updates);
         }catch(Exception e){
-            table.getDatabase().rollBack();
+            table.getDatabase().rollBack("Internal Update Process Failed at "+result+" update.");
             throw e;
         }
         table.getDatabase().commit();

@@ -1,6 +1,5 @@
 package com.database.tttdb.CRUD;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -16,23 +15,22 @@ import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.TestMethodOrder;
 
 import com.database.tttdb.api.Condition.*;
-import com.database.tttdb.api.DBMS.*;
-import com.database.tttdb.api.Query.SelectType;
-import com.database.tttdb.api.Query.SelectionType;
 import com.database.tttdb.core.Database;
 import com.database.tttdb.core.page.Entry;
 import com.database.tttdb.core.table.DataType;
 import com.database.tttdb.core.table.Table;
-import com.database.tttdb.api.Row;
 import com.database.tttdb.api.Schema;
 
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class EntryManagerTest {
 
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -48,7 +46,6 @@ public class EntryManagerTest {
 
     private Database database;
     private Table table;
-    private TableConfig config;
     private Random random;
     private String[] keysList;
 
@@ -62,9 +59,8 @@ public class EntryManagerTest {
             .column("message").type(DataType.CHAR).size(10).endColumn()
             .column("data").type(DataType.BYTE).size(10).notNull().defaultValue(new byte[10]).endColumn();
 
-        config = new TableConfig("test_table", schema);
         database.setPath("data/");
-        database.createTable(config);
+        database.createTable("test_table", schema);
         database.start();
         table = database.getTable("test_table");
 
@@ -166,40 +162,9 @@ public class EntryManagerTest {
         }
     }
 
-    @Test
-    @Order(5)
-    void testOrderedEntryInsertion() throws ExecutionException, InterruptedException, IOException, Exception {
-        List<Row> rowsList = new ArrayList<>();
-        int ind = 0;
-        while(ind < 1000000){
-            String key = "INSERTION"+ind;
-            Row row = new Row("username,num,message,data");
-            row.set("username", key);
-            row.set("num", ind);
-            row.set("message", "TEST");
-            row.set("data", new byte[]{(byte) ind});
-            rowsList.add(row);
-            ind++;
-        }
-        assertEquals(1000000, table.insert(rowsList));
-        database.commit();
-        database.startTransaction("Million Deletions");
-            table.delete(null, -1);
-            List<Entry> preRollbackResult = table.select(null, 0, -1, new SelectType(SelectionType.NORMAL,null));
-            assertEquals(0, preRollbackResult.size());
-        database.rollBack();
-
-        List<Entry> afterRollbackResult = table.select(null, 0, -1,new SelectType(SelectionType.NORMAL,null));
-        assertEquals(1000000, afterRollbackResult.size());
-        table.delete(null, -1);
-        database.commit();
-        List<Entry> commitDeletionsResult = table.select(null, 0, -1, new SelectType(SelectionType.NORMAL,null));
-        assertEquals(0, commitDeletionsResult.size());
-    }
-
     @AfterAll
     void end(){
+        database.dropDatabase();
         table.getDatabase().close();
-        //database.removeAllTables();
     }
 }

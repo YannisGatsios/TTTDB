@@ -19,7 +19,6 @@ import com.database.tttdb.api.Condition.WhereClause;
 import com.database.tttdb.api.Query.Delete;
 import com.database.tttdb.api.Query.Select;
 import com.database.tttdb.api.Query.SelectType;
-import com.database.tttdb.api.Query.SelectionType;
 import com.database.tttdb.api.Query.Update;
 import com.database.tttdb.core.Database;
 import com.database.tttdb.core.manager.EntryManager;
@@ -30,18 +29,22 @@ import com.database.tttdb.core.table.Table;
  * The {@code DBMS} class provides a simple database management system.
  * It supports multiple databases, tables, and basic SQL-like operations including
  * SELECT, INSERT, UPDATE, DELETE, and transaction management.
- * 
+ *
  * <p>Each {@code DBMS} instance manages a set of {@link Database} objects and provides
  * methods to manipulate data via {@link EntryManager}.</p>
+ *
+ * <h3>Threading model</h3>
+ * <p>
+ * All API methods are expected to be invoked from a single application thread.
+ * Each {@link Database} maintains its own internal file I/O thread for persistence.
+ * The DBMS itself performs no synchronization or concurrency control.
+ * </p>
  */
 public class DBMS {
     private final Map<String,Database> databases;
     private Database selected;
     private String path = "";
-    /**
-     * Represents the configuration of a table, including its name and schema.
-     */
-    public record TableConfig(String tableName, Schema schema){}
+    private boolean isStarted = false;
     /**
      * Represents a SELECT query.
      */
@@ -52,8 +55,8 @@ public class DBMS {
          * @return array of column names
          */
         public String[] getColumns(Table table){
-            if(resultColumns == null) return table.getSchema().getNames();
-            if(resultColumns.isBlank()) return new String[0];
+            if(resultColumns == "*") return table.getSchema().getNames();
+            if(resultColumns.isBlank() || resultColumns == null) return new String[0];
             return resultColumns.split("\\s*,\\s*");
         }
     }
@@ -72,25 +75,31 @@ public class DBMS {
         this.databases = new HashMap<>();
     }
     /**
-     * Sets the path where database files will be stored.
-     * @param path the storage path
-     * @return the current DBMS instance
+     * Sets the directory path where database files are stored.
+     * <p>
+     * If the directory does not exist, it will be created automatically.
+     * If the path exists but is not a directory, a {@link DatabaseException} is thrown.
+     * </p>
+     *
+     * @param path the filesystem path for database storage
+     * @return this {@code DBMS} instance for method chaining
+     * @throws DatabaseException if the path cannot be created or is not a directory
      */
     public DBMS setPath(String path){
         this.path = path;
-        return this;
-    }
-    /**
-     * Adds a database to this DBMS.
-     * @param databaseName the name of the database
-     * @param cacheCapacity the cache capacity for the database
-     * @return the current DBMS instance
-     */
-    public DBMS addDatabase(String databaseName, int cacheCapacity){
-        Database database = new Database(databaseName, this, cacheCapacity);
-        database.setPath(this.path);
-        this.databases.put(databaseName, database);
-        this.selected = database;
+        Path dir = Path.of(path);
+        if (!Files.exists(dir)) {
+            try {
+                Files.createDirectories(dir);
+            } catch (IOException e) {
+                throw new DatabaseException("Failed to create directory: " + path, e);
+            }
+        } else if (!Files.isDirectory(dir)) {
+            throw new DatabaseException("Path exists but is not a directory: " + path);
+        }
+        for (Database database : databases.values()) {
+            database.setPath(path);
+        }
         return this;
     }
     /**
@@ -98,6 +107,7 @@ public class DBMS {
      * @return the current DBMS instance
      */
     public DBMS start(){
+        if(isStarted) throw new DatabaseException("can not start already started DBMS.");
         try {
             Files.createDirectories(Path.of(this.path));
             LogManager.getLogManager().reset();
@@ -116,6 +126,30 @@ public class DBMS {
             Database database = databases.get(databaseName);
             database.start();
         }
+        isStarted = true;
+        return this;
+    }
+    /**
+     * Closes all databases and commits any pending changes.
+     */
+    public void close(){
+        Set<String> databaseNames  = new HashSet<>(this.databases.keySet());
+        for (String databaseName : databaseNames) {
+            this.databases.get(databaseName).commit().close();
+        }
+        isStarted = false;
+    }
+    /**
+     * Adds a database to this DBMS.
+     * @param databaseName the name of the database
+     * @param cacheCapacity the cache capacity for the database
+     * @return the current DBMS instance
+     */
+    public DBMS addDatabase(String databaseName, int cacheCapacity){
+        Database database = new Database(databaseName, this, cacheCapacity);
+        database.setPath(this.path);
+        this.databases.put(databaseName, database);
+        this.selected = database;
         return this;
     }
     /**
@@ -148,9 +182,9 @@ public class DBMS {
      * @param config the table configuration
      * @return the current DBMS instance
      */
-    public DBMS addTable(TableConfig config){
+    public DBMS addTable(String tableName, Schema tableSchema){
         if(this.selected == null) throw new IllegalArgumentException("Trying to create Table with not Database selected.");
-        this.selected.createTable(config);
+        this.selected.createTable(tableName, tableSchema);
         return this;
     }
     /**
@@ -164,39 +198,32 @@ public class DBMS {
         return this;
     }
     /**
-     * Performs a SELECT query against the currently selected database.
+     * Initiates a fluent SELECT query against the currently selected database.
      * <p>
-     * This method executes a fluent {@link Select} query, applying all configured
-     * options such as:
-     * <ul>
-     *   <li>Target table name</li>
-     *   <li>{@link WhereClause} filtering conditions</li>
-     *   <li>{@code begin} offset (number of rows to skip)</li>
-     *   <li>{@code limit} maximum number of rows to return</li>
-     *   <li>Optional ordering by a specific column in ascending or descending order,
-     *       as defined by {@link SelectionType}</li>
-     * </ul>
+     * This method creates a {@link Select} builder configured with the provided
+     * column list. The builder can then be extended with methods such as
+     * {@code from()}, {@code where()}, {@code ASC()}, {@code DESC()}, {@code limit()},
+     * and finally executed with {@code exec()}.
+     * </p>
      *
-     * The underlying rows are retrieved as {@link Entry} objects from the table,
-     * then converted into higher-level {@link Row} objects for the result set.
-     *
-     * <p><b>Usage example:</b></p>
+     * <p><b>Example:</b></p>
      * <pre>{@code
-     * List<Row> users = db.select(
-     *     new Select("*")
-     *         .from("users")
-     *         .where().eq("active", true)
-     *         .ASC("username")
-     *         .limit(20)
-     * );
+     * List<Row> result = db.select("id, username, date")
+     *                      .from("users")
+     *                      .where().eq("active", true)
+     *                      .ASC("username")
+     *                      .limit(20)
+     *                      .fetch();
      * }</pre>
      *
-     * @param select the fluent {@link Select} builder defining the query
-     * @return a list of {@link Row} objects matching the query constraints
-     * @throws IllegalArgumentException if no database is currently selected
+     * @param selectColumns comma-separated column names to retrieve; use "*" for all columns
+     * @return a {@link Select} builder for further query configuration
+     * @throws IllegalArgumentException if no database is currently selected at execution time
      */
-    public List<Row> select(Select select){
-        SelectQuery query = select.get();
+    public Select select(String selectColumns){
+        return new Select(this, selectColumns);
+    }
+    public List<Row> select(SelectQuery query){
         if(this.selected == null) throw new IllegalArgumentException("Can not perform select statement when no Database selected.");
         Table table = selected.getTable(query.tableName);
         List<Entry> result = table.select(query.whereClause, query.begin, query.limit, query.type);
@@ -227,12 +254,13 @@ public class DBMS {
      *
      * @param tableName the target table name
      * @param rows      the rows to insert
+     * @return the number of successfully inserted rows
      * @throws IllegalArgumentException if no database is currently selected
      */
-    public void insert(String tableName, List<Row> rows){
+    public int insert(String tableName, List<Row> rows){
         if(this.selected == null) throw new IllegalArgumentException("Can not perform insert statement when no Database selected.");
         Table table = selected.getTable(tableName);
-        table.insert(rows);
+        return table.insert(rows);
     }
     /**
      * Performs an "unsafe" insert of a single row into the specified table.
@@ -264,23 +292,57 @@ public class DBMS {
         table.insertUnsafe(entry);
     }
     /**
-     * Performs a DELETE query.
-     * @param query the delete query
-     * @return the number of deleted entries
+     * Initiates a fluent DELETE query against the currently selected database.
+     * <p>
+     * Returns a {@link Delete} builder for constructing a full {@link DeleteQuery}.
+     * The builder supports chaining methods such as {@code from()}, {@code where()},
+     * {@code limit()}, and final execution with {@code exec()}.
+     * </p>
+     *
+     * <p><b>Example:</b></p>
+     * <pre>{@code
+     * int deleted = db.delete()
+     *                 .from("users")
+     *                 .where().column("username").isEqual("admin").end()
+     *                 .limit(1)
+     *                 .execute();
+     * }</pre>
+     *
+     * @return a {@link Delete} builder for fluent query construction
+     * @throws IllegalArgumentException if no database is selected at execution time
      */
-    public int delete(Delete delete){
-        DeleteQuery query = delete.get();
+    public Delete delete(){
+        return new Delete(this);
+    }
+    public int delete(DeleteQuery query){
         if(this.selected == null) throw new IllegalArgumentException("Can not perform delete statement when no Database selected.");
         Table table = selected.getTable(query.tableName);
         return table.delete(query.whereClause, query.limit);
     }
     /**
-     * Performs an UPDATE query.
-     * @param query the update query
-     * @return the number of updated entries
+     * Initiates a fluent UPDATE query on the specified table in the currently selected database.
+     * <p>
+     * Returns an {@link Update} builder used to define update operations through chained methods
+     * such as {@code set()}, {@code where()}, {@code limit()}, and final execution with {@code execute()}.
+     * </p>
+     *
+     * <p><b>Example:</b></p>
+     * <pre>{@code
+     * int affected = db.update("users")
+     *                  .set("active", true)
+     *                  .where().column("last_login").lt("2025-01-01").end()
+     *                  .limit(100)
+     *                  .execute();
+     * }</pre>
+     *
+     * @param tableName the name of the table to update
+     * @return an {@link Update} builder for constructing the update query
+     * @throws IllegalArgumentException if no database is selected at execution time
      */
-    public int update(Update update){
-        UpdateQuery query = update.get();
+    public Update update(String tableName){
+        return new Update(this, tableName);
+    }
+    public int update(UpdateQuery query){
         if(this.selected == null) throw new IllegalArgumentException("Can not perform update statement when no Database selected.");
         Table table = selected.getTable(query.tableName);
         return table.update(query.whereClause, query.limit, query.updateFields);
@@ -296,9 +358,9 @@ public class DBMS {
     /**
      * Rolls back the current transaction.
      */
-    public void rollBack(){
+    public void rollBack(String reason){
         if(this.selected == null) throw new IllegalArgumentException("Can not roll back when no Database selected.");
-        this.selected.rollBack();
+        this.selected.rollBack(reason);
     }
     /**
      * Commits the current transaction.
@@ -306,15 +368,6 @@ public class DBMS {
     public void commit(){
         if(this.selected == null) throw new IllegalArgumentException("Can not commit when no Database selected.");
         this.selected.commit();
-    }
-    /**
-     * Closes all databases and commits any pending changes.
-     */
-    public void close(){
-        Set<String> databaseNames  = new HashSet<>(this.databases.keySet());
-        for (String databaseName : databaseNames) {
-            this.databases.get(databaseName).commit().close();
-        }
     }
     /**
      * Checks if a value exists in the given table column.

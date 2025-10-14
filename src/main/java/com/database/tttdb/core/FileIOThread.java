@@ -14,8 +14,8 @@ public class FileIOThread extends Thread {
 
     private static final Runnable POISON_PILL = () -> { };
 
-    public FileIOThread(String tableName) {
-        super("FileIOThread-" + tableName);
+    public FileIOThread(String databaseName) {
+        super("FileIOThread-" + databaseName);
     }
 
     public void submit(Runnable task) {

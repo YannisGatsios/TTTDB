@@ -10,7 +10,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.database.tttdb.api.DBMS;
-import com.database.tttdb.api.DBMS.TableConfig;
+import com.database.tttdb.api.DatabaseException;
 import com.database.tttdb.api.ForeignKey.ForeignKeyAction;
 import com.database.tttdb.core.cache.Cache;
 import com.database.tttdb.core.cache.TransactionCache;
@@ -53,21 +53,34 @@ public class Database {
         }
     }
 
-    public void createTable(TableConfig tableConfig) {
-        if (this.tables.containsKey(tableConfig.tableName())) {
-            logger.fine(String.format("Table '%s' already exists in database '%s'. Skipping creation.", tableConfig.tableName(), this.name));
-            return;
+    public void close(){
+        try {
+            this.fileIOThread.shutdown();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            String message = String.format("InterruptedException: Shutdown interrupted while closing Database '%s'.", this.name);
+            logger.log(Level.WARNING, message, e);
+            throw new DatabaseException(message, e);
         }
-        this.addTable(tableConfig);
-        logger.fine(
-            String.format("Table '%s' created successfully in database '%s'.", tableConfig.tableName(), this.name));
+        logger.info(String.format("All tables closed for database '%s'.", this.name));
     }
-    private void addTable(TableConfig tableConfig){
-        Schema newSchema = tableConfig.schema();
-        Table newTable = new Table(this, tableConfig);
+
+    public void createTable(String tableName, Schema tableSchema) {
+        if (this.tables.containsKey(tableName)) {
+            String message = String.format("Table '%s' already exists in database '%s'. Skipping creation.", tableName, this.name);
+            logger.fine(message);
+            throw new DatabaseException(message);
+        }
+        this.addTable(tableName, tableSchema);
+        logger.fine(
+            String.format("Table '%s' created successfully in database '%s'.", tableName, this.name));
+    }
+    private void addTable(String tableName, Schema tableSchema){
+        Schema newSchema = tableSchema;
+        Table newTable = new Table(this, tableName, tableSchema);
         this.prepareForeignKey(newTable, newSchema);
-        this.schema.put(tableConfig.tableName(), newSchema);
-        this.tables.put(tableConfig.tableName(), newTable);
+        this.schema.put(tableName, newSchema);
+        this.tables.put(tableName, newTable);
     }
     public record TableReference(
         String referenceName,
@@ -96,17 +109,6 @@ public class Database {
         }
     }
 
-    public void close(){
-        try {
-            this.fileIOThread.shutdown();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.log(Level.WARNING,
-                    String.format("InterruptedException: Shutdown interrupted while closing Database '%s'.", this.name), e);
-        }
-        logger.info(String.format("All tables closed for database '%s'.", this.name));
-    }
-
     public void dropDatabase(){
         this.commit();
         this.removeAllTables();
@@ -128,8 +130,9 @@ public class Database {
             SchemaManager.dropTable(table);
             this.tables.remove(tableName);
         } catch (Exception e) {
-            logger.log(Level.SEVERE,
-                String.format("Error removing table '%s' from database '%s'.",tableName, name),e);
+            String message = String.format("Error removing table '%s' from database '%s'.",tableName, name); 
+            logger.log(Level.SEVERE, message,e);
+            throw new DatabaseException(message,e);
         }
         logger.info(String.format("Table '%s' removed from database '%s'.", tableName, this.name));
     }
@@ -141,12 +144,12 @@ public class Database {
             table.beginTransaction();
         }
     }
-    public void rollBack(){
+    public void rollBack(String reason){
         if(this.currentCache == null){
-            this.mainCache.rollback();
+            this.mainCache.rollback(reason);
             return;
         }
-        this.currentCache.rollback();
+        this.currentCache.rollback(reason);
         Cache parent = this.currentCache.getParent();
         if(parent instanceof TransactionCache) this.currentCache = (TransactionCache)parent;
         else this.currentCache = null;
@@ -184,16 +187,13 @@ public class Database {
         sb.append("DATABASE: ").append(name.toUpperCase()).append("\n");
         sb.append("Path: ").append(path.isEmpty() ? "<not set>" : path).append("\n");
         sb.append("Tables: ").append(tables.size()).append("\n\n");
-
         if (tables.isEmpty()) {
             sb.append("No tables defined.\n");
             return sb.toString();
         }
-
         for (Table table : tables.values()) {
             sb.append(table.getSchema().toString()).append("\n\n");
         }
-
         return sb.toString().trim();
     }
 }

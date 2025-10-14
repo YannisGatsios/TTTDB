@@ -6,12 +6,8 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.database.tttdb.api.DBMS.*;
 import com.database.tttdb.api.Schema;
 import com.database.tttdb.api.DatabaseException.EntryValidationException;
-import com.database.tttdb.api.Query.Delete;
-import com.database.tttdb.api.Query.Select;
-import com.database.tttdb.api.Query.Update;
 import com.database.tttdb.core.table.DataType;
 import com.database.tttdb.api.DBMS;
 import com.database.tttdb.api.Row;
@@ -46,12 +42,10 @@ public class App {
                 .column("num")
                 .isSmaller(130).end()
             .endCheck();
-
-        TableConfig tableConf = new TableConfig("users", schema);
         DBMS db = new DBMS()
             .addDatabase("test_database", 0)
             .setPath("data/")
-            .addTable(tableConf)
+            .addTable("users", schema)
         .start()
         .selectDatabase("test_database");
         
@@ -69,11 +63,11 @@ public class App {
                     data[y] = (byte) random.nextInt(127);
                 }
                 keysList.add(userName);
-                Row row = new Row("username,num,message,data");
-                row.set("username", userName);
-                row.set("num", ind%100+18);
-                row.set("message", (ind%25)==0 ? null : "_HELLO_");
-                row.set("data", data);
+                Row row = new Row("username,num,message,data")
+                .set("username", userName)
+                .set("num", ind%100+18)
+                .set("message", (ind%25)==0 ? null : "_HELLO_")
+                .set("data", data);
                 db.insertUnsafe("users",row);
                 ind++;
             }
@@ -84,9 +78,9 @@ public class App {
             int randInd = random.nextInt(400-ind);
             if(db.containsValue("users", "username", keysList.get(randInd))){
                 String key = keysList.get(randInd);
-                Delete delete = (Delete)new Delete().from("users")
-                .where().column("username").isEqual(key).end().endDeleteClause();
-                db.delete(delete);
+                db.delete().from("users")
+                    .where().column("username").isEqual(key).end().endDeleteClause()
+                .execute();
                 keysList.remove(randInd);
                 ind++;
             }
@@ -97,16 +91,14 @@ public class App {
             int randInd = random.nextInt(300-ind);
             if(db.containsValue("users", "username", keysList.get(randInd))){
                 String key = keysList.get(randInd);
-                Update update = (Update)new Update("users")
+                try{
+                    db.update("users")
                     .set()
                     .selectColumn("username").leftPad( 10, "x")
-                    .selectColumn("data").set(new byte[10])
-                .endUpdate()
+                    .selectColumn("data").set(new byte[10]).endUpdate()
                 .where().column("username").isEqual(key).end().endUpdateClause();
-                try{
-                    db.update(update);
                 }catch(EntryValidationException e){
-                    db.rollBack();
+                    db.rollBack("Update failed");
                     e.printStackTrace();
                     break;
                 }
@@ -115,8 +107,7 @@ public class App {
             }
         }
         db.commit();
-        Select select = new Select("id,username,date").from("users");
-        List<Row> result = db.select(select);
+        List<Row> result = db.select("id,username,date").from("users").fetch();
         db.printDatabase();
         db.dropDatabase();
         db.close();

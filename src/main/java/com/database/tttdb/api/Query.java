@@ -1,5 +1,7 @@
 package com.database.tttdb.api;
 
+import java.util.List;
+
 import com.database.tttdb.api.Condition.WhereClause;
 import com.database.tttdb.api.DBMS.DeleteQuery;
 import com.database.tttdb.api.DBMS.SelectQuery;
@@ -64,9 +66,10 @@ public interface Query {
      * chain calls to {@link #from(String)}, {@link #where()},
      * {@link #begin(int)}, {@link #limit(int)}, and optionally
      * {@link #ASC()} or {@link #DEC()} to set a {@link SelectionType}.
-     * Call {@link #get()} to produce an immutable {@link SelectQuery}.
+     * Call {@link #fetch()} to produce an immutable {@link SelectQuery}.
      */
     public static class Select implements Query{
+        private final DBMS dbms;
         private final String selectColumns;
         private String tableName;
         private WhereClause whereClause;
@@ -76,7 +79,8 @@ public interface Query {
         /**
          * @param selectColumns comma-separated list of columns to select
          */
-        public Select(String selectColumns){
+        public Select(DBMS dbms, String selectColumns){
+            this.dbms = dbms;
             this.selectColumns = selectColumns;
         }
         /**
@@ -131,12 +135,17 @@ public interface Query {
             return this;
         }
         /**
-         * Builds the final {@link SelectQuery} to pass to {@code DBMS.select()}.
-         * @return immutable {@link SelectQuery} with all configured options,
-         *         including {@link SelectionType}
+         * Executes the configured SELECT query and returns the resulting rows.
+         * <p>
+         * Builds a final immutable {@link SelectQuery} and passes it to
+         * {@link DBMS#select(SelectQuery)} for execution.
+         * </p>
+         *
+         * @return a list of {@link Row} objects matching the query
+         * @throws IllegalArgumentException if no database is currently selected
          */
-        public SelectQuery get(){
-            return new SelectQuery(tableName,selectColumns,whereClause,begin,limit,type);
+        public List<Row> fetch(){
+            return dbms.select(new SelectQuery(tableName,selectColumns,whereClause,begin,limit,type));
         }
     }
     // ---------------------------------------------------------------------
@@ -157,10 +166,13 @@ public interface Query {
      * }</pre>
      */
     public static class Delete implements Query{
+        private final DBMS dbms;
         private String tableName;
         private WhereClause whereClause;
         private int limit = -1;
-        public Delete(){}
+        public Delete(DBMS dbms){
+            this.dbms = dbms;
+        }
         /**
          * Table from which to delete rows.
          */
@@ -187,10 +199,17 @@ public interface Query {
             return this;
         }
         /**
-         * Builds the final {@link DeleteQuery}.
+         * Executes the configured DELETE query and returns the number of deleted rows.
+         * <p>
+         * Builds an immutable {@link DeleteQuery} and passes it to
+         * {@link DBMS#delete(DeleteQuery)} for execution.
+         * </p>
+         *
+         * @return the number of deleted entries affected by the query
+         * @throws IllegalArgumentException if no database is currently selected
          */
-        public DeleteQuery get(){
-            return new DeleteQuery(tableName,whereClause,limit);
+        public int execute(){
+            return dbms.delete(new DeleteQuery(tableName,whereClause,limit));
         }
     }
     // ---------------------------------------------------------------------
@@ -211,6 +230,7 @@ public interface Query {
      * }</pre>
      */
     public static class Update implements Query{
+        private final DBMS dbms;
         private String tableName;
         private WhereClause whereClause;
         private UpdateFields updateFields;
@@ -218,7 +238,8 @@ public interface Query {
         /**
          * @param tableName table to update
          */
-        public Update(String tableName){
+        public Update(DBMS dbms, String tableName){
+            this.dbms = dbms;
             this.tableName = tableName;
         }
         /**
@@ -253,10 +274,17 @@ public interface Query {
             return this;
         }
         /**
-         * Builds the final {@link UpdateQuery}.
+         * Executes the configured UPDATE query and returns the number of affected rows.
+         * <p>
+         * Builds an immutable {@link UpdateQuery} and passes it to
+         * {@link DBMS#update(UpdateQuery)} for execution.
+         * </p>
+         *
+         * @return the number of updated entries
+         * @throws IllegalArgumentException if no database is currently selected
          */
-        public UpdateQuery get(){
-            return new UpdateQuery(tableName,whereClause,limit,updateFields);
+        public int execute(){
+            return dbms.update(new UpdateQuery(tableName,whereClause,limit,updateFields));
         }
     }
 }

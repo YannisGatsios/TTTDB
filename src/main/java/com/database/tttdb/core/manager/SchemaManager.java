@@ -8,6 +8,7 @@ import java.nio.file.Paths;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.database.tttdb.api.DatabaseException;
 import com.database.tttdb.core.table.Table;
 import com.database.tttdb.core.table.TableSchema;
 
@@ -23,7 +24,6 @@ public class SchemaManager {
 
             String[] columnNames = schema.getNames();
             boolean[] isIndexed = schema.isIndexed();
-
             for (int i = 0; i < columnNames.length; i++) {
                 if (isIndexed[i]) {
                     SchemaManager.createIndex(path + databaseName + "." + tableName + "." + columnNames[i] + ".index");
@@ -31,7 +31,9 @@ public class SchemaManager {
             }
             logger.fine("Table and Index Files created: " + tableFile.getName());
         } catch (IOException e) {
-            logger.log(Level.SEVERE, "Failed to create table file at path: " + tableFile.getPath(), e);
+            String message = "Failed to create table file at path: " + tableFile.getPath();
+            logger.log(Level.SEVERE, message, e);
+            throw new DatabaseException(message,e);
         }
     }
 
@@ -42,7 +44,9 @@ public class SchemaManager {
                 logger.fine("Index file already existed: " + indexFile.getName());
             }
         } catch (IOException e) {
-            logger.log(Level.SEVERE, "Failed to create index file at path: " + indexFile.getPath(), e);
+            String message = "Failed to create index file at path: " + indexFile.getPath();
+            logger.log(Level.SEVERE, message, e);
+            throw new DatabaseException(message,e);
         }
     }
 
@@ -62,7 +66,9 @@ public class SchemaManager {
                 }
                 logger.fine("Table and Index files deleted successfully: " + tablePath);
             } catch (IOException e) {
-                logger.log(Level.SEVERE, "Error deleting Table or Index files.", e);
+                String message = "Error deleting Table or Index files.";
+                logger.log(Level.SEVERE, message, e);
+                throw new DatabaseException(message,e);
             }
         });
     }

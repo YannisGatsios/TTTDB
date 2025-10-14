@@ -16,14 +16,14 @@ public class TransactionCache extends Cache{
     private final Database database;
     public TransactionCache(Database database, Cache parentCache, String name){
         super(database, -1);
-        this.name = name;
+        this.name = name + "Transaction";
         this.parent = parentCache;
         this.database = database;
     }
 
     @Override
     public void commit() {
-        logger.info(name + ": Starting transaction commit...");
+        logger.info(name + ":\n == TRANSACTION COMMIT START ==");
 
         // Merge this transaction cache into the parent cache
         this.cache.entrySet().stream()
@@ -39,7 +39,8 @@ public class TransactionCache extends Cache{
 
         // If the parent is another transaction cache, do not commit tables yet
         if (parent instanceof TransactionCache) {
-            logger.info(name + ": Parent is a TransactionCache, skipping table/index commit.");
+            logger.info(name + ": Parent cache is not Main Cache, skipping table/index commit.\n"+
+                                " == TRANSACTION COMMIT END ==");
             return;
         }
 
@@ -51,7 +52,7 @@ public class TransactionCache extends Cache{
             logger.info(name + ": Committed indexes for table: " + table.getName());
         }
 
-        logger.info(name + ": Transaction commit completed.");
+        logger.info(name + ":\n == TRANSACTION COMMIT END ==");
     }
     @Override
     protected void writePage(Map.Entry<PageKey, Page> eldest){

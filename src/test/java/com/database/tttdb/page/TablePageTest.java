@@ -6,7 +6,6 @@ import org.junit.jupiter.api.AfterAll;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.database.tttdb.api.Schema;
-import com.database.tttdb.api.DBMS.TableConfig;
 import com.database.tttdb.core.Database;
 import com.database.tttdb.core.FileIOThread;
 import com.database.tttdb.core.page.Entry;
@@ -40,9 +39,8 @@ class TablePageTest {
         file2.createNewFile();
         fileIOThread = new FileIOThread("testThread");
         fileIOThread.start();
-        TableConfig config = new TableConfig("test", SCHEMA);
         Database database = new Database("testdb",null,10);
-        database.createTable(config);
+        database.createTable("test", SCHEMA);
         table = database.getTable("test");
         database.start();
 
