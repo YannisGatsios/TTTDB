@@ -9,7 +9,6 @@ import java.util.List;
  *     <li>Hash Table – unordered, optimized for exact key lookups.</li>
  *     <li>Skip List – probabilistic balanced structure with range support.</li>
  *     <li>AVL / Red-Black Tree – self-balancing binary search trees.</li>
- *     <li>Trie – prefix-based index for string keys.</li>
  * </ul>
  *
  * <p>This abstraction allows flexible index implementations to be

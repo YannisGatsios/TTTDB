@@ -2,6 +2,7 @@ package com.database.tttdb.core.index;
 
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.UUID;
 
 import com.database.tttdb.core.table.DataType;
 import com.database.tttdb.core.table.Table;
@@ -18,6 +19,7 @@ public final class IndexFactory {
                 case CHAR -> new PrimaryKey<String>(table, columnIndex);
                 case DATE -> new PrimaryKey<Date>(table, columnIndex);
                 case TIMESTAMP -> new PrimaryKey<Timestamp>(table, columnIndex);
+                case UUID -> new PrimaryKey<UUID>(table, columnIndex);
                 default -> throw new IllegalArgumentException("Unsupported primary key type: " + type.name());
             };
             case UNIQUE -> switch (type) {
@@ -28,6 +30,7 @@ public final class IndexFactory {
                 case CHAR -> new Unique<String>(table, columnIndex);
                 case DATE -> new Unique<Date>(table, columnIndex);
                 case TIMESTAMP -> new Unique<Timestamp>(table, columnIndex);
+                case UUID -> new Unique<>(table, columnIndex);
                 default -> throw new IllegalArgumentException("Unsupported unique index type: " + type.name());
             };
             case SECONDARY -> switch (type) {
@@ -38,6 +41,7 @@ public final class IndexFactory {
                 case CHAR -> new SecondaryKey<String>(table, columnIndex);
                 case DATE -> new SecondaryKey<Date>(table, columnIndex);
                 case TIMESTAMP -> new SecondaryKey<Timestamp>(table, columnIndex);
+                case UUID -> new SecondaryKey<>(table, columnIndex);
                 default -> throw new IllegalArgumentException("Unsupported type: " + type.name());
             };
         };
