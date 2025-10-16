@@ -292,12 +292,7 @@ public class EntryManager {
         Entry oldEntry = page.get(tablePointer.RowOffset());
         table.removeIndex(oldEntry, tablePointer);
         Entry newEntry;
-        try{
-            newEntry = newEntry(table, page, oldEntry, tablePointer, updates);
-        }catch(Exception e){
-            table.insertIndex(oldEntry, tablePointer);
-            throw e;
-        }
+        newEntry = newEntry(table, page, oldEntry, tablePointer, updates);
         page.set(tablePointer.RowOffset(),newEntry);
         table.insertIndex(newEntry, tablePointer);
     }

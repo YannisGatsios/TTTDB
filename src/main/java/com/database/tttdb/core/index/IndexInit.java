@@ -3,6 +3,8 @@ package com.database.tttdb.core.index;
 import java.nio.ByteBuffer;
 import java.util.List;
 
+import com.database.tttdb.core.index.btree.BPlusTree;
+import com.database.tttdb.core.index.hashmap.HashIndex;
 import com.database.tttdb.core.page.Entry;
 import com.database.tttdb.core.page.IndexPage;
 import com.database.tttdb.core.table.Table;
@@ -33,7 +35,7 @@ public class IndexInit<K extends Comparable<? super K>> implements Index<K,Index
     public record PointerPair(BlockPointer tablePointer, BlockPointer indexPointer) {} 
 
     public IndexInit(int order){
-        this.index = new BPlusTree<>(order);
+        this.index = new HashIndex<>();
     }
     @SuppressWarnings("unchecked")
     public IndexInit<K> initialize(Table table){

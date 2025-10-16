@@ -1,7 +1,9 @@
-package com.database.tttdb.core.index;
+package com.database.tttdb.core.index.btree;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import com.database.tttdb.core.index.Pair;
 /**
  * Represents a node in the B+ Tree structure (either internal or leaf node).
  *

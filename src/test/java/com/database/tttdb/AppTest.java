@@ -347,6 +347,7 @@ public class AppTest {
             .column("data").type(DataType.BYTE).size(10).notNull().defaultValue(new byte[10]).endColumn();
         db.addTable("test_million_operations", test_million_operations);
         db.start();
+        db.startTransaction("Million rows operations");
         List<Row> rowsList = new ArrayList<>();
         int ind = 0;
         while(ind < 1000000){
@@ -360,7 +361,6 @@ public class AppTest {
             ind++;
         }
         assertEquals(1000000, db.insert("test_million_operations",rowsList));
-        db.commit();
         db.startTransaction("Million Deletions");
             db.delete().from("test_million_operations").execute();
             List<Row> preRollbackResult = db.select("*").from("test_million_operations").fetch();
@@ -370,9 +370,9 @@ public class AppTest {
         List<Row> afterRollbackResult = db.select("*").from("test_million_operations").fetch();
         assertEquals(1000000, afterRollbackResult.size());
         db.delete().from("test_million_operations").execute();
-        db.commit();
         List<Row> commitDeletionsResult = db.select("*").from("test_million_operations").fetch();
         assertEquals(0, commitDeletionsResult.size());
+        db.commit();
         db.close();
     }
 }

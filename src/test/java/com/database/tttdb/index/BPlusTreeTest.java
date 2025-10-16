@@ -4,9 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.database.tttdb.core.index.BPlusTree;
-import com.database.tttdb.core.index.Node;
 import com.database.tttdb.core.index.Pair;
+import com.database.tttdb.core.index.btree.BPlusTree;
+import com.database.tttdb.core.index.btree.Node;
 
 import java.util.ArrayList;
 import java.util.Arrays;

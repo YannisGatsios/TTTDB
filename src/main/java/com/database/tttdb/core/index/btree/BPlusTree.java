@@ -1,4 +1,4 @@
-package com.database.tttdb.core.index;
+package com.database.tttdb.core.index.btree;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -7,6 +7,9 @@ import java.util.List;
 
 import java.util.LinkedList;
 import java.util.Queue;
+
+import com.database.tttdb.core.index.Index;
+import com.database.tttdb.core.index.Pair;
 
 /**
  * B+ Tree implementation supporting configurable order, unique/non-unique keys,
@@ -31,8 +34,8 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements Index<K, V
     private Node<K, V> start;// Points to the first leaf node
     private final int order;
     private long size = 0;
-    private boolean isUnique;
-    private boolean isNullable;
+    private boolean isUnique = true;
+    private boolean isNullable = false;
     private Pair<K,V> nullPair;
     private final int minKeys;
     private final Comparator<Pair<K, V>> keyComparator = (pair1, pair2) -> pair1.key.compareTo(pair2.key);
@@ -50,8 +53,6 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements Index<K, V
         this.start = root;
         this.order = order;
         this.size = 0;
-        this.isUnique = true;
-        this.isNullable = false;
         this.minKeys = (int) Math.ceil((double) this.order / 2.0) - 1;
     }
 

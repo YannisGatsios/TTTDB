@@ -86,6 +86,14 @@ public class IndexManager {
             return Objects.hash(value);
         }
     }
+    /**
+     * Evaluates a WHERE clause using available indexes.
+     * Combines per-condition index hits with AND/OR semantics.
+     *
+     * @param whereClause parsed clause tree. If null, returns full-scan fallback via preferred index.
+     * @param <K> key type
+     * @return ordered list of index records matching the clause
+     */
     public <K extends Comparable<? super K>> List<IndexRecord<K>> findRangeIndex(WhereClause whereClause) {
         if (whereClause == null) return IndexUtils.noCondition(table, indexes, schema.getPreferredIndexColumn());
 
@@ -101,35 +109,75 @@ public class IndexManager {
         }
         return previous;
     }
+    /**
+     * Locates index pointer pairs for an exact key on a column.
+     * Falls back to sequential scan if the column is not indexed.
+     *
+     * @param key lookup key
+     * @param columnIndex column id
+     * @param <K> key type
+     * @return list of (key, PointerPair) results, possibly empty
+     */
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> List<Pair<K, PointerPair>> findBlock(K key, int columnIndex){
         if(this.indexes[columnIndex] == null) return SequentialOperations.sequentialRangeSearch(table, key, key, columnIndex);
         return ((IndexInit<K>)this.indexes[columnIndex]).search(key);
     }
+    /**
+     * Tests existence of a key in a column.
+     * Uses the column index if present, else a sequential probe.
+     *
+     * @param key key to test
+     * @param columnIndex column id
+     * @param <K> key type
+     * @return true if at least one row with key exists
+     */
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> boolean isKeyFound(K key, int columnIndex){
         if(this.indexes[columnIndex] == null) return !SequentialOperations.sequentialRangeSearch(table, key, key, columnIndex).isEmpty();
         return ((IndexInit<K>)this.indexes[columnIndex]).isKey(key);
     }
 
+    /**
+     * Inserts index entries for a newly inserted table row.
+     * Appends an INSERT operation to the index snapshot for rollback.
+     *
+     * Invariants:
+     * - Arrays are written by index position i, matching {@code indexes[i]}.
+     *
+     * @param entry row data
+     * @param tablePointer location of the row in table storage
+     * @param <K> key type
+     */
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> void insertIndex(Entry entry, BlockPointer tablePointer){
         Object[] keys = new Object[indexes.length];
         PointerPair[] values = new PointerPair[indexes.length];
-        for (IndexInit<?> index : this.indexes) {
+        for (int i = 0; i < indexes.length; i++) {
+            IndexInit<?> index = indexes[i];
             if(index == null) continue;
+            assert index.getColumnIndex() == i : "Index position and columnIndex diverged";
             int columnIndex = index.getColumnIndex();
             K key = IndexUtils.getValidatedKey(entry, index, columnIndex,columnTypes[columnIndex]);
             BlockPointer indexPointer = this.pageManager.insert(tablePointer, key, index.getColumnIndex());
             PointerPair value = new PointerPair(tablePointer,indexPointer);
             ((IndexInit<K>) index).insert(key, value);
-            keys[columnIndex] = key;
-            values[columnIndex] = value;
+            keys[i] = key;
+            values[i] = value;
         }
         Operation operation = new Operation(OperationEnum.INSERT, keys, values,null);
         indexSnapshot.addOperation(operation);
     }
 
+    /**
+     * Removes index entries for a deleted table row.
+     * If a swap occurs during compaction, records an UPDATE op before the REMOVE
+     * so rollback can undo the swap then reinsert.
+     *
+     * @param entry row being deleted
+     * @param blockPointer table pointer of the row
+     * @param <K> key type
+     */
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> void removeIndex(Entry entry, BlockPointer blockPointer){
         Object[] keys = new Object[indexes.length];
@@ -137,30 +185,44 @@ public class IndexManager {
         Object[] updatedKeys = new Object[indexes.length];
         PointerPair[] updatedValues = new PointerPair[indexes.length];
         PointerPair[] updatedOldValues = new PointerPair[indexes.length];
-        for (IndexInit<?> index : this.indexes) {
+        boolean indexChanged = false;
+        for (int i = 0; i < indexes.length; i++) {
+            IndexInit<?> index = indexes[i];
             if(index == null) continue;
+            assert index.getColumnIndex() == i : "Index position and columnIndex diverged";
             int columnIndex = index.getColumnIndex();
             K key = IndexUtils.getValidatedKey(entry, index, columnIndex,columnTypes[columnIndex]);
             BlockPointer indexPointer = pageManager.findIndexPointer(index, key, blockPointer);
             PointerPair value = new PointerPair(blockPointer, indexPointer);
-            pageManager.remove(index, value, index.getColumnIndex(),updatedKeys,updatedValues,updatedOldValues);
+            indexChanged |= pageManager.remove(index, value, index.getColumnIndex(),updatedKeys,updatedValues,updatedOldValues);
             ((IndexInit<K>) index).remove((K) key, value);
-            keys[columnIndex] = key;
-            values[columnIndex] = value;
+            keys[i] = key;
+            values[i] = value;
         }
         Operation updatedOperation = new Operation(OperationEnum.UPDATE, updatedKeys, updatedValues,updatedOldValues);
         Operation operation = new Operation(OperationEnum.REMOVE, keys, values,null);
-        indexSnapshot.addOperation(updatedOperation);
+        if(indexChanged) indexSnapshot.addOperation(updatedOperation);
         indexSnapshot.addOperation(operation);
     }
 
+    /**
+     * Updates index entries for a moved or modified row.
+     * Records an UPDATE operation for rollback.
+     *
+     * @param entry new entry state
+     * @param newBlockPointer new table pointer
+     * @param oldBlockPointer old table pointer
+     * @param <K> key type
+     */
     @SuppressWarnings("unchecked")
     public <K extends Comparable<? super K>> void updateIndex(Entry entry, BlockPointer newBlockPointer, BlockPointer oldBlockPointer){
         Object[] keys = new Object[indexes.length];
         PointerPair[] values = new PointerPair[indexes.length];
         PointerPair[] oldValues = new PointerPair[indexes.length];
-        for (IndexInit<?> index : this.indexes) {
+        for (int i = 0; i < indexes.length; i++) {
+            IndexInit<?> index = indexes[i];
             if(index == null) continue;
+            assert index.getColumnIndex() == i : "Index position and columnIndex diverged";
             int columnIndex = index.getColumnIndex();
             K key = IndexUtils.getValidatedKey(entry, index, columnIndex,columnTypes[columnIndex]);
             BlockPointer indexPointer = pageManager.findIndexPointer(index, (K) key, oldBlockPointer);
@@ -169,9 +231,9 @@ public class IndexManager {
             PointerPair oldValue = new PointerPair(oldBlockPointer, indexPointer);
             if(index.isUnique())((IndexInit<K>) index).update(key, newValue);
             else ((IndexInit<K>) index).update(key, newValue, oldValue);
-            keys[columnIndex] = key;
-            values[columnIndex] = newValue;
-            oldValues[columnIndex] = oldValue;
+            keys[i] = key;
+            values[i] = newValue;
+            oldValues[i] = oldValue;
         }
         Operation operation = new Operation(OperationEnum.UPDATE, keys, values, oldValues);
         indexSnapshot.addOperation(operation);
