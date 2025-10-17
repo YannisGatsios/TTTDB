@@ -70,6 +70,7 @@ public class EntryManager {
         List<Entry> result = new ArrayList<>();
         int index = 0;
         boolean selectAll = limit < 0;
+        table.getDatabase().startTransaction("Internal Selection Process Transaction");
         for (IndexRecord<K> pair : indexResult) {
             BlockPointer blockPointer = pair.value().tablePointer();
             if(!selectAll && index>=limit+begin) break;
@@ -77,6 +78,7 @@ public class EntryManager {
             TablePage page = table.getCache().getTablePage(blockPointer.BlockID());
             result.add(page.get(blockPointer.RowOffset()));
         }
+        table.getDatabase().rollBack("Rollback after selection: no writes performed");
         return result;
     }
     //==INSERTION==

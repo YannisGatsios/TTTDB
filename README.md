@@ -202,7 +202,7 @@ More usage examples can be found in `src/test/java/com/database/tttdb/AppTest.ja
 | `update()` | ✅ Yes | ✅ Yes | Rolls back on any schema or FK violation. |
 | `delete()` | ✅ Yes | ✅ Yes | Ensures safe page compaction and index sync. |
 | `insertUnsafe()` | ❌ No | ❌ No | Directly appends to disk — **no rollback or recovery**. Use carefully. |
-| `select()` | ❌ No | ❌ No | Read-only operation, uses in-memory or cached pages. |
+| `select()` | ✅ Yes | ✅ Always | Read-only short-lived transaction started and then rolled back to ensure consistent reads; no writes occur. |
 
 Transactions are implemented at the **database level** (see `Database.startTransaction()`, `commit()`, and `rollBack()`).  
 Each operation handled by `EntryManager` (`insertEntries`, `updateEntry`, `deleteEntry`) automatically starts, commits, or rolls back its own transaction if needed.
