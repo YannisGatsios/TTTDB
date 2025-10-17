@@ -104,41 +104,91 @@ public class Condition<T extends ConditionGroup<T>> {
 
     /**
      * Evaluates this condition against a single value.
-     * 
-     * @param value the value to test
-     * @return {@code true} if the value satisfies all defined conditions
+     *
+     * <p>Numeric operands are compared by numeric value regardless of wrapper type
+     * (e.g., {@code Integer 5} equals {@code Short 5}). Non-numeric operands use
+     * natural ordering only when both operands share the same runtime class and
+     * implement {@link Comparable}.</p>
+     *
+     * @param value the left-hand value to test against all configured predicates
+     * @return {@code true} if {@code value} satisfies every configured predicate
+     * @throws IllegalArgumentException if an ordering comparison is requested for
+     *         incomparable operand types or either side is {@code null}
      */
-    @SuppressWarnings("unchecked")
     public boolean isApplicable(Object value) {
-        for (Map.Entry<Conditions, Object> cond : conditionElementsList.entrySet()) {
+        for (var cond : conditionElementsList.entrySet()) {
+            Object rhs = cond.getValue();
             boolean passed = switch (cond.getKey()) {
-                case IS_EQUAL -> Objects.equals(value, cond.getValue());
-                case IS_NOT_EQUAL -> !Objects.equals(value, cond.getValue());
-                case IS_BIGGER -> {
-                    if (value instanceof Comparable<?> && cond.getValue() instanceof Comparable<?>)
-                        yield ((Comparable<Object>) value).compareTo(cond.getValue()) > 0;
-                    yield false;
-                }
-                case IS_SMALLER -> {
-                    if (value instanceof Comparable<?> && cond.getValue() instanceof Comparable<?>)
-                        yield ((Comparable<Object>) value).compareTo(cond.getValue()) < 0;
-                    yield false;
-                }
-                case IS_BIGGER_OR_EQUAL -> {
-                    if (value instanceof Comparable<?> && cond.getValue() instanceof Comparable<?>)
-                        yield ((Comparable<Object>) value).compareTo(cond.getValue()) >= 0;
-                    yield false;
-                }
-                case IS_SMALLER_OR_EQUAL -> {
-                    if (value instanceof Comparable<?> && cond.getValue() instanceof Comparable<?>)
-                        yield ((Comparable<Object>) value).compareTo(cond.getValue()) <= 0;
-                    yield false;
-                }
+                case IS_EQUAL            -> numEq(value, rhs);
+                case IS_NOT_EQUAL        -> !numEq(value, rhs);
+                case IS_BIGGER           -> cmp(value, rhs) > 0;
+                case IS_SMALLER          -> cmp(value, rhs) < 0;
+                case IS_BIGGER_OR_EQUAL  -> cmp(value, rhs) >= 0;
+                case IS_SMALLER_OR_EQUAL -> cmp(value, rhs) <= 0;
             };
             if (!passed) return false;
         }
         return true;
     }
+    /**
+     * Tests equality with numeric awareness.
+     *
+     * <p>If both operands are {@link Number}s, equality is determined by numeric
+     * value, ignoring wrapper type. Finite floating-point values compare via
+     * {@link java.math.BigDecimal#valueOf(double)}; {@code NaN} only equals
+     * {@code NaN}; infinities compare by identity. For non-numeric operands,
+     * falls back to {@link java.util.Objects#equals(Object, Object)}.</p>
+     *
+     * @param a left operand
+     * @param b right operand
+     * @return {@code true} if numerically equal (for numbers) or {@code Objects.equals(a,b)} otherwise
+     */
+    private static boolean numEq(Object a, Object b) {
+        if (a instanceof Number na && b instanceof Number nb) {
+            // Handle floats/doubles (finite only)
+            if (na instanceof Float || na instanceof Double || nb instanceof Float || nb instanceof Double) {
+                double da = na.doubleValue(), db = nb.doubleValue();
+                if (Double.isNaN(da) || Double.isNaN(db)) return Double.isNaN(da) && Double.isNaN(db);
+                if (Double.isInfinite(da) || Double.isInfinite(db)) return da == db;
+                return java.math.BigDecimal.valueOf(da).compareTo(java.math.BigDecimal.valueOf(db)) == 0;
+            }
+            // Handle integral numbers (Byte/Short/Integer/Long/BigInteger)
+            java.math.BigInteger ia = new java.math.BigInteger(na.toString());
+            java.math.BigInteger ib = new java.math.BigInteger(nb.toString());
+            return ia.compareTo(ib) == 0;
+        }
+        return java.util.Objects.equals(a, b);
+    }
+
+    /**
+     * Total ordering for supported operand pairs.
+     *
+     * <p>If both operands are {@link Number}s, compares by numeric value using
+     * {@link java.math.BigDecimal} created from {@code toString()} to avoid
+     * wrapper-type and width issues. For non-numeric operands, uses natural order
+     * only when both operands share the same runtime class and implement
+     * {@link Comparable}. Otherwise throws with a clear message.</p>
+     *
+     * @param a left operand
+     * @param b right operand
+     * @return negative if {@code a < b}, zero if equal, positive if {@code a > b}
+     * @throws IllegalArgumentException if either operand is {@code null} or the pair is incomparable
+     */
+    @SuppressWarnings("unchecked")
+    private static int cmp(Object a, Object b) {
+        if (a == null || b == null) throw new IllegalArgumentException("null compare");
+        if (a instanceof Number na && b instanceof Number nb) {
+            return new java.math.BigDecimal(na.toString())
+                .compareTo(new java.math.BigDecimal(nb.toString()));
+        }
+        // same class and comparable → use natural order
+        if (a instanceof Comparable<?> c && a.getClass().isInstance(b)) {
+            return ((Comparable<Object>) c).compareTo(b);
+        }
+        throw new IllegalArgumentException(
+            "Incomparable types: " + a.getClass().getSimpleName() + " vs " + b.getClass().getSimpleName());
+    }
+
     /**
      * Evaluates this condition against a row of values using the schema.
      * 
