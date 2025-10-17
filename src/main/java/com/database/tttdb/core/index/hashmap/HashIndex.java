@@ -14,6 +14,7 @@ public class HashIndex<K extends Comparable<? super K>,V> implements Index<K,V> 
     private final HashMap<K,List<V>> hashmap;
     private boolean isNullable = false;
     private boolean isUnique = true;
+    private long size = 0;
 
     public HashIndex(){
         this.hashmap = new HashMap<>();
@@ -22,16 +23,19 @@ public class HashIndex<K extends Comparable<? super K>,V> implements Index<K,V> 
     public void insert(K key, V value) {
         ensureKeyValidity(key);
         if (isUnique) {
-            List<V> existing = hashmap.get(key);
-            if (existing != null && !existing.isEmpty()) {
-                throw new IllegalStateException("Duplicate key not allowed in unique index");
+            List<V> list = hashmap.get(key);
+            if (list == null) {
+                list = new ArrayList<>(1);
+                list.add(value);
+                hashmap.put(key, list);
+                size++;
+            } else {
+                list.set(0, value);
             }
-            List<V> list = new ArrayList<>(1);
-            list.add(value);
-            hashmap.put(key, list);
         } else {
             List<V> list = hashmap.computeIfAbsent(key, k -> new ArrayList<>());
             list.add(value);
+            size++;
         }
     }
 
@@ -40,15 +44,9 @@ public class HashIndex<K extends Comparable<? super K>,V> implements Index<K,V> 
         List<V> list = hashmap.get(key);
         if (list == null) return;
         if (value == null) {
-            // remove a single null value if present
-            for (int i = 0; i < list.size(); i++) {
-                if (list.get(i) == null) {
-                    list.remove(i);
-                    break;
-                }
-            }
+            if (list.remove(null)) size--;
         } else {
-            list.remove(value); // removes first occurrence
+            if(list.remove(value)) size--;
         }
         if (list.isEmpty()) {
             hashmap.remove(key);
@@ -137,6 +135,10 @@ public class HashIndex<K extends Comparable<? super K>,V> implements Index<K,V> 
         if (!replaced) {
             throw new NoSuchElementException("Old value not found for key");
         }
+    }
+
+    public long size(){
+        return size;
     }
 
     public K getMax() {

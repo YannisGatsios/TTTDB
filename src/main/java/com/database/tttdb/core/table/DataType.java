@@ -11,14 +11,14 @@ import java.util.UUID;
 
 
 public enum DataType {
-    INT(Integer.class, false),        // 4-byte integer
     SHORT(Short.class, false),        // 2-byte short
+    INT(Integer.class, false),        // 4-byte integer
+    LONG(Long.class, false),       // 8-byte integer
     FLOAT(Float.class, false),      // 4-byte floating point
     DOUBLE(Double.class, false),     // 8-byte floating point
     CHAR(String.class, false),     // Fixed-length string
     VARCHAR(String.class, true),     // Variable-length string
     BOOLEAN(Boolean.class, false),    // 1-byte boolean
-    LONG(Long.class, false),       // 8-byte integer
     DATE(LocalDate.class, false),       // Date without time
     TIME(LocalTime.class, false),      // Time without date
     TIMESTAMP(LocalDateTime.class, false),  // Date and time without timezone

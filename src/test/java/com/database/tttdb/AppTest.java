@@ -17,7 +17,7 @@ public class AppTest {
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
-    private String generateRandomString(int length) {
+    private static String generateRandomString(int length) {
         StringBuilder sb = new StringBuilder(length);
         for (int i = 0; i < length; i++) {
             int randomIndex = SECURE_RANDOM.nextInt(CHARACTERS.length());
@@ -35,14 +35,50 @@ public class AppTest {
         .addDatabase("app_test", 0);
     }
 
+    static Schema buildSchema() {
+        return new Schema()
+            .column("username").type(DataType.CHAR).size(50).primaryKey().endColumn()
+            .column("num").type(DataType.INT).index().endColumn()
+            .column("message").type(DataType.CHAR).size(10).endColumn()
+            .column("data").type(DataType.BYTE).size(10).notNull().defaultValue(new byte[10]).endColumn();
+    }
+
+    static List<Row> makeRows(int n) {
+        ArrayList<Row> rows = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            Row r = new Row("username,num,message,data")
+            .set("username", "INSERTION" + i)
+            .set("num", i)
+            .set("message", "TEST")
+            .set("data", new byte[]{(byte) i});
+            rows.add(r);
+        }
+        return rows;
+    }
+
+    static List<Row> makeRandomRows(Schema schema, int n, long seed, ArrayList<String> keyList) {
+        Random rnd = new Random(seed);
+        ArrayList<Row> rows = new ArrayList<>(n);
+        while (rows.size() < n) {
+            String u = generateRandomString(1 + rnd.nextInt(schema.getColumns()[0].size() - 1));
+            if(keyList.contains(u)) continue;
+            keyList.add(u);
+            Row r = new Row("username,num,message,data")
+            .set("username", u)
+            .set("num", 18 + rnd.nextInt(112))
+            .set("message", (rows.size() % 25) == 0 ? null : "_HELLO_");
+            byte[] data = new byte[rnd.nextInt(schema.getColumns()[3].size())];
+            rnd.nextBytes(data);
+            r.set("data", data);
+            rows.add(r);
+        }
+        return rows;
+    }
+
     @Test
     @Order(1)
     void testRandomInsertUpdateDelete() throws Exception {
-        Schema schema = new Schema()
-            .column("username").type(DataType.CHAR).size(10).primaryKey().endColumn()
-            .column("num").type(DataType.INT).index().endColumn()
-            .column("message").type(DataType.CHAR).size(10).endColumn()
-            .column("data").type(DataType.BYTE).size(10).notNull().defaultValue(new byte[10]).endColumn()
+        Schema schema = buildSchema()
             .column("id").autoIncrementing().unique().endColumn()
             .check("age_check")
                 .open().column("num").isBiggerOrEqual(18).end()
@@ -52,37 +88,18 @@ public class AppTest {
         db.addTable("users", schema)
         .start();
 
-        Random random = new Random(); 
         ArrayList<String> keysList = new ArrayList<>(400);
-        List<Row> expected = new ArrayList<>();
         // Insert 400 entries
-        int ind = 0;
-        while (ind < 400) {
-            int sizeOfID = random.nextInt(schema.getColumns()[0].size()-1);
-            String userName = generateRandomString(sizeOfID);
-            if(!db.containsValue("users", "username", userName)){
-                int sizeOfData = random.nextInt(db.getColumnSizes("users")[3]);
-                byte[] data = new byte[sizeOfData];
-                for(int y = 0; y < sizeOfData; y++){
-                    data[y] = (byte) random.nextInt(127);
-                }
-                keysList.add(userName);
-                Row row = new Row("username,num,message,data");
-                row.set("username", userName);
-                row.set("num", ind % 100 + 18);
-                row.set("message", (ind % 25) == 0 ? null : "_HELLO_");
-                row.set("data", data);
-                expected.add(row);
-                db.insertUnsafe("users", row);
-                ind++;
-            }
-        }
+        int ind = 400;
+        List<Row> expected = makeRandomRows(schema, ind, ind, keysList);
+        db.insert("users", expected);
         db.commit();
         List<Row> actual = db.select("username,num,message,data").from("users").fetch();
         Assertions.assertEquals(expected.size(), actual.size());
         Assertions.assertTrue(expected.containsAll(actual) && actual.containsAll(expected));
 
         // Delete 100 entries
+        Random random = new Random(); 
         ind = 0;
         while (ind < 100) {
             int randInd = random.nextInt(400-ind);
@@ -340,39 +357,53 @@ public class AppTest {
     @Test
     @Order(4)
     void millionOperations(){
-        Schema test_million_operations = new Schema()
-            .column("username").type(DataType.CHAR).size(50).primaryKey().endColumn()
-            .column("num").type(DataType.INT).index().endColumn()
-            .column("message").type(DataType.CHAR).size(10).endColumn()
-            .column("data").type(DataType.BYTE).size(10).notNull().defaultValue(new byte[10]).endColumn();
-        db.addTable("test_million_operations", test_million_operations);
+        db.addTable("test_million_operations", buildSchema());
         db.start();
         db.startTransaction("Million rows operations");
-        List<Row> rowsList = new ArrayList<>();
-        int ind = 0;
-        while(ind < 1000000){
-            String key = "INSERTION"+ind;
-            Row row = new Row("username,num,message,data");
-            row.set("username", key);
-            row.set("num", ind);
-            row.set("message", "TEST");
-            row.set("data", new byte[]{(byte) ind});
-            rowsList.add(row);
-            ind++;
-        }
+        List<Row> rowsList = makeRows(1000000);
+        //inserts
         assertEquals(1000000, db.insert("test_million_operations",rowsList));
+        //deletes
         db.startTransaction("Million Deletions");
             db.delete().from("test_million_operations").execute();
             List<Row> preRollbackResult = db.select("*").from("test_million_operations").fetch();
             assertEquals(0, preRollbackResult.size());
         db.rollBack("Undoing Deletions");
-
+        //select
         List<Row> afterRollbackResult = db.select("*").from("test_million_operations").fetch();
         assertEquals(1000000, afterRollbackResult.size());
+        //delete
         db.delete().from("test_million_operations").execute();
         List<Row> commitDeletionsResult = db.select("*").from("test_million_operations").fetch();
         assertEquals(0, commitDeletionsResult.size());
         db.commit();
+        db.dropTable("test_million_operations");
+        db.close();
+    }
+    @Test
+    @Order(5)
+    void rangeSelectivity() {
+        db.addTable("rangeSelectivity", buildSchema());
+        db.start();
+        // build table + index on "num" with {BTree, SkipList, Hash}
+        int N = 1_000_000;
+        List<Row> rows = makeRows(N);
+        db.startTransaction("rangeSelectivity");
+        db.insert("rangeSelectivity", rows);
+
+        int[][] ranges = { {1000,1010}, {10_000,20_000}, {0, 999_999} };
+        for (int[] r : ranges) {
+            long t0 = System.nanoTime();
+            rows = db.select("*")
+                .from("rangeSelectivity")//"num BETWEEN ? AND ?", r[0], r[1]
+                .where().column("num").isBiggerOrEqual(r[0]).isSmallerOrEqual(r[1]).end().endSelectClause()
+            .fetch();
+            long t1 = System.nanoTime();
+            System.out.printf("range [%d,%d] -> %d rows in %.2f ms%n",
+                r[0], r[1], rows.size(), (t1-t0)/1e6);
+        }
+        db.commit();
+        db.dropTable("rangeSelectivity");
         db.close();
     }
 }

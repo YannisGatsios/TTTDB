@@ -28,18 +28,18 @@ public class App {
         //DataBase INIT.
         Schema schema = new Schema()
             .column("username").type(DataType.CHAR).size(10).primaryKey().endColumn()
-            .column("num").type(DataType.INT).index().endColumn()
+            .column("age").type(DataType.SHORT).index().endColumn()
             .column("message").type(DataType.CHAR).size(10).endColumn()
             .column("data").type(DataType.BYTE).size(10).notNull().defaultValue(new byte[10]).endColumn()
             .column("id").autoIncrementing().unique().endColumn()
             .column("date").type(DataType.TIMESTAMP).endColumn()
             .check("age_check")
                 .open()
-                    .column("num")
+                    .column("age")
                     .isBiggerOrEqual(18).end()
                 .close()
                 .AND()
-                .column("num")
+                .column("age")
                 .isSmaller(130).end()
             .endCheck();
         DBMS db = new DBMS()
@@ -63,9 +63,9 @@ public class App {
                     data[y] = (byte) random.nextInt(127);
                 }
                 keysList.add(userName);
-                Row row = new Row("username,num,message,data")
+                Row row = new Row("username,age,message,data")
                 .set("username", userName)
-                .set("num", ind%100+18)
+                .set("age", (short)(ind%100+18))
                 .set("message", (ind%25)==0 ? null : "_HELLO_")
                 .set("data", data);
                 db.insertUnsafe("users",row);
@@ -107,7 +107,9 @@ public class App {
             }
         }
         db.commit();
-        List<Row> result = db.select("id,username,date").from("users").fetch();
+        List<Row> result = db.select("id,username,date").from("users").ASC("id").fetch();
+        for (Row row : result) 
+            System.out.println(row);
         db.printDatabase();
         db.dropDatabase();
         db.close();

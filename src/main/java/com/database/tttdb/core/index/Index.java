@@ -99,6 +99,22 @@ public interface Index<K extends Comparable<? super K>, V> {
     void update(K key, V newValue, V oldValue);
 
     /**
+     * Returns the number of stored pairs in the index.
+     * <p>Definition:</p>
+     * <ul>
+     *   <li>Counts <em>key–value pairs</em>, not distinct keys.</li>
+     *   <li>Includes pairs under a {@code null} key when {@link #isNullable()} is true.</li>
+     *   <li>Non-unique indexes: increments only when a new value is added to a key’s value-set,
+     *       decrements only when that specific value is removed.</li>
+     *   <li>Unique indexes: equals the number of present keys
+     *       (0 or 1 for the {@code null} key, plus one per non-null key).</li>
+     * </ul>
+     *
+     * @return total number of key–value pairs stored
+     */
+    long size();
+
+    /**
      * Returns the maximum key stored in the index.
      * If the index is empty, behavior is implementation-defined
      * (may return {@code null} or throw an exception).

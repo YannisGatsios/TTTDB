@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.database.tttdb.core.index.btree.BPlusTree;
 import com.database.tttdb.core.index.hashmap.HashIndex;
+import com.database.tttdb.core.index.skiplist.SkipListIndex;
 import com.database.tttdb.core.page.Entry;
 import com.database.tttdb.core.page.IndexPage;
 import com.database.tttdb.core.table.Table;
@@ -35,7 +36,7 @@ public class IndexInit<K extends Comparable<? super K>> implements Index<K,Index
     public record PointerPair(BlockPointer tablePointer, BlockPointer indexPointer) {} 
 
     public IndexInit(int order){
-        this.index = new HashIndex<>();
+        this.index = new BPlusTree<>(32);
     }
     @SuppressWarnings("unchecked")
     public IndexInit<K> initialize(Table table){
@@ -58,52 +59,44 @@ public class IndexInit<K extends Comparable<? super K>> implements Index<K,Index
         return this;
     }
 
-    @Override
     public void insert(K key, PointerPair value) {
         this.index.insert(key, value);
     }
-    @Override
     public void remove(K key, PointerPair value) {
         this.index.remove(key, value);
     }
-    @Override
     public List<Pair<K, PointerPair>> search(K key) {
         return this.index.search(key);
     }
-    @Override
     public List<Pair<K, PointerPair>> rangeSearch(K fromKey, K toKey) {
         return this.index.rangeSearch(fromKey, toKey);
     }
-    @Override
     public boolean isKey(K key) {
         return this.index.isKey(key);
     }
-    @Override
     public void update(K key, PointerPair newValue) {
         this.index.update(key, newValue);
     }
-    @Override
     public void update(K key, PointerPair newValue, PointerPair oldValue) {
         this.index.update(key, newValue, oldValue);
     }
     
-    @Override
     public void setUnique(boolean isUnique) {
         this.index.setUnique(isUnique);
     }
-    @Override
     public void setNullable(boolean isNullable) {
         this.index.setNullable(isNullable);
     }
-    @Override
     public boolean isUnique() {
         return this.index.isUnique();
     }
-    @Override
     public boolean isNullable() {
         return this.index.isNullable();
     }
-    @Override
+    public long size() {
+        return index.size();
+    }
+
     public K getMax() {
         return this.index.getMax();
     }
