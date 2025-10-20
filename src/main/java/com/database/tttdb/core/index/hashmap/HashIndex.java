@@ -152,6 +152,11 @@ public class HashIndex<K extends Comparable<? super K>,V> implements Index<K,V> 
         return max; // may be null if empty or only null keys exist
     }
 
+    public void clear(){
+        hashmap.clear();
+        size = 0;
+    }
+
     public void setUnique(boolean isUnique) { this.isUnique = isUnique; }
     public void setNullable(boolean isNullable) { this.isNullable = isNullable; }
     public boolean isUnique() { return isUnique; }

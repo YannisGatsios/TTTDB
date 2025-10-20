@@ -551,6 +551,13 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements Index<K, V
         return false;
     }
 
+    public void clear(){
+        root = new Node<>(true);
+        start = root;
+        nullPair = null;
+        size = 0;
+    }
+
     // =======! PRINTING !======
     /**
      * @return String representation of tree levels and leaf sequence

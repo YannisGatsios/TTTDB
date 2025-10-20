@@ -202,6 +202,15 @@ public final class SkipListIndex<K extends Comparable<? super K>, V> implements 
         return x == head ? null : x.key;
     }
 
+    public void clear() {
+        // unlink all levels from the head sentinel
+        for (int i = 0; i < MAX_LEVEL; i++) head.next[i] = null;
+        level = 1;
+        size = 0;
+        nullValues = null;
+        head.values.clear();
+    }
+
     public void setUnique(boolean isUnique) { this.unique = isUnique; }
     public void setNullable(boolean isNullable) { this.nullable = isNullable; }
     public boolean isUnique() { return unique; }

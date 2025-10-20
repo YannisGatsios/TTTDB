@@ -205,7 +205,7 @@ More usage examples can be found in `src/test/java/com/database/tttdb/AppTest.ja
 | `select()` | ✅ Yes | ✅ Always | Read-only short-lived transaction started and then rolled back to ensure consistent reads; no writes occur. |
 
 Transactions are implemented at the **database level** (see `Database.startTransaction()`, `commit()`, and `rollBack()`).  
-Each operation handled by `EntryManager` (`insertEntries`, `updateEntry`, `deleteEntry`) automatically starts, commits, or rolls back its own transaction if needed.
+Each operation handled by `EntryManager` (`insertEntries`, `updateEntry`, `deleteEntry`,`selectEntries`) automatically starts, commits, or rolls back its own transaction if needed.
 
 ---
 

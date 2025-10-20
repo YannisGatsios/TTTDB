@@ -104,8 +104,8 @@ public interface Index<K extends Comparable<? super K>, V> {
      * <ul>
      *   <li>Counts <em>key–value pairs</em>, not distinct keys.</li>
      *   <li>Includes pairs under a {@code null} key when {@link #isNullable()} is true.</li>
-     *   <li>Non-unique indexes: increments only when a new value is added to a key’s value-set,
-     *       decrements only when that specific value is removed.</li>
+     *   <li>Non-unique indexes: counts every stored pair under a key,
+     *       including multiple identical {@code (key, value)} duplicates.</li>
      *   <li>Unique indexes: equals the number of present keys
      *       (0 or 1 for the {@code null} key, plus one per non-null key).</li>
      * </ul>
@@ -150,6 +150,17 @@ public interface Index<K extends Comparable<? super K>, V> {
      * @return {@code true} if {@code null} keys are allowed
      */
     boolean isNullable();
+
+    /**
+     * Removes all entries in O(1) by dropping internal references.
+     * After this call:
+     * <ul>
+     *   <li>{@link #size()} returns 0.</li>
+     *   <li>Configuration flags ({@link #isUnique()}, {@link #isNullable()}) are unchanged.</li>
+     *   <li>Implementation should allow the GC to reclaim storage.</li>
+     * </ul>
+     */
+    void clear();
 
     /**
      * Returns a human-readable string representation of the index.

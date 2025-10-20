@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.database.tttdb.core.index.btree.BPlusTree;
 import com.database.tttdb.core.index.hashmap.HashIndex;
+import com.database.tttdb.core.index.redBlackTreeIndex.RedBlackTreeIndex;
 import com.database.tttdb.core.index.skiplist.SkipListIndex;
 import com.database.tttdb.core.page.Entry;
 import com.database.tttdb.core.page.IndexPage;
@@ -36,7 +37,7 @@ public class IndexInit<K extends Comparable<? super K>> implements Index<K,Index
     public record PointerPair(BlockPointer tablePointer, BlockPointer indexPointer) {} 
 
     public IndexInit(int order){
-        this.index = new BPlusTree<>(32);
+        this.index = new RedBlackTreeIndex<>();
     }
     @SuppressWarnings("unchecked")
     public IndexInit<K> initialize(Table table){
@@ -96,9 +97,11 @@ public class IndexInit<K extends Comparable<? super K>> implements Index<K,Index
     public long size() {
         return index.size();
     }
-
     public K getMax() {
         return this.index.getMax();
+    }
+    public void clear(){
+        this.index.clear();
     }
 
     public void setColumnIndex(int columnIndex){this.columnIndex = columnIndex;}
