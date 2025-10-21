@@ -355,23 +355,21 @@ public class RedBlackTreeIndex<K extends Comparable<? super K>, V> implements In
 
     private void insertFixup(Node node) {
         while (node.parent != null && node.parent.color == RED) {
-            Node uncle;
             if (node.parent == node.parent.parent.left) {
-                uncle = node.parent.parent.right;
-                rightUncleInsertFixup(node, uncle);
+                node = fixupLeftCase(node);
             } else {
-                uncle = node.parent.parent.left;
-                leftUncleInsertFixup(node, uncle);
+                node = fixupRightCase(node);
             }
         }
         root.color = BLACK;
     }
-    private void rightUncleInsertFixup(Node node,Node rightUncle){
-        if (colorOf(rightUncle) == RED) {
+    private Node fixupLeftCase(Node node) {
+        Node uncle = node.parent.parent.right;
+        if (colorOf(uncle) == RED) {
             node.parent.color = BLACK;
-            rightUncle.color = BLACK;
+            uncle.color = BLACK;
             node.parent.parent.color = RED;
-            node = node.parent.parent;
+            return node.parent.parent;
         } else {
             if (node == node.parent.right) {
                 node = node.parent;
@@ -380,14 +378,17 @@ public class RedBlackTreeIndex<K extends Comparable<? super K>, V> implements In
             node.parent.color = BLACK;
             node.parent.parent.color = RED;
             rightRotate(node.parent.parent);
+            return node;
         }
     }
-    private void leftUncleInsertFixup(Node node,Node leftUncle){
-        if (colorOf(leftUncle) == RED) {
+
+    private Node fixupRightCase(Node node) {
+        Node uncle = node.parent.parent.left;
+        if (colorOf(uncle) == RED) {
             node.parent.color = BLACK;
-            leftUncle.color = BLACK;
+            uncle.color = BLACK;
             node.parent.parent.color = RED;
-            node = node.parent.parent;
+            return node.parent.parent;
         } else {
             if (node == node.parent.left) {
                 node = node.parent;
@@ -396,6 +397,7 @@ public class RedBlackTreeIndex<K extends Comparable<? super K>, V> implements In
             node.parent.color = BLACK;
             node.parent.parent.color = RED;
             leftRotate(node.parent.parent);
+            return node;
         }
     }
 
