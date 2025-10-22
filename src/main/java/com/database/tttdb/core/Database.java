@@ -14,6 +14,7 @@ import com.database.tttdb.api.DatabaseException;
 import com.database.tttdb.api.ForeignKey.ForeignKeyAction;
 import com.database.tttdb.core.cache.Cache;
 import com.database.tttdb.core.cache.TransactionCache;
+import com.database.tttdb.core.index.IndexInit.IndexType;
 import com.database.tttdb.core.manager.SchemaManager;
 import com.database.tttdb.core.table.Table;
 import com.database.tttdb.api.ForeignKey;
@@ -27,6 +28,8 @@ public class Database {
     private String path = "";
     private final Map<String,Table> tables;
     private final Map<String,Schema> schema;
+
+    private IndexType indexType = IndexType.BTREE;
 
     private final Cache mainCache;
     private TransactionCache currentCache;
@@ -175,6 +178,8 @@ public class Database {
     public Schema getSchema(String tableName) {return schema.get(tableName);}
     public void setPath(String path){this.path = path;}
     public String getPath() { return this.path; }
+    public void setIndexType(IndexType indexType) { this.indexType = indexType; }
+    public IndexType getIndexType() { return this.indexType; }
     public String getName(){ return this.name; }
     public FileIOThread getFileIOThread() { return this.fileIOThread; }
     public List<Table> getAllTablesList() {

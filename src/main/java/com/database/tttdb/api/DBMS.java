@@ -21,6 +21,7 @@ import com.database.tttdb.api.Query.Select;
 import com.database.tttdb.api.Query.SelectType;
 import com.database.tttdb.api.Query.Update;
 import com.database.tttdb.core.Database;
+import com.database.tttdb.core.index.IndexInit.IndexType;
 import com.database.tttdb.core.manager.EntryManager;
 import com.database.tttdb.core.manager.ForeignKeyManager;
 import com.database.tttdb.core.page.Entry;
@@ -75,18 +76,22 @@ public class DBMS {
         this.databases = new HashMap<>();
     }
     /**
-     * Sets the directory path where database files are stored.
+     * Sets the directory path used for persistence by the currently selected {@link Database}.
      * <p>
-     * If the directory does not exist, it will be created automatically.
-     * If the path exists but is not a directory, a {@link DatabaseException} is thrown.
+     * Must be called before {@link #start()}. Applies only to the currently selected database.
+     * If the directory does not exist, it is created. If the path exists but is not a directory,
+     * a {@link DatabaseException} is thrown.
      * </p>
      *
-     * @param path the filesystem path for database storage
+     * @param path filesystem path for database storage
      * @return this {@code DBMS} instance for method chaining
-     * @throws DatabaseException if the path cannot be created or is not a directory
+     * @throws DatabaseException if the DBMS has already been started; if the path cannot be created;
+     *                           or if the path exists but is not a directory
+     * @throws IllegalArgumentException if no database is selected
      */
     public DBMS setPath(String path){
-        this.path = path;
+        if(isStarted) throw new DatabaseException("can not set path already started DBMS.");
+        if(this.selected == null) throw new IllegalArgumentException("Trying to set index type but not Database selected.");
         Path dir = Path.of(path);
         if (!Files.exists(dir)) {
             try {
@@ -97,9 +102,26 @@ public class DBMS {
         } else if (!Files.isDirectory(dir)) {
             throw new DatabaseException("Path exists but is not a directory: " + path);
         }
-        for (Database database : databases.values()) {
-            database.setPath(path);
-        }
+        selected.setPath(path);
+        this.path = path;
+        return this;
+    }
+    /**
+     * Sets the indexing strategy for the currently selected {@link Database}.
+     * <p>
+     * Must be called before {@link #start()}. Applies only to the selected database.
+     * </p>
+     *
+     * @param indexType non-null index implementation to use
+     * @return this {@code DBMS} instance for method chaining
+     * @throws DatabaseException if the DBMS has already been started
+     * @throws IllegalArgumentException if no database is selected
+     * @throws NullPointerException if {@code indexType} is null
+     */
+    public DBMS setIndexType(IndexType indexType){
+        if(isStarted) throw new DatabaseException("can not set index type already started DBMS.");
+        if(this.selected == null) throw new IllegalArgumentException("Trying to set index type but not Database selected.");
+        this.selected.setIndexType(indexType);
         return this;
     }
     /**
@@ -147,7 +169,6 @@ public class DBMS {
      */
     public DBMS addDatabase(String databaseName, int cacheCapacity){
         Database database = new Database(databaseName, this, cacheCapacity);
-        database.setPath(this.path);
         this.databases.put(databaseName, database);
         this.selected = database;
         return this;

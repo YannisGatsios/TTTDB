@@ -8,6 +8,7 @@ import java.security.SecureRandom;
 import java.util.*;
 
 import com.database.tttdb.api.*;
+import com.database.tttdb.core.index.IndexInit.IndexType;
 import com.database.tttdb.core.table.*;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -31,8 +32,8 @@ public class AppTest {
     @BeforeAll
     void setup() {
         db = new DBMS()
-        .setPath("data/")
-        .addDatabase("app_test", 0);
+        .addDatabase("app_test", 0)
+        .setPath("data/");
     }
 
     static Schema buildSchema() {
@@ -382,8 +383,15 @@ public class AppTest {
     }
     @Test
     @Order(5)
-    void rangeSelectivity() {
+    void perIndexRangeSelectTest(){
+        rangeSelectivity(IndexType.BTREE);
+        rangeSelectivity(IndexType.HASH_INDEX);
+        rangeSelectivity(IndexType.SKIPLIST);
+        rangeSelectivity(IndexType.RED_BLACK_TREE);
+    }
+    void rangeSelectivity(IndexType indexType) {
         db.addTable("rangeSelectivity", buildSchema());
+        db.setIndexType(indexType);
         db.start();
         // build table + index on "num" with {BTree, SkipList, Hash}
         int N = 1_000_000;
@@ -391,6 +399,7 @@ public class AppTest {
         db.startTransaction("rangeSelectivity");
         db.insert("rangeSelectivity", rows);
 
+        System.out.println(indexType.name()+" :");
         int[][] ranges = { {1000,1010}, {10_000,20_000}, {0, 999_999} };
         for (int[] r : ranges) {
             long t0 = System.nanoTime();

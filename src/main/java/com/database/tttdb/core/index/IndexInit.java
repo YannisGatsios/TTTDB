@@ -36,8 +36,13 @@ public class IndexInit<K extends Comparable<? super K>> implements Index<K,Index
     }
     public record PointerPair(BlockPointer tablePointer, BlockPointer indexPointer) {} 
 
-    public IndexInit(int order){
-        this.index = new RedBlackTreeIndex<>();
+    public IndexInit(IndexType indexType){
+        this.index = switch (indexType) {
+            case BTREE -> new BPlusTree<>(32);
+            case SKIPLIST -> new SkipListIndex<>();
+            case HASH_INDEX -> new HashIndex<>();
+            case RED_BLACK_TREE -> new RedBlackTreeIndex<>();
+        };
     }
     @SuppressWarnings("unchecked")
     public IndexInit<K> initialize(Table table){
@@ -60,50 +65,28 @@ public class IndexInit<K extends Comparable<? super K>> implements Index<K,Index
         return this;
     }
 
-    public void insert(K key, PointerPair value) {
-        this.index.insert(key, value);
-    }
-    public void remove(K key, PointerPair value) {
-        this.index.remove(key, value);
-    }
-    public List<Pair<K, PointerPair>> search(K key) {
-        return this.index.search(key);
-    }
-    public List<Pair<K, PointerPair>> rangeSearch(K fromKey, K toKey) {
-        return this.index.rangeSearch(fromKey, toKey);
-    }
-    public boolean isKey(K key) {
-        return this.index.isKey(key);
-    }
-    public void update(K key, PointerPair newValue) {
-        this.index.update(key, newValue);
-    }
-    public void update(K key, PointerPair newValue, PointerPair oldValue) {
-        this.index.update(key, newValue, oldValue);
-    }
-    
-    public void setUnique(boolean isUnique) {
-        this.index.setUnique(isUnique);
-    }
-    public void setNullable(boolean isNullable) {
-        this.index.setNullable(isNullable);
-    }
-    public boolean isUnique() {
-        return this.index.isUnique();
-    }
-    public boolean isNullable() {
-        return this.index.isNullable();
-    }
-    public long size() {
-        return index.size();
-    }
-    public K getMax() {
-        return this.index.getMax();
-    }
-    public void clear(){
-        this.index.clear();
-    }
+    public void insert(K key, PointerPair value) { this.index.insert(key, value); }
+    public void remove(K key, PointerPair value) { this.index.remove(key, value); }
+    public List<Pair<K, PointerPair>> search(K key) { return this.index.search(key); }
+    public List<Pair<K, PointerPair>> rangeSearch(K fromKey, K toKey) { return this.index.rangeSearch(fromKey, toKey); }
+    public boolean isKey(K key) { return this.index.isKey(key); }
+    public void update(K key, PointerPair newValue) { this.index.update(key, newValue); }
+    public void update(K key, PointerPair newValue, PointerPair oldValue) { this.index.update(key, newValue, oldValue); }
+    public void setUnique(boolean isUnique) { this.index.setUnique(isUnique); }
+    public void setNullable(boolean isNullable) { this.index.setNullable(isNullable); }
+    public boolean isUnique() { return this.index.isUnique(); }
+    public boolean isNullable() { return this.index.isNullable(); }
+    public long size() { return index.size(); }
+    public K getMax() { return this.index.getMax(); }
+    public void clear(){ this.index.clear(); }
 
     public void setColumnIndex(int columnIndex){this.columnIndex = columnIndex;}
     public int getColumnIndex(){return this.columnIndex;}
+
+    public enum IndexType{
+        BTREE,
+        SKIPLIST,
+        HASH_INDEX,
+        RED_BLACK_TREE
+    }
 }
