@@ -178,22 +178,6 @@ public class Entry {
         return result;
     }
 
-    public static boolean isValidEntry(Object[] entry, TableSchema schema) {
-        //Check if the number of columns matches the number of elements in the entry.
-        if (entry.length != schema.getNumOfColumns()) return false;
-        // Get the entry data and check each element's type and size.
-        DataType[] expectedTypes = schema.getTypes();
-        int[] expectedSizes = schema.getSizes();
-        boolean[] isNotNullable = schema.getNotNull();
-        for (int i = 0; i < expectedTypes.length; i++) {
-            DataType expectedType = expectedTypes[i];
-            int expectedSize = expectedSizes[i];
-            if(!isNotNullable[i] && entry[i] != null) expectedType.validateValue(entry[i], expectedSize);
-        }
-        // All checks passed, return true.
-        return true;
-    }
-
     @Override
     public boolean equals(Object o) {
         return (this == o) || (o instanceof Entry e && Arrays.equals(values, e.values));

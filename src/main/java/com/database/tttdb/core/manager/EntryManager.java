@@ -98,7 +98,6 @@ public class EntryManager {
      * @param table the table to insert rows into
      * @param rows the list of {@link Row} objects to insert
      * @return the number of successfully inserted entries
-     * @throws Exception if any row fails validation or violates constraints
      */
     public static int insertEntries(Table table, List<Row> rows){
         Database db = table.getDatabase();
@@ -175,7 +174,7 @@ public class EntryManager {
     * @param limit the maximum number of entries to delete; if negative, all matching entries are deleted
     * @return the number of entries successfully deleted
     */
-    public static <K extends Comparable<? super K>> int deleteEntry(Table table, WhereClause whereClause, int limit){
+    public static int deleteEntry(Table table, WhereClause whereClause, int limit){
         int result = -1;
         table.getDatabase().startTransaction("Internal Deletion  Process Transaction");
         try{
@@ -193,7 +192,7 @@ public class EntryManager {
         int deletedCount = 0;
         for (IndexRecord<K> value : indexResult) {
             if(!deleteAll && deletedCount>=limit)return deletedCount;
-            BlockPointer pointer = table.searchIndex(value.key(), value.columnIndex()).get(0).value.tablePointer();
+            BlockPointer pointer = table.searchIndex(value.key(), value.columnIndex()).getFirst().value.tablePointer();
             Entry entryToDelete = table.getCache()
                     .getTablePage(pointer.BlockID())
                     .get(pointer.RowOffset());
@@ -225,7 +224,7 @@ public class EntryManager {
     if (page.isLastPage()) {
             if (pointer.RowOffset() != page.size()) {
                 Entry moved = page.get(pointer.RowOffset());
-                BlockPointer oldValue = new BlockPointer(page.getPageID(), (short) page.size());
+                BlockPointer oldValue = new BlockPointer(page.getPageID(), page.size());
                 table.updateIndex(moved, pointer, oldValue);
             }
         } else {
@@ -262,7 +261,7 @@ public class EntryManager {
      * @return the number of entries successfully updated
      * @throws IllegalArgumentException if any updated entry is invalid or if a column name in updates is not found
      */
-    public static <K extends Comparable<? super K>> int updateEntry(Table table, WhereClause whereClause, int limit, UpdateFields updates) {
+    public static int updateEntry(Table table, WhereClause whereClause, int limit, UpdateFields updates) {
         table.getDatabase().startTransaction("Internal Updating  Process Transaction");
         int result = -1;
         try{
@@ -294,11 +293,11 @@ public class EntryManager {
         Entry oldEntry = page.get(tablePointer.RowOffset());
         table.removeIndex(oldEntry, tablePointer);
         Entry newEntry;
-        newEntry = newEntry(table, page, oldEntry, tablePointer, updates);
+        newEntry = newEntry(table, oldEntry, updates);
         page.set(tablePointer.RowOffset(),newEntry);
         table.insertIndex(newEntry, tablePointer);
     }
-    private static Entry newEntry(Table table, TablePage page, Entry oldEntry, BlockPointer pointer, List<InnerFunctions> updates){
+    private static Entry newEntry(Table table, Entry oldEntry, List<InnerFunctions> updates){
         Database database = table.getDatabase();
         Object[] orig = oldEntry.getValues();
         Object[] newValues = Arrays.copyOf(orig, orig.length);
@@ -342,9 +341,9 @@ public class EntryManager {
         int col = -1;
         boolean inIf = false, cond = false;
         for (InnerFunctions fun : updates) {
-            if(fun instanceof selectColumn sc) {
-                col = table.getSchema().getColumnIndex(sc.column());
-                if (col < 0) throw new DatabaseException("Invalid column to update: " + sc.column());
+            if(fun instanceof selectColumn(String column)) {
+                col = table.getSchema().getColumnIndex(column);
+                if (col < 0) throw new DatabaseException("Invalid column to update: " + column);
                 continue;
             }
             if(col<0) throw new DatabaseException("Update without target column.");

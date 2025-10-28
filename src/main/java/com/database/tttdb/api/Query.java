@@ -14,7 +14,6 @@ import com.database.tttdb.api.DBMS.UpdateQuery;
  * Each nested class represents a specific SQL statement:
  * <ul>
  *     <li>{@link Query.Select} – SELECT … FROM … WHERE …</li>
- *     <li>{@link Query.Insert} – INSERT INTO … VALUES …</li>
  *     <li>{@link Query.Delete} – DELETE FROM … WHERE …</li>
  *     <li>{@link Query.Update} – UPDATE … SET … WHERE …</li>
  * </ul>
@@ -49,12 +48,12 @@ public interface Query {
      *       default sort column or the database’s natural ordering.</li>
      * </ul>
      */
-    public enum SelectionType{
+    enum SelectionType{
         NORMAL,
         ASCENDING,
         DESCENDING,
     }
-    public record  SelectType(SelectionType type, String column) {}
+    record  SelectType(SelectionType type, String column) {}
     // ---------------------------------------------------------------------
     // SELECT
     // ---------------------------------------------------------------------
@@ -65,10 +64,10 @@ public interface Query {
      * Start with the list of columns to retrieve, then
      * chain calls to {@link #from(String)}, {@link #where()},
      * {@link #begin(int)}, {@link #limit(int)}, and optionally
-     * {@link #ASC()} or {@link #DEC()} to set a {@link SelectionType}.
+     * {@link #ASC(String columnName)} or {@link #DEC(String columnName)} to set a {@link SelectionType}.
      * Call {@link #fetch()} to produce an immutable {@link SelectQuery}.
      */
-    public static class Select implements Query{
+    class Select implements Query{
         private final DBMS dbms;
         private final String selectColumns;
         private String tableName;
@@ -165,7 +164,7 @@ public interface Query {
      * int removed = db.delete(q);
      * }</pre>
      */
-    public static class Delete implements Query{
+    class Delete implements Query{
         private final DBMS dbms;
         private String tableName;
         private WhereClause whereClause;
@@ -229,9 +228,9 @@ public interface Query {
      * db.update(q);
      * }</pre>
      */
-    public static class Update implements Query{
+    class Update implements Query{
         private final DBMS dbms;
-        private String tableName;
+        private final String tableName;
         private WhereClause whereClause;
         private UpdateFields updateFields;
         private int limit = -1;

@@ -3,12 +3,7 @@ package com.database.tttdb.api;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
@@ -56,7 +51,7 @@ public class DBMS {
          * @return array of column names
          */
         public String[] getColumns(Table table){
-            if(resultColumns == "*") return table.getSchema().getNames();
+            if(Objects.equals(resultColumns, "*")) return table.getSchema().getNames();
             if(resultColumns.isBlank() || resultColumns == null) return new String[0];
             return resultColumns.split("\\s*,\\s*");
         }
@@ -200,7 +195,8 @@ public class DBMS {
     }
     /**
      * Adds a table to the selected database.
-     * @param config the table configuration
+     * @param tableName the table name
+     * @param tableSchema the table schema
      * @return the current DBMS instance
      */
     public DBMS addTable(String tableName, Schema tableSchema){
@@ -437,7 +433,7 @@ public class DBMS {
             System.out.println("No database selected.");
             return;
         }
-        System.out.println(selected.toString());
+        System.out.println(selected);
         System.out.println("-".repeat(80));
     }
     /**

@@ -308,7 +308,7 @@ public class Functions {
     private static String concat(Object[] parts) {
         StringBuilder sb = new StringBuilder();
         for (Object o : parts) {
-            if (o != null) sb.append(o.toString());
+            if (o != null) sb.append(o);
         }
         return sb.toString();
     }

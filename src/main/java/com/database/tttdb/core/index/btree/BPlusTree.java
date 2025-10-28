@@ -156,7 +156,7 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements Index<K, V
         int pos = Collections.binarySearch(leaf.pairs, pair, keyComparator);
         if (pos >= 0 && isUnique) {
             return; // Key exists and tree is unique
-        } else if (pos >= 0 && !isUnique) {
+        } else if (pos >= 0) {
             // Handle duplicates by adding to the existing pair's duplicates
             if (!leaf.pairs.get(pos).value.equals(pair.value)) {
                 leaf.pairs.get(pos).addDup(pair.value);
@@ -193,12 +193,8 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements Index<K, V
         insertNonFull(node.children.get(index), pair);
     }
 
-    private int findChildIndex(Node<K, V> node, K key) {
-        int index = 0;
-        while (index < node.pairs.size() && key.compareTo(node.pairs.get(index).key) >= 0) {
-            index++;
-        }
-        return index;
+    private static <K extends Comparable<? super K>, V> int findChildIndex(Node<K, V> node, K key) {
+        return upperBoundIndex(node, key);
     }
 
     // ===========! REMOVING !=============
@@ -450,17 +446,24 @@ public class BPlusTree<K extends Comparable<? super K>, V> implements Index<K, V
         return current.pairs.getLast().key;
     }
 
-    private Node<K, V> findNode(K key) {
-        Node<K, V> current = this.root;
-        while (current != null && !current.isLeaf) {
-            int index = 0;
-            // Find the correct child index
-            while (index < current.pairs.size() && key.compareTo(current.pairs.get(index).key) >= 0) {
-                index++;
-            }
-            current = current.children.get(index);
+    private Node<K,V> findNode(K key) {
+        Node<K,V> cur = this.root;
+        while (cur != null && !cur.isLeaf) {
+            int i = upperBoundIndex(cur, key);
+            cur = cur.children.get(i);                  // children.size() == pairs.size() + 1
         }
-        return current;
+        return cur;
+    }
+
+    private static <K extends Comparable<? super K>, V> int upperBoundIndex(Node<K,V> node, K key) {
+        List<Pair<K,V>> ps = node.pairs;
+        int lo = 0, hi = ps.size();
+        while (lo < hi) {
+            int mid = (lo + hi) >>> 1;
+            if (key.compareTo(ps.get(mid).key) >= 0) lo = mid + 1;
+            else hi = mid;
+        }
+        return lo;                                      // first index with pair.key > key
     }
     // Core Operation (see interface docs for details)
     public List<Pair<K,V>> rangeSearch(K start, K end) {

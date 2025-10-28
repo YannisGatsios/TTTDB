@@ -273,25 +273,21 @@ public class Schema {
             // Type check
             if (value != null && !column.type().isValid(value)) {
                 throw new EntryValidationException(
-                    "Invalid type for column " + column.name() + 
-                    ". Expected " + column.type().getJavaClass().getSimpleName() + 
+                    "Invalid type for column " + column.name() +
+                    ". Expected " + column.type().getJavaClass().getSimpleName() +
                     " but got " + value.getClass().getSimpleName()
                 );
             }
 
             // Size check (CHAR, BYTE arrays, etc.)
             if (value != null && column.size() > 0) {
+                String msg = "Value for column " + column.name() +
+                        " exceeds max size of " + column.size();
                 if (value instanceof String s && s.length() > column.size()) {
-                    throw new EntryValidationException(
-                        "Value for column " + column.name() + 
-                        " exceeds max size of " + column.size()
-                    );
+                    throw new EntryValidationException(msg);
                 }
                 if (value instanceof byte[] b && b.length > column.size()) {
-                    throw new EntryValidationException(
-                        "Value for column " + column.name() + 
-                        " exceeds max size of " + column.size()
-                    );
+                    throw new EntryValidationException(msg);
                 }
             }
 

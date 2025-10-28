@@ -14,7 +14,7 @@ public class TableSnapshot {
             this.numOfPages = numOfPages;
         }
     }
-    private List<Snapshot> snapshots = new ArrayList<>();
+    private final List<Snapshot> snapshots = new ArrayList<>();
     public TableSnapshot(){
         this.snapshots.add(new Snapshot(new HashSet<>(), 0));
     }

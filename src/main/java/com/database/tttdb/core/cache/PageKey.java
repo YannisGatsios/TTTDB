@@ -29,8 +29,7 @@ public final class PageKey implements Comparable<PageKey> {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof PageKey)) return false;
-        PageKey k = (PageKey) o;
+        if (!(o instanceof PageKey k)) return false;
         return pageId == k.pageId &&
                Objects.equals(tableName, k.tableName) &&
                Objects.equals(columnName, k.columnName);

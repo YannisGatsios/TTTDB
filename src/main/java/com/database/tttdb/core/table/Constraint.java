@@ -38,15 +38,14 @@ public enum Constraint {
 
     @Override
     public String toString(){
-        switch (this) {
-            case PRIMARY_KEY: return "PRIMARY_KEY";
-            case UNIQUE: return "UNIQUE";
-            case SECONDARY_KEY: return "INDEX";
-            case NOT_NULL: return "NOT_NULL";
-            case CHECK: return "CHECK";
-            case AUTO_INCREMENT: return "AUTO_INCREMENT";
-            case NO_CONSTRAINT: return "NO_CONSTRAINT";
-            default: return "ERROR";
-        }
+        return switch (this) {
+            case PRIMARY_KEY -> "PRIMARY_KEY";
+            case UNIQUE -> "UNIQUE";
+            case SECONDARY_KEY -> "INDEX";
+            case NOT_NULL -> "NOT_NULL";
+            case CHECK -> "CHECK";
+            case AUTO_INCREMENT -> "AUTO_INCREMENT";
+            case NO_CONSTRAINT -> "NO_CONSTRAINT";
+        };
     }
 }

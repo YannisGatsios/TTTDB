@@ -13,7 +13,6 @@ import com.database.tttdb.core.table.Table;
  * Manages on-disk and cached pages for secondary/primary index structures.
  * Provides pointer lookup, index-entry insert/remove with compaction,
  * and in-place index-entry updates.
- *
  * Invariants:
  * - Each index entry is a 2-field {@link Entry}: [0]=table BlockPointer, [1]=key.
  * - Column index selects the index file/segment.
@@ -119,7 +118,6 @@ public class IndexPageManager {
     /**
      * Compacts the page by moving a candidate entry into the hole and updates the logical index.
      * Writes swap metadata into the provided arrays for rollback.
-     *
      * Cases:
      * - Last page: if the hole is not at the tail, swap with last entry on the same page.
      * - Non-last page: pull the last entry of the last page into the hole and shrink last page.
@@ -162,7 +160,7 @@ public class IndexPageManager {
 
         page.set(indexPointer.RowOffset(), lastEntry);
         PointerPair newPair = new PointerPair((BlockPointer) lastEntry.get(0), 
-                                new BlockPointer(page.getPageID(), (short) indexPointer.RowOffset()));
+                                new BlockPointer(page.getPageID(), indexPointer.RowOffset()));
         if(index.isUnique())index.update((K)lastEntry.get(1), newPair);
         else index.update((K)lastEntry.get(1), newPair, oldPair);
         keys[columnIndex] = lastEntry.get(1);

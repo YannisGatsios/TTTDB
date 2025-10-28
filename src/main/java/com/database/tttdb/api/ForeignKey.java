@@ -52,8 +52,8 @@ public class ForeignKey {
         SET_DEFAULT,
     }
     private final String name;
-    private Schema schema;
-    private List<String> childColumns = new ArrayList<>();
+    private final Schema schema;
+    private final List<String> childColumns = new ArrayList<>();
     private String referenceTable;
     private List<String> referenceColumns = new ArrayList<>();
     private ForeignKeyAction onDelete = ForeignKeyAction.RESTRICT;
@@ -123,10 +123,10 @@ public class ForeignKey {
     /**
      * Builder class to define the referenced table and columns for a foreign key.
      */
-    public class Reference {
-        private ForeignKey foreignKey;
+    public static class Reference {
+        private final ForeignKey foreignKey;
         private String referenceTable;
-        private List<String> parentColumns = new ArrayList<>();
+        private final List<String> parentColumns = new ArrayList<>();
         public Reference(ForeignKey foreignKey){
             this.foreignKey = foreignKey;
         }

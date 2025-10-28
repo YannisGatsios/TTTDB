@@ -27,13 +27,12 @@ import com.database.tttdb.core.page.TablePage;
 public class Table {
     private final Database database;
     private final String tableName;
-    private String path = "";
     private final TableSchema schema;
     
-    private TableCache cache;
-    private IndexManager indexManager;
+    private final TableCache cache;
+    private final IndexManager indexManager;
     private AutoIncrementing[] autoIncrementing;
-    private TableSnapshot tableSnapshot;
+    private final TableSnapshot tableSnapshot;
 
     private TableReference parent;
     private final List<TableReference> children = new ArrayList<>();
@@ -44,7 +43,7 @@ public class Table {
 
     public Table(Database database, String tableName, Schema tableSchema) {
         this.database = database;
-        this.path = this.database.getPath();
+        String path = this.database.getPath();
         this.tableName = tableName;
         this.schema = new TableSchema(tableName, tableSchema.get(database));
         
@@ -79,7 +78,7 @@ public class Table {
         return this.getAutoIncrementing(columnIndex).getKey();
     }
     public void setAutoIncrementValue(int columnIndex, long value){
-        this.getAutoIncrementing(columnIndex).setNextKey(value);;
+        this.getAutoIncrementing(columnIndex).setNextKey(value);
     }
 
     // -- Transaction Management -- 

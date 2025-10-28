@@ -41,7 +41,7 @@ public enum DataType {
     }
 
     public boolean isValid(Object value) {
-        return value != null && javaClass.isInstance(value);
+        return javaClass.isInstance(value);
     }
 
     public boolean isVariable(){
@@ -60,17 +60,11 @@ public enum DataType {
      */
     public int getSize() {
         return switch (this) {
-            case INT -> 4;
+            case INT, FLOAT -> 4;
             case SHORT -> 2;
-            case FLOAT -> 4;
-            case DOUBLE -> 8;
+            case DOUBLE, DATE, LONG, TIME -> 8;
             case BOOLEAN -> 1;
-            case LONG -> 8;
-            case DATE -> 8;
-            case TIME -> 8;
-            case TIMESTAMP -> 16;
-            case INTERVAL -> 16;
-            case UUID -> 16;
+            case TIMESTAMP, INTERVAL, UUID -> 16;
             case CHAR, VARCHAR, BYTE, VARBYTE, TIMESTAMP_WITH_TIME_ZONE -> -1;  // Variable size
         };
     }
@@ -198,9 +192,8 @@ public enum DataType {
                 break;
             case VARBYTE:
             case BYTE:
-                if (!(value instanceof byte[]))
+                if (!(value instanceof byte[] data))
                     throw new IllegalArgumentException("Expected byte array");
-                byte[] data = (byte[]) value;
                 if (size == 0 && data.length > 0) {
                     throw new IllegalArgumentException("Non-empty binary not allowed when size is 0");
                 }
@@ -243,8 +236,7 @@ public enum DataType {
     /**
      * Deserializes a value from a byte buffer starting at the specified position.
      * 
-     * @param bufferData The byte buffer containing serialized data
-     * @param startIndex The starting position in the buffer
+     * @param buffer The byte buffer containing serialized data
      * @return Object containing the value
      * @throws IllegalArgumentException If the type is unsupported or data is invalid
      */
@@ -441,7 +433,6 @@ public enum DataType {
             case TIME -> TIME_FORMATTER.format((LocalTime) value);
             case TIMESTAMP -> TIMESTAMP_FORMATTER.format((LocalDateTime) value);
             case TIMESTAMP_WITH_TIME_ZONE -> TIMESTAMP_WITH_TZ_FORMATTER.format((ZonedDateTime) value);
-            case INTERVAL -> value.toString();
             case BYTE,VARBYTE -> Base64.getEncoder().encodeToString((byte[]) value);
             default -> value.toString();
         };

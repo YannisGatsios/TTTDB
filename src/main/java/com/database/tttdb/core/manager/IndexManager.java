@@ -141,7 +141,6 @@ public class IndexManager {
     /**
      * Inserts index entries for a newly inserted table row.
      * Appends an INSERT operation to the index snapshot for rollback.
-     *
      * Invariants:
      * - Arrays are written by index position i, matching {@code indexes[i]}.
      *
@@ -154,14 +153,14 @@ public class IndexManager {
         Object[] keys = new Object[indexes.length];
         PointerPair[] values = new PointerPair[indexes.length];
         for (int i = 0; i < indexes.length; i++) {
-            IndexInit<?> index = indexes[i];
+            IndexInit<K> index = (IndexInit<K>)indexes[i];
             if(index == null) continue;
             assert index.getColumnIndex() == i : "Index position and columnIndex diverged";
             int columnIndex = index.getColumnIndex();
             K key = IndexUtils.getValidatedKey(entry, index, columnIndex,columnTypes[columnIndex]);
             BlockPointer indexPointer = this.pageManager.insert(tablePointer, key, index.getColumnIndex());
             PointerPair value = new PointerPair(tablePointer,indexPointer);
-            ((IndexInit<K>) index).insert(key, value);
+            index.insert(key, value);
             keys[i] = key;
             values[i] = value;
         }
@@ -187,7 +186,7 @@ public class IndexManager {
         PointerPair[] updatedOldValues = new PointerPair[indexes.length];
         boolean indexChanged = false;
         for (int i = 0; i < indexes.length; i++) {
-            IndexInit<?> index = indexes[i];
+            IndexInit<K> index = (IndexInit<K>)indexes[i];
             if(index == null) continue;
             assert index.getColumnIndex() == i : "Index position and columnIndex diverged";
             int columnIndex = index.getColumnIndex();
@@ -195,7 +194,7 @@ public class IndexManager {
             BlockPointer indexPointer = pageManager.findIndexPointer(index, key, blockPointer);
             PointerPair value = new PointerPair(blockPointer, indexPointer);
             indexChanged |= pageManager.remove(index, value, index.getColumnIndex(),updatedKeys,updatedValues,updatedOldValues);
-            ((IndexInit<K>) index).remove((K) key, value);
+            index.remove(key, value);
             keys[i] = key;
             values[i] = value;
         }
@@ -220,17 +219,17 @@ public class IndexManager {
         PointerPair[] values = new PointerPair[indexes.length];
         PointerPair[] oldValues = new PointerPair[indexes.length];
         for (int i = 0; i < indexes.length; i++) {
-            IndexInit<?> index = indexes[i];
+            IndexInit<K> index = (IndexInit<K>)indexes[i];
             if(index == null) continue;
             assert index.getColumnIndex() == i : "Index position and columnIndex diverged";
             int columnIndex = index.getColumnIndex();
             K key = IndexUtils.getValidatedKey(entry, index, columnIndex,columnTypes[columnIndex]);
-            BlockPointer indexPointer = pageManager.findIndexPointer(index, (K) key, oldBlockPointer);
+            BlockPointer indexPointer = pageManager.findIndexPointer(index, key, oldBlockPointer);
             pageManager.update(indexPointer , newBlockPointer, key, columnIndex);
             PointerPair newValue = new PointerPair(newBlockPointer, indexPointer);
             PointerPair oldValue = new PointerPair(oldBlockPointer, indexPointer);
-            if(index.isUnique())((IndexInit<K>) index).update(key, newValue);
-            else ((IndexInit<K>) index).update(key, newValue, oldValue);
+            if(index.isUnique())index.update(key, newValue);
+            else index.update(key, newValue, oldValue);
             keys[i] = key;
             values[i] = newValue;
             oldValues[i] = oldValue;

@@ -8,6 +8,7 @@ import java.util.Objects;
 import com.database.tttdb.api.DBMS.SelectQuery;
 import com.database.tttdb.core.page.Entry;
 import com.database.tttdb.core.table.Table;
+import com.database.tttdb.core.table.TableSchema;
 
 /**
  * Represents a database-like record with column names and their associated values.
@@ -105,7 +106,7 @@ public class Row {
     /**
      * Finds the index of a column name.
      *
-     * @param columnName the column name
+     * @param columnsName the column name
      * @return the index of the column, or -1 if not found
      */
     private int columnIndex(String columnsName){
@@ -120,8 +121,7 @@ public class Row {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Row)) return false;
-        Row other = (Row) o;
+        if (!(o instanceof Row other)) return false;
         return Arrays.equals(columnNames, other.columnNames)
             && Arrays.deepEquals(values, other.values);
     }
@@ -150,15 +150,15 @@ public class Row {
     }
 
     /**
-     * Prepares the result of a SELECT query as a list of {@link DBRecord}.
-     * @param resultColumns the columns to include in the result
+     * Prepares the result of a SELECT query as a list of {@link Row}.
+     * @param query the columns to include in the result
      * @param selectResult the raw entries
      * @return list of records
      */
     public static List<Row> prepareSelectResult(Table table, SelectQuery query,List<Entry> selectResult){
         List<Row> result = new ArrayList<>();
         String[] resultColumns = query.getColumns(table);
-        com.database.tttdb.core.table.TableSchema schema = table.getSchema();
+        TableSchema schema = table.getSchema();
         for (Entry entry : selectResult) {
             Object[] values = new Object[resultColumns.length];
             for(int i = 0;i<resultColumns.length;i++){

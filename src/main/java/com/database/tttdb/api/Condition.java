@@ -1,8 +1,6 @@
 package com.database.tttdb.api;
 
 import java.util.EnumMap;
-import java.util.Map;
-import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -167,7 +165,7 @@ public class Condition<T extends ConditionGroup<T>> {
      * {@link java.math.BigDecimal} created from {@code toString()} to avoid
      * wrapper-type and width issues. For non-numeric operands, uses natural order
      * only when both operands share the same runtime class and implement
-     * {@link Comparable}. Otherwise throws with a clear message.</p>
+     * {@link Comparable}. Otherwise, throws with a clear message.</p>
      *
      * @param a left operand
      * @param b right operand
@@ -236,7 +234,7 @@ public class Condition<T extends ConditionGroup<T>> {
     /**
      * Defines how conditions are logically connected in a clause.
      */
-    public static enum Clause{
+    public enum Clause{
         FIRST,
         OR,
         AND,
@@ -448,7 +446,7 @@ public class Condition<T extends ConditionGroup<T>> {
         /**
          * This object is a control function (it doesn't itself compute a value when applied).
          * If you do want it to produce a value (e.g. evaluate the condition and return something),
-         * implement it here. For now we keep it as unsupported to avoid accidental use.
+         * implement it here. For now, we keep it as unsupported to avoid accidental use.
          */
         @Override
         public Object apply(TableSchema schema, Object[] rowData, int columnIndex) {

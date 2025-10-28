@@ -79,10 +79,9 @@ public class Database {
             String.format("Table '%s' created successfully in database '%s'.", tableName, this.name));
     }
     private void addTable(String tableName, Schema tableSchema){
-        Schema newSchema = tableSchema;
         Table newTable = new Table(this, tableName, tableSchema);
-        this.prepareForeignKey(newTable, newSchema);
-        this.schema.put(tableName, newSchema);
+        this.prepareForeignKey(newTable, tableSchema);
+        this.schema.put(tableName, tableSchema);
         this.tables.put(tableName, newTable);
     }
     public record TableReference(

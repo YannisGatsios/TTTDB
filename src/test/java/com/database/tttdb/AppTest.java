@@ -381,6 +381,13 @@ public class AppTest {
         db.dropTable("test_million_operations");
         db.close();
     }
+    private static long usedMemBytes() {
+        Runtime r = Runtime.getRuntime();
+        return r.totalMemory() - r.freeMemory();
+    }
+    private static String mb(long bytes) {
+        return String.format("%.1f MB", bytes / (1024.0 * 1024.0));
+    }
     @Test
     @Order(5)
     void perIndexRangeSelectTest(){
@@ -390,14 +397,19 @@ public class AppTest {
         rangeSelectivity(IndexType.RED_BLACK_TREE);
     }
     void rangeSelectivity(IndexType indexType) {
+        long mStart = usedMemBytes();
+        System.out.println("heap at start: " + mb(mStart));
         db.addTable("rangeSelectivity", buildSchema());
         db.setIndexType(indexType);
         db.start();
         // build table + index on "num" with {BTree, SkipList, Hash}
         int N = 1_000_000;
         List<Row> rows = makeRows(N);
+        System.out.println("after makeRows: " + mb(usedMemBytes()));
+
         db.startTransaction("rangeSelectivity");
         db.insert("rangeSelectivity", rows);
+        System.out.println(indexType.name()+" after insert: " + mb(usedMemBytes()));
 
         System.out.println(indexType.name()+" :");
         int[][] ranges = { {1000,1010}, {10_000,20_000}, {0, 999_999} };
@@ -414,5 +426,8 @@ public class AppTest {
         db.commit();
         db.dropTable("rangeSelectivity");
         db.close();
+        System.out.println("heap at end: " + mb(usedMemBytes()));
+        rows = null;
+        System.gc(); // only outside timed sections if you insist on snapshotting hea
     }
 }

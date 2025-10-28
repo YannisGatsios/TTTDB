@@ -64,10 +64,10 @@ public class App {
                 }
                 keysList.add(userName);
                 Row row = new Row("username,age,message,data")
-                .set("username", userName)
-                .set("age", (short)(ind%100+18))
-                .set("message", (ind%25)==0 ? null : "_HELLO_")
-                .set("data", data);
+                    .set("username", userName)
+                    .set("age", (short)(ind%100+18))
+                    .set("message", (ind%25)==0 ? null : "_HELLO_")
+                    .set("data", data);
                 db.insertUnsafe("users",row);
                 ind++;
             }
@@ -79,8 +79,10 @@ public class App {
             if(db.containsValue("users", "username", keysList.get(randInd))){
                 String key = keysList.get(randInd);
                 db.delete().from("users")
-                    .where().column("username").isEqual(key).end().endDeleteClause()
-                .execute();
+                    .where()
+                        .column("username").isEqual(key).end()
+                    .endDeleteClause()
+                    .execute();
                 keysList.remove(randInd);
                 ind++;
             }
@@ -93,10 +95,12 @@ public class App {
                 String key = keysList.get(randInd);
                 try{
                     db.update("users")
-                    .set()
-                    .selectColumn("username").leftPad( 10, "x")
-                    .selectColumn("data").set(new byte[10]).endUpdate()
-                .where().column("username").isEqual(key).end().endUpdateClause();
+                        .set()
+                        .selectColumn("username").leftPad( 10, "x")
+                        .selectColumn("data").set(new byte[10]).endUpdate()
+                        .where()
+                            .column("username").isEqual(key).end()
+                        .endUpdateClause();
                 }catch(EntryValidationException e){
                     db.rollBack("Update failed");
                     e.printStackTrace();

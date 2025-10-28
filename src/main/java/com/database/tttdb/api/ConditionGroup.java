@@ -196,12 +196,9 @@ public class ConditionGroup<T extends ConditionGroup<T>> {
                 ? groups.get(groupIndex++).isTrue(entryValues, schema)
                 : entry.getValue().isTrue(entryValues, schema);
             switch (entry.getKey()) {
-                case FIRST -> result = condResult;
-                case AND -> result = result && condResult;
-                case OR -> result = result || condResult;
-                case FIRST_GROUP -> result = condResult;
-                case OR_GROUP -> result = result || condResult;
-                case AND_GROUP -> result = result && condResult;
+                case FIRST, FIRST_GROUP -> result = condResult;
+                case AND, AND_GROUP -> result = result && condResult;
+                case OR, OR_GROUP -> result = result || condResult;
             }
         }
         return result;
