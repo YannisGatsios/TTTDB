@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.logging.Logger;
 
 import com.database.tttdb.api.Condition.UpdateCondition;
 import com.database.tttdb.api.Condition.WhereClause;
@@ -24,6 +25,7 @@ import com.database.tttdb.api.Schema;
 import com.database.tttdb.api.UpdateFields;
 
 public class EntryManager {
+    private static final Logger LOG = Logger.getLogger(EntryManager.class.getName());
     //==SELECTING==
     /**
      * Selects entries from the table according to a {@link WhereClause}, with optional ordering by a specific column.
@@ -191,6 +193,7 @@ public class EntryManager {
         boolean deleteAll = limit < 0;
         int deletedCount = 0;
         for (IndexRecord<K> value : indexResult) {
+            LOG.info("delete_" + deletedCount);
             if(!deleteAll && deletedCount>=limit)return deletedCount;
             BlockPointer pointer = table.searchIndex(value.key(), value.columnIndex()).getFirst().value.tablePointer();
             Entry entryToDelete = table.getCache()
@@ -221,7 +224,7 @@ public class EntryManager {
         return page;
     }
     private static void replaceWithLast(Table table, TablePage page, BlockPointer pointer){
-    if (page.isLastPage()) {
+        if (page.isLastPage()) {
             if (pointer.RowOffset() != page.size()) {
                 Entry moved = page.get(pointer.RowOffset());
                 BlockPointer oldValue = new BlockPointer(page.getPageID(), page.size());

@@ -1,12 +1,16 @@
 package com.database.tttdb.core.cache;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.database.tttdb.api.DatabaseException;
 import com.database.tttdb.core.Database;
 import com.database.tttdb.core.FileIO;
 import com.database.tttdb.core.FileIOThread;
@@ -50,29 +54,71 @@ public class Cache {
         }
     }
 
-    public void commit(){
+    public synchronized void commit() {
         logger.info(name + ":\n == COMMIT START ==");
-        cache.entrySet().stream()
-            .sorted(Map.Entry.comparingByKey())
-            .forEach(entry -> {
-                try {
-                    writePage(entry);
-                } catch (Exception e) {
-                    logger.log(Level.SEVERE, name+": Failed to write page: " + entry.getKey(), e);
-                }
-            });
-        // Truncate tables and indexes
-        for (Table table : database.getAllTablesList()) {
-            logger.info(name + ": Truncating table: " + table.getName());
-            truncateTable(table);
-            for (int i = 0; i < table.getSchema().getNumOfColumns(); i++) {
-                if (table.getIndexManager().isIndexed(i)) {
-                    truncateIndex(table, i);
+
+        List<Page> dirtyPages = cache.values()
+                .stream()
+                .filter(Page::isDirty)
+                .sorted(
+                        Comparator
+                                .comparing(Page::getFilePath)
+                                .thenComparingLong(Page::getPagePos)
+                )
+                .toList();
+
+        try {
+            /*
+            * One queued batch instead of one queued operation for every page.
+            * FileIO will group by path and merge adjacent page writes.
+            */
+            fileIO.writePages(dirtyPages);
+
+            /*
+            * Write operations were completed before this point because
+            * writePages() now waits for its FutureTask.
+            */
+            for (Table table : database.getAllTablesList()) {
+                logger.info(
+                        name + ": Truncating table: " + table.getName()
+                );
+
+                truncateTable(table);
+
+                for (int columnIndex = 0;
+                    columnIndex < table.getSchema().getNumOfColumns();
+                    columnIndex++) {
+
+                    if (table.getIndexManager().isIndexed(columnIndex)) {
+                        truncateIndex(table, columnIndex);
+                    }
                 }
             }
+
+            /*
+            * Requests durable flushing after writes and truncations.
+            */
+            fileIO.forceAll();
+            /*
+            * Only mark pages clean after the batch and force succeed.
+            */
+            for (Page page : dirtyPages) {
+                page.setDirty(false);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new DatabaseException(
+                    name + ": Commit interrupted.",
+                    e
+            );
+        } catch (ExecutionException e) {
+            Throwable cause =
+                    e.getCause() == null ? e : e.getCause();
+            throw new DatabaseException(
+                    name + ": Failed to write pages during commit.",
+                    cause
+            );
         }
-        // Clear cache aft
-        cache.clear();
         logger.info(name + ":\n == COMMIT END ==");
     }
     public void rollback(String reason){
@@ -112,11 +158,11 @@ public class Cache {
             return newPage;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.log(Level.SEVERE, String.format(name+": Interrupted while loading page ID %d for table '%s'.", pageID, table.getName()), e);
+            throw new DatabaseException(String.format(name+": Interrupted while loading page ID %d for table '%s'.", pageID, table.getName()), e);
         } catch (ExecutionException e) {
-            logger.log(Level.SEVERE, String.format(name+": Execution failed while loading page ID %d for table '%s'.", pageID, table.getName()), e);
+            Throwable cause = e.getCause() == null ? e : e.getCause();
+            throw new DatabaseException( String.format(name+": Execution failed while loading page ID %d for table '%s'.", pageID, table.getName()), cause);
         }
-        return null;
     }
     protected IndexPage loadIndexPage(PageKey pageKey) {
         Table table = database.getTable(pageKey.getTableName());
@@ -137,11 +183,11 @@ public class Cache {
             return newPage;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.log(Level.SEVERE, String.format(name+": Interrupted while loading page ID %d for index '%s'.", pageID, pageKey.getColumnName()), e);
+            throw new DatabaseException(String.format(name+": Interrupted while loading page ID %d for index '%s'.", pageID, pageKey.getColumnName()), e);
         } catch (ExecutionException e) {
-            logger.log(Level.SEVERE, String.format(name+": Execution failed while loading page ID %d for index '%s'.", pageID, pageKey.getColumnName()), e);
+            Throwable cause = e.getCause() == null ? e : e.getCause();
+            throw new DatabaseException( String.format(name+": Execution failed while loading page ID %d for index '%s'.", pageID, pageKey.getColumnName()), cause);
         }
-        return null;
     }
 
     //== Getting Pages ==
@@ -230,6 +276,33 @@ public class Cache {
         }
     }
 
+    public void deleteTableFiles(Table table)
+        throws InterruptedException, ExecutionException {
+        if (table == null) {
+            throw new IllegalArgumentException(
+                    "Table cannot be null."
+            );
+        }
+        List<String> paths = new ArrayList<>();
+        paths.add(table.getPath());
+        boolean[] indexedColumns =
+                table.getSchema().isIndexed();
+        for (int columnIndex = 0;
+            columnIndex < indexedColumns.length;
+            columnIndex++) {
+            if (indexedColumns[columnIndex]) {
+                paths.add(table.getIndexPath(columnIndex));
+            }
+        }
+        fileIO.deleteFiles(paths);
+    }
+    public synchronized void invalidateTable(String tableName) {
+        cache.keySet().removeIf(
+            key -> key.getTableName().equals(tableName)
+        );
+    }
+    
+    public void closeFileIO() throws InterruptedException {fileIO.close();}
     public Database getDatabase() { return this.database; }
     public int getCacheCapacity() { return this.CAPACITY; }
     public void setFileIOThread(FileIOThread fileIOThread) { this.fileIO.setFileIOThread(fileIOThread); }

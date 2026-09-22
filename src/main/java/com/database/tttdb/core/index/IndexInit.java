@@ -38,7 +38,7 @@ public class IndexInit<K extends Comparable<? super K>> implements Index<K,Index
 
     public IndexInit(IndexType indexType){
         this.index = switch (indexType) {
-            case BTREE -> new BPlusTree<>(32);
+            case BTREE -> new BPlusTree<>(64);
             case SKIPLIST -> new SkipListIndex<>();
             case HASH_INDEX -> new HashIndex<>();
             case RED_BLACK_TREE -> new RedBlackTreeIndex<>();

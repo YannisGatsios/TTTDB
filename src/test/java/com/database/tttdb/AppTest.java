@@ -32,13 +32,14 @@ public class AppTest {
     @BeforeAll
     void setup() {
         db = new DBMS()
-        .addDatabase("app_test", 0)
+        .addDatabase("app_test", 1_000)
         .setPath("data/");
     }
 
     static Schema buildSchema() {
         return new Schema()
-            .column("username").type(DataType.CHAR).size(50).primaryKey().endColumn()
+            .column("user_id").autoIncrementing().endColumn()
+            .column("username").type(DataType.CHAR).size(50).unique().endColumn()
             .column("num").type(DataType.INT).index().endColumn()
             .column("message").type(DataType.CHAR).size(10).endColumn()
             .column("data").type(DataType.BYTE).size(10).notNull().defaultValue(new byte[10]).endColumn();
@@ -56,6 +57,36 @@ public class AppTest {
         }
         return rows;
     }
+    static List<Row> makeRandomRowsWithNulls(int n, long seed) {
+    Random rnd = new Random(seed);
+    ArrayList<Row> rows = new ArrayList<>(n);
+    HashSet<String> seenUsernames = new HashSet<>(n);
+    // small vocab to force duplicates in "message"
+    String[] vocab = {"TEST", "HELLO", "WORLD", "AAAAA", "BBBBB", "CCCCCC", ""};
+    while (rows.size() < n) {
+        // unique username, length ≤ 50
+        String username = "U_" + generateRandomString(8 + rnd.nextInt(16)); // 8..23 chars
+        if (!seenUsernames.add(username)) continue; // ensure uniqueness
+        // num: 30% NULL, else from small range to force duplicates
+        Integer num = (rnd.nextDouble() < 0.01) ? null : rnd.nextInt(200); // many repeats
+        // message: 35% NULL, else pick from small vocab
+        String message = (rnd.nextDouble() < 0.015) ? null : vocab[rnd.nextInt(vocab.length)];
+        if (message != null && message.length() > 10) {
+            message = message.substring(0, 10); // respect size(10)
+        }
+        // data: non-null byte[] length 1..10
+        int len = 1 + rnd.nextInt(10);
+        byte[] data = new byte[len];
+        rnd.nextBytes(data);
+        Row r = new Row("username,num,message,data")
+            .set("username", username)
+            .set("num", num)                 // may be null
+            .set("message", message)         // may be null
+            .set("data", data);              // not null
+        rows.add(r);
+    }
+    return rows;
+}
 
     static List<Row> makeRandomRows(Schema schema, int n, long seed, ArrayList<String> keyList) {
         Random rnd = new Random(seed);
@@ -80,7 +111,6 @@ public class AppTest {
     @Order(1)
     void testRandomInsertUpdateDelete() throws Exception {
         Schema schema = buildSchema()
-            .column("id").autoIncrementing().unique().endColumn()
             .check("age_check")
                 .open().column("num").isBiggerOrEqual(18).end()
                 .close()
@@ -143,7 +173,7 @@ public class AppTest {
         Assertions.assertTrue(expected.containsAll(actualAfterUpdate) && actualAfterUpdate.containsAll(expected));
 
         // Select to verify
-        List<Row> result = db.select("id,username").from("users").fetch();
+        List<Row> result = db.select("user_id,username").from("users").fetch();
         Assertions.assertFalse(result.isEmpty(), "Users table should not be empty after insert/update/delete.");
         db.dropTable("users");
         db.close();
@@ -359,17 +389,22 @@ public class AppTest {
     @Order(4)
     void millionOperations(){
         db.addTable("test_million_operations", buildSchema());
+        db.setIndexType(IndexType.HASH_INDEX);
         db.start();
         db.startTransaction("Million rows operations");
         List<Row> rowsList = makeRows(1000000);
+        System.out.println("ready");
         //inserts
         assertEquals(1000000, db.insert("test_million_operations",rowsList));
+        System.out.println("ready");
         //deletes
-        db.startTransaction("Million Deletions");
-            db.delete().from("test_million_operations").execute();
-            List<Row> preRollbackResult = db.select("*").from("test_million_operations").fetch();
-            assertEquals(0, preRollbackResult.size());
+        db.startTransaction("DeletionsE");
+        db.delete().from("test_million_operations").execute();
+        List<Row> preRollbackResult = db.select("*").from("test_million_operations").fetch();
+        assertEquals(0, preRollbackResult.size());
+        System.out.println("ready");
         db.rollBack("Undoing Deletions");
+        System.out.println("ready");
         //select
         List<Row> afterRollbackResult = db.select("*").from("test_million_operations").fetch();
         assertEquals(1000000, afterRollbackResult.size());
@@ -397,6 +432,8 @@ public class AppTest {
         rangeSelectivity(IndexType.RED_BLACK_TREE);
     }
     void rangeSelectivity(IndexType indexType) {
+        System.out.println("=========== rangeSelectivity TEST START ===========");
+        System.gc();
         long mStart = usedMemBytes();
         System.out.println("heap at start: " + mb(mStart));
         db.addTable("rangeSelectivity", buildSchema());
@@ -407,9 +444,12 @@ public class AppTest {
         List<Row> rows = makeRows(N);
         System.out.println("after makeRows: " + mb(usedMemBytes()));
 
-        db.startTransaction("rangeSelectivity");
+        db.startTransaction("Insertions");
         db.insert("rangeSelectivity", rows);
-        System.out.println(indexType.name()+" after insert: " + mb(usedMemBytes()));
+        System.out.println(indexType.name()+" after insert pre commit: " + mb(usedMemBytes()));
+        db.commit();
+        System.gc();
+        System.out.println(indexType.name()+" after insert after commit: " + mb(usedMemBytes()));
 
         System.out.println(indexType.name()+" :");
         int[][] ranges = { {1000,1010}, {10_000,20_000}, {0, 999_999} };
@@ -423,11 +463,12 @@ public class AppTest {
             System.out.printf("range [%d,%d] -> %d rows in %.2f ms%n",
                 r[0], r[1], rows.size(), (t1-t0)/1e6);
         }
-        db.commit();
-        db.dropTable("rangeSelectivity");
-        db.close();
-        System.out.println("heap at end: " + mb(usedMemBytes()));
         rows = null;
         System.gc(); // only outside timed sections if you insist on snapshotting hea
+        System.out.println("heap after selections: " + mb(usedMemBytes()));
+        db.dropTable("rangeSelectivity");
+        db.close();
+        System.gc();
+        System.out.println("heap at end: " + mb(usedMemBytes()));
     }
 }

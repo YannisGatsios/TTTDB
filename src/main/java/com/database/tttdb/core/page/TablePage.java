@@ -71,6 +71,7 @@ public class TablePage extends Page{
             throw new IllegalArgumentException("spaceInUse mismatch");
         if(result.numOfEntries() != size()) 
             throw new IllegalArgumentException("numOfEntries mismatch");
+        setDirty(false);
     }
 
     public boolean isLastPage() { return (this.getPageID() == table.getPages()-1); }

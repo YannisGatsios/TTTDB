@@ -45,27 +45,67 @@ public class Database {
     }
 
     public void start() {
-        if (fileIOThread != null && fileIOThread.isAlive()) return;
-        fileIOThread = new FileIOThread(name); // new instance
-        fileIOThread.start();
-        mainCache.setFileIOThread(fileIOThread);
-        for (String t : new HashSet<>(tables.keySet())) {
-            Table table = tables.get(t);
-            SchemaManager.createTable(table.getSchema(), path, name, t);
-            table.start();
+        if (fileIOThread == null || !fileIOThread.isAlive()) {
+            fileIOThread = new FileIOThread(name);
+            fileIOThread.start();
+            mainCache.setFileIOThread(fileIOThread);
+        }
+        try {
+            for (String tableName : new HashSet<>(tables.keySet())) {
+                Table table = tables.get(tableName);
+                SchemaManager.createTable(
+                    table.getSchema(),
+                    path,
+                    name,
+                    tableName
+                );
+                table.start();
+            }
+        } catch (RuntimeException | Error e) {
+            try {
+                /*
+                * Close persistent channels as well as the worker.
+                */
+                mainCache.closeFileIO();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                e.addSuppressed(interrupted);
+            } finally {
+                fileIOThread = null;
+            }
+            throw e;
         }
     }
 
-    public void close(){
+    public void close() {
+        if (fileIOThread == null) {return;}
         try {
-            this.fileIOThread.shutdown();
+            /*
+            * FileIO.close() queues channel cleanup and then shuts down
+            * the worker thread.
+            */
+            mainCache.closeFileIO();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            String message = String.format("InterruptedException: Shutdown interrupted while closing Database '%s'.", this.name);
+            String message = String.format(
+                    "Shutdown interrupted while closing database '%s'.",
+                    name
+            );
             logger.log(Level.WARNING, message, e);
             throw new DatabaseException(message, e);
+        } finally {
+            /*
+            * Ensures start() creates a new worker if this Database object
+            * is reused.
+            */
+            fileIOThread = null;
         }
-        logger.info(String.format("All tables closed for database '%s'.", this.name));
+        logger.info(
+                String.format(
+                        "All tables closed for database '%s'.",
+                        name
+                )
+        );
     }
 
     public void createTable(String tableName, Schema tableSchema) {
@@ -122,21 +162,72 @@ public class Database {
         }
         logger.info(String.format("Removed %d table(s) from database '%s'.", tableNames.size(), this.name));
     }
-    public void dropTable(String tableName){
-        Table table = this.getTable(tableName);
+    public void dropTable(String tableName) {
+        Table table = getTable(tableName);
         if (table == null) {
-            logger.warning(String.format("Warning: Tried to remove non-existent table '%s' from database '%s'.", tableName, this.name));
+            logger.warning(
+                    String.format(
+                            "Tried to remove non-existent table '%s' "
+                                    + "from database '%s'.",
+                            tableName,
+                            name
+                    )
+            );
             return;
         }
-        try {
-            SchemaManager.dropTable(table);
-            this.tables.remove(tableName);
-        } catch (Exception e) {
-            String message = String.format("Error removing table '%s' from database '%s'.",tableName, name); 
-            logger.log(Level.SEVERE, message,e);
-            throw new DatabaseException(message,e);
+        if (currentCache != null) {
+            throw new DatabaseException(
+                    "Cannot drop table inside an active transaction: "
+                            + tableName
+            );
         }
-        logger.info(String.format("Table '%s' removed from database '%s'.", tableName, this.name));
+        try {
+            /*
+            * Prevent later commits from rewriting pages belonging to this
+            * table after its files have been removed.
+            */
+            mainCache.invalidateTable(tableName);
+            /*
+            * This queues operations in the correct order:
+            *
+            * previous writes
+            * close channels for these paths
+            * delete table and index files
+            */
+            mainCache.deleteTableFiles(table);
+            /*
+            * Only remove metadata after physical deletion succeeds.
+            */
+            tables.remove(tableName);
+            schema.remove(tableName);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            String message = String.format(
+                    "Interrupted while removing table '%s' "
+                            + "from database '%s'.",
+                    tableName,
+                    name
+            );
+            throw new DatabaseException(message, e);
+        } catch (java.util.concurrent.ExecutionException e) {
+            Throwable cause =
+                    e.getCause() == null ? e : e.getCause();
+            String message = String.format(
+                    "Failed to remove table '%s' "
+                            + "from database '%s'.",
+                    tableName,
+                    name
+            );
+            throw new DatabaseException(message, cause);
+        }
+
+        logger.info(
+                String.format(
+                        "Table '%s' removed from database '%s'.",
+                        tableName,
+                        name
+                )
+        );
     }
 
     public void startTransaction(String name){

@@ -130,11 +130,11 @@ public class DBMS {
             LogManager.getLogManager().reset();
             FileHandler fileHandler = new FileHandler(this.path + "/tttdb.log", 5_000_000, 3, true);
             fileHandler.setFormatter(new SimpleFormatter());
-            fileHandler.setLevel(Level.FINE);
-
+            fileHandler.setLevel(Level.WARNING);
+            
             Logger rootLogger = Logger.getLogger("");
             rootLogger.addHandler(fileHandler);
-            rootLogger.setLevel(Level.INFO);
+            rootLogger.setLevel(Level.WARNING);
         } catch (IOException e) {
             System.err.println("Failed to initialize logging in " + this.path + ": " + e.getMessage());
         }
